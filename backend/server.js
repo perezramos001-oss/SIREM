@@ -17,6 +17,17 @@ app.use(cors());
 
 app.use(express.json());
 
+app.use((req, res, next) => {
+
+    if (req.url.startsWith("/api/")) {
+
+        req.url = req.url.replace(/^\/api/, "");
+
+    }
+
+    next();
+
+});
 
 /* =========================
    RUTA PRINCIPAL
