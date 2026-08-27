@@ -3,6 +3,8 @@ import cors from "cors";
 import db from "./db.js";
 import bcrypt from "bcrypt";
 import ExcelJS from "exceljs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 
@@ -4303,13 +4305,38 @@ app.get("/reportes/resumen", async (req, res) => {
 });
 
 /* =========================
+   SERVIR FRONTEND
+========================= */
+
+const __filename = fileURLToPath(import.meta.url);
+
+const __dirname = path.dirname(__filename);
+
+const frontendPath = path.join(
+    __dirname,
+    "..",
+    "dist"
+);
+
+app.use(express.static(frontendPath));
+
+app.get("/{*splat}", (req, res) => {
+
+    res.sendFile(
+        path.join(frontendPath, "index.html")
+    );
+
+});
+
+
+/* =========================
    INICIAR SERVIDOR
 ========================= */
 
 app.listen(PORT, () => {
 
     console.log(
-        `Servidor SIREM ejecutándose en http://localhost:${PORT}`
+        `Servidor SIREM ejecutándose en el puerto ${PORT}`
     );
 
 });
