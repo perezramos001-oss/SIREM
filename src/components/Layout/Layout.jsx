@@ -619,38 +619,9 @@ const abrirNotificacion = (notificacion) => {
 
 {paginaActiva === "exportaciones" && (
 
-    usuarioActual?.id_usuario === 5
-
-        ? (
-            <Exportaciones
-                mesSeleccionado={mesSeleccionado}
-            />
-        )
-
-        : (
-
-            <div className="seccion-desarrollo">
-
-                <div className="seccion-desarrollo-icon">
-                    🚧
-                </div>
-
-                <span className="seccion-desarrollo-tag">
-                    EN DESARROLLO
-                </span>
-
-                <h2>
-                    Estamos trabajando en esta sección
-                </h2>
-
-                <p>
-                    La sección de exportaciones estará disponible próximamente.
-                    Estamos terminando esta funcionalidad.
-                </p>
-
-            </div>
-
-        )
+    <Exportaciones
+        mesSeleccionado={mesSeleccionado}
+    />
 
 )}
                 
