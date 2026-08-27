@@ -6,7 +6,7 @@ import ExcelJS from "exceljs";
 
 const app = express();
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 
 /* =========================
@@ -28,7 +28,6 @@ app.use((req, res, next) => {
     next();
 
 });
-
 /* =========================
    RUTA PRINCIPAL
 ========================= */
