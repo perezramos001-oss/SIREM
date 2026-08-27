@@ -1,0 +1,242 @@
+/* =========================
+   SELECTOR DE MES
+========================= */
+
+.month-selector {
+    position: relative;
+    display: inline-block;
+}
+
+
+/* =========================
+   BOTÓN PRINCIPAL
+========================= */
+
+.month-button {
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    height: 48px;
+
+    padding: 0 16px;
+
+    border: 1px solid #eadfd4;
+
+    border-radius: 16px;
+
+    background: #fff;
+
+    color: #2f2119;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+
+.month-button:hover {
+
+    border-color: #b9782c;
+
+    background: #fffaf5;
+}
+
+
+.month-button svg:first-child {
+
+    color: #b9782c;
+}
+
+
+.month-button svg:last-child {
+
+    transition: transform 0.2s ease;
+}
+
+
+.month-button .flecha-abierta {
+
+    transform: rotate(180deg);
+}
+
+
+/* =========================
+   MENÚ
+========================= */
+
+.month-menu {
+
+    position: absolute;
+
+    top: calc(100% + 8px);
+
+    left: 0;
+
+    width: 310px;
+
+    padding: 16px;
+
+    background: #fff;
+
+    border: 1px solid #eadfd4;
+
+    border-radius: 18px;
+
+    box-shadow:
+        0 12px 30px rgba(47, 33, 25, 0.12);
+
+    z-index: 1000;
+}
+
+
+/* =========================
+   CABECERA AÑO
+========================= */
+
+.month-header {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding-bottom: 14px;
+
+    margin-bottom: 10px;
+
+    border-bottom: 1px solid #eee4db;
+}
+
+
+.month-header strong {
+
+    color: #2f2119;
+
+    font-size: 17px;
+
+    font-weight: 700;
+}
+
+
+.month-arrow {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 34px;
+
+    height: 34px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #faf6f1;
+
+    color: #7b4b2a;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+
+.month-arrow:hover {
+
+    background: #b9782c;
+
+    color: white;
+}
+
+
+/* =========================
+   GRID DE MESES
+========================= */
+
+.months-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 7px;
+}
+
+
+/* =========================
+   MES
+========================= */
+
+.month-item {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 5px;
+
+    min-height: 42px;
+
+    padding: 8px 6px;
+
+    border: 1px solid transparent;
+
+    border-radius: 10px;
+
+    background: transparent;
+
+    color: #5d5149;
+
+    font-size: 13px;
+
+    font-weight: 500;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+
+.month-item:hover {
+
+    background: #faf3eb;
+
+    color: #8b572f;
+
+    border-color: #ead7c5;
+}
+
+
+/* =========================
+   MES SELECCIONADO
+========================= */
+
+.month-item.seleccionado {
+
+    background: #b9782c;
+
+    color: white;
+
+    border-color: #b9782c;
+
+    font-weight: 600;
+}
+
+
+.month-item.seleccionado:hover {
+
+    background: #a86822;
+
+    color: white;
+}

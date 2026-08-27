@@ -1,0 +1,1463 @@
+.remisiones-page{
+
+    display:flex;
+
+    flex-direction:column;
+
+}
+.page-header{
+
+    margin-bottom:20px;
+
+}
+.page-tag{
+
+    font-size:12px;
+
+    font-weight:700;
+
+    letter-spacing:2px;
+
+    color:#A56A2A;
+
+}
+
+.page-header h1{
+
+    margin:2px 0;
+
+    font-size:20px;
+
+    color:#2B1B12;
+
+}
+
+.page-header p{
+
+    margin:0;
+
+    color:#8C8378;
+
+    font-size:12px;
+
+}
+
+.btn-remision{
+
+    height:40px;
+
+    padding:0 18px;
+
+    border:none;
+
+    border-radius:14px;
+
+    background:#A56A2A;
+
+    color:white;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+.btn-remision:hover{
+
+    background:#8F5924;
+
+}
+.toolbar{
+
+    display:flex;
+
+    gap:14px;
+
+    margin-bottom:22px;
+
+}
+
+.toolbar input{
+
+    flex:1;
+
+    height:42px;
+
+    border:1px solid #E5D8C8;
+
+    border-radius:12px;
+
+    padding:0 16px;
+
+    font-size:12px;
+
+    background:white;
+
+}
+
+.toolbar select{
+
+    width:220px;
+
+    height:42px;
+
+    border:1px solid #E5D8C8;
+
+    border-radius:12px;
+
+    padding:0 12px;
+
+    background:white;
+
+    font-size:14px;
+
+}
+.tabla-remisiones {
+
+    background: white;
+
+    border: 1px solid #E8DCCB;
+
+    border-radius: 14px;
+
+    overflow-x: auto;
+
+}
+.tabla-header {
+
+    display: grid;
+
+    grid-template-columns:
+        70px
+        70px
+        70px
+        150px
+        100px
+        70px
+        70px
+        70px
+        80px
+        100px
+        110px
+        90px
+        150px
+        140px
+        60px;
+
+    width: max-content;
+    min-width: 100%;
+
+    gap: 10px;
+
+    padding: 10px 16px;
+
+    background: #F8F5EF;
+
+    border-bottom: 1px solid #ECE2D5;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    color: #6A5A4B;
+
+    text-transform: uppercase;
+
+}
+.tabla-row {
+
+    display: grid;
+
+    grid-template-columns:
+        70px
+        70px
+        70px
+        150px
+        100px
+        70px
+        60px
+        70px
+        80px
+        100px
+        110px
+        90px
+        150px
+        140px
+        60px;
+
+    width: max-content;
+    min-width: 100%;
+
+    gap: 10px;
+
+    align-items: center;
+
+    padding: 10px 16px;
+
+    border-bottom: 1px solid #F2ECE4;
+
+    font-size: 11px;
+
+    transition: .25s;
+
+}
+
+.tabla-row:hover{
+
+    background:#FCFAF7;
+    cursor:pointer;
+
+}
+.cartera{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    height:30px;
+
+    border-radius:30px;
+
+    font-size:12px;
+
+    font-weight:700;
+
+    color:#A56A2A;
+
+}
+.verde{
+
+    background:#DDF7E5;
+
+    color:#1E8E4D;
+
+}
+.amarillo{
+
+    background:#FFF5D7;
+
+    color:#C58B00;
+
+}
+.rojo{
+
+    background:#FFE2E2;
+
+    color:#C63D3D;
+
+}
+
+/* ============================= */
+/* PRODUCTOS DE LA REMISIÓN */
+/* ============================= */
+
+.productos-remision {
+    margin-top: 16px;
+}
+
+.section-header-productos {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.btn-agregar-producto {
+    border: none;
+    background: #8b5e3c;
+    color: white;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-agregar-producto:hover {
+    background: #70482d;
+}
+
+.productos-header,
+.producto-row {
+    display: grid;
+    grid-template-columns:
+        100px
+        1.4fr
+        100px
+        100px
+        120px
+        80px
+        120px
+        120px
+        40px;
+    gap: 8px;
+    align-items: center;
+}
+
+.productos-header {
+    padding: 10px 8px;
+    background: #f8f5f1;
+    border-radius: 8px 8px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #6d625a;
+}
+
+.productos-lista {
+    display: flex;
+    flex-direction: column;
+}
+
+.producto-row {
+    padding: 8px;
+    border-bottom: 1px solid #eee5dd;
+}
+
+.producto-row input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid #e5d7ca;
+    border-radius: 7px;
+    padding: 8px;
+    font-size: 12px;
+    outline: none;
+}
+
+.producto-row input:focus {
+    border-color: #8b5e3c;
+}
+
+.producto-total {
+    font-size: 12px;
+    font-weight: 700;
+    color: #33261f;
+    text-align: right;
+}
+
+.btn-eliminar-producto {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+}
+
+.btn-eliminar-producto:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.total-remision {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cantidad-remision {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+}
+
+.total-remision span {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6d625a;
+}
+
+.total-remision strong {
+    font-size: 22px;
+    color: #33261f;
+}
+
+/* =========================
+   W.O. WORLD OFFICE
+========================= */
+
+.wo-checkbox {
+
+    width: 28px;
+    height: 28px;
+
+    margin: 0 auto;
+
+    padding: 0;
+
+    border: 1px solid #D8C7B5;
+
+    border-radius: 8px;
+
+    background: #FCFBF8;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: #8C8378;
+
+    font-size: 18px;
+
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition: all .2s ease;
+
+}
+
+.wo-checkbox:hover {
+
+    border-color: #A96F32;
+
+    background: #F8F1E8;
+
+    transform: scale(1.05);
+
+}
+
+.wo-checkbox.marcado {
+
+    border-color: #27934B;
+
+    background: #E4F4E8;
+
+    color: #27934B;
+
+}
+
+.wo-accion {
+
+    margin-top: 12px;
+    margin-bottom: 12px;
+
+    min-height: 42px;
+
+    padding: 7px 10px 7px 14px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    background: #FBF8F3;
+
+    border: 1px solid #E8DCCF;
+
+    border-radius: 10px;
+
+    box-sizing: border-box;
+
+}
+
+.wo-accion span {
+
+    color: #6A5A4B;
+
+    font-size: 11px;
+
+    font-weight: 600;
+
+}
+
+.wo-accion button {
+
+    height: 32px;
+
+    padding: 0 15px;
+
+    border: none;
+
+    border-radius: 7px;
+
+    background: #A96F32;
+
+    color: #FFFFFF;
+
+    font-family: inherit;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: all .2s ease;
+
+}
+
+.wo-accion button:hover {
+
+    background: #8F5B28;
+
+    transform: translateY(-1px);
+
+}
+
+/* =========================
+   MODAL WORLD OFFICE
+========================= */
+
+.modal-wo-overlay {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(35, 24, 18, .38);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    z-index: 9999;
+
+}
+
+
+.modal-wo {
+
+    width: 440px;
+
+    max-width: calc(100vw - 40px);
+
+    background: #FFFFFF;
+
+    border-radius: 16px;
+
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .20);
+
+    overflow: hidden;
+
+}
+
+
+.modal-wo-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+
+    padding: 20px 22px;
+
+    border-bottom: 1px solid #ECE2D5;
+
+}
+
+
+.modal-wo-tag {
+
+    display: block;
+
+    margin-bottom: 4px;
+
+    color: #B87836;
+
+    font-size: 9px;
+
+    font-weight: 800;
+
+    letter-spacing: 2px;
+
+}
+
+
+.modal-wo-header h3 {
+
+    margin: 0;
+
+    color: #2B1B12;
+
+    font-size: 18px;
+
+}
+
+
+.modal-wo-cerrar {
+
+    width: 30px;
+
+    height: 30px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #F8F5EF;
+
+    color: #6A5A4B;
+
+    font-size: 19px;
+
+    cursor: pointer;
+
+}
+
+
+.modal-wo-body {
+
+    padding: 20px 22px;
+
+}
+
+
+.modal-wo-pregunta {
+
+    margin: 0 0 15px;
+
+    color: #6A5A4B;
+
+    font-size: 12px;
+
+    line-height: 1.5;
+
+}
+
+
+.wo-remisiones-lista {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 6px;
+
+    max-height: 130px;
+
+    overflow-y: auto;
+
+    margin-bottom: 16px;
+
+}
+
+
+.wo-remision-item {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 8px 10px;
+
+    background: #F8F5EF;
+
+    border-radius: 8px;
+
+    font-size: 11px;
+
+}
+
+
+.wo-remision-item span {
+
+    color: #27934B;
+
+    font-weight: 800;
+
+}
+
+
+.wo-datos-movimiento {
+
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 12px;
+
+    padding: 14px;
+
+    background: #FCFBF8;
+
+    border: 1px solid #ECE2D5;
+
+    border-radius: 10px;
+
+}
+
+
+.wo-datos-movimiento div {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 3px;
+
+}
+
+
+.wo-datos-movimiento span {
+
+    color: #8C8378;
+
+    font-size: 9px;
+
+}
+
+
+.wo-datos-movimiento strong {
+
+    color: #2B1B12;
+
+    font-size: 11px;
+
+}
+
+
+.modal-wo-footer {
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 8px;
+
+    padding: 15px 22px;
+
+    border-top: 1px solid #ECE2D5;
+
+}
+
+
+.btn-wo-cancelar {
+
+    height: 36px;
+
+    padding: 0 15px;
+
+    border: 1px solid #E2D5C7;
+
+    border-radius: 8px;
+
+    background: #FFFFFF;
+
+    color: #6A5A4B;
+
+    font-size: 11px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+}
+
+
+.btn-wo-confirmar {
+
+    height: 36px;
+
+    padding: 0 16px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #A96F32;
+
+    color: #FFFFFF;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+
+.btn-wo-confirmar:hover {
+
+    background: #8F5B28;
+
+}
+
+/* =========================
+   MODAL WORLD OFFICE
+========================= */
+
+.modal-overlay-wo {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(35, 22, 15, 0.45);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    z-index: 1000;
+
+}
+
+
+.modal-wo {
+
+    width: 480px;
+
+    max-width: calc(100vw - 40px);
+
+    background: #FFFFFF;
+
+    border-radius: 18px;
+
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.20);
+
+    overflow: hidden;
+
+}
+
+
+.modal-wo-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+
+    padding: 24px 26px 18px;
+
+    border-bottom: 1px solid #ECE2D5;
+
+}
+
+
+.modal-wo-tag {
+
+    font-size: 10px;
+
+    font-weight: 800;
+
+    letter-spacing: 2px;
+
+    color: #B8732A;
+
+}
+
+
+.modal-wo-header h2 {
+
+    margin: 5px 0;
+
+    font-size: 21px;
+
+    color: #302016;
+
+}
+
+
+.modal-wo-header p {
+
+    margin: 0;
+
+    color: #8A7B6D;
+
+    font-size: 13px;
+
+}
+
+
+.modal-wo-cerrar {
+
+    width: 34px;
+
+    height: 34px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: #F8F5EF;
+
+    font-size: 22px;
+
+    cursor: pointer;
+
+    color: #5C493B;
+
+}
+
+
+.modal-wo-contenido {
+
+    padding: 22px 26px;
+
+}
+
+
+.wo-resumen {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 13px 15px;
+
+    margin-bottom: 20px;
+
+    background: #F8F5EF;
+
+    border-radius: 10px;
+
+}
+
+
+.wo-resumen strong {
+
+    font-size: 20px;
+
+    color: #A96B2C;
+
+}
+
+
+.wo-resumen span {
+
+    font-size: 13px;
+
+    color: #65564A;
+
+}
+
+
+.modal-wo-contenido label {
+
+    display: block;
+
+    margin-bottom: 7px;
+
+    margin-top: 16px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    color: #5D4B3D;
+
+}
+
+.modal-wo-contenido input[type="password"],
+.modal-wo-contenido select,
+.modal-wo-contenido textarea {
+
+    width: 100%;
+
+    height: 42px;
+
+    box-sizing: border-box;
+
+    border: 1px solid #E4D7C8;
+
+    border-radius: 9px;
+
+    padding: 0 12px;
+
+    font-family: inherit;
+
+    font-size: 13px;
+
+    color: #3A2A20;
+
+    background: #FFFFFF;
+
+    outline: none;
+
+}
+
+.modal-wo-contenido input[type="password"]:focus,
+.modal-wo-contenido select:focus,
+.modal-wo-contenido textarea:focus {
+
+    border-color: #B8732A;
+
+    box-shadow: 0 0 0 2px rgba(184, 115, 42, .08);
+
+}
+
+.modal-wo-footer {
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 10px;
+
+    padding: 17px 26px;
+
+    border-top: 1px solid #ECE2D5;
+
+}
+
+
+.btn-cancelar-wo,
+.btn-confirmar-wo {
+
+    border: none;
+
+    border-radius: 9px;
+
+    padding: 10px 17px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+
+.btn-cancelar-wo {
+
+    background: #F3EEE8;
+
+    color: #5C493B;
+
+}
+
+
+.btn-confirmar-wo {
+
+    background: #A96B2C;
+
+    color: white;
+
+}
+
+
+.btn-confirmar-wo:hover {
+
+    background: #8F5722;
+
+}
+
+/* =========================
+   CONTRASEÑA WORLD OFFICE
+========================= */
+
+.input-password-error {
+
+    border-color: #C94A4A !important;
+
+    background: #FFF8F8;
+
+}
+
+
+.alerta-password-wo {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 8px;
+
+    padding: 8px 10px;
+
+    border-radius: 8px;
+
+    background: #FFF3F3;
+
+    border: 1px solid #F0CCCC;
+
+}
+
+
+.alerta-password-wo span {
+
+    width: 18px;
+
+    height: 18px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: #D95B5B;
+
+    color: white;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+}
+
+
+.alerta-password-wo p {
+
+    margin: 0;
+
+    color: #A33F3F;
+
+    font-size: 11px;
+
+}
+
+/* =========================
+   CÓDIGO WORLD OFFICE
+========================= */
+
+.label-wo {
+
+    display: block;
+
+    margin-top: 18px;
+
+    margin-bottom: 7px;
+
+    color: #5D4B3D;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+}
+
+
+.input-wo {
+
+    width: 100%;
+
+    height: 42px;
+
+    box-sizing: border-box;
+
+    padding: 0 13px;
+
+    border: 1px solid #E4D7C8;
+
+    border-radius: 10px;
+
+    background: #FFFFFF;
+
+    color: #3A2A20;
+
+    font-family: inherit;
+
+    font-size: 13px;
+
+    outline: none;
+
+    transition: .2s ease;
+
+}
+
+
+.input-wo::placeholder {
+
+    color: #B1A69B;
+
+}
+
+
+.input-wo:hover {
+
+    border-color: #CFAE88;
+
+}
+
+
+.input-wo:focus {
+
+    border-color: #B8732A;
+
+    box-shadow: 0 0 0 3px rgba(184, 115, 42, .08);
+
+}
+
+
+.input-wo-error {
+
+    border-color: #D95B5B;
+
+    background: #FFF8F8;
+
+}
+
+
+.alerta-wo-error {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 8px;
+
+    padding: 8px 10px;
+
+    border-radius: 8px;
+
+    background: #FFF3F3;
+
+    border: 1px solid #F0CCCC;
+
+}
+
+
+.alerta-wo-error span {
+
+    width: 18px;
+
+    height: 18px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: #D95B5B;
+
+    color: white;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+}
+
+
+.alerta-wo-error p {
+
+    margin: 0;
+
+    color: #A33F3F;
+
+    font-size: 11px;
+
+}
+/* =========================
+   TOOLTIP WORLD OFFICE
+========================= */
+
+.wo-tooltip-container {
+
+    position: relative;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+}
+
+
+.wo-tooltip {
+
+    position: absolute;
+
+    right: calc(100% + 8px);
+
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    padding: 6px 9px;
+
+    border-radius: 7px;
+
+    background: #2B1B12;
+
+    color: #FFFFFF;
+
+    font-size: 10px;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    opacity: 0;
+
+    visibility: hidden;
+
+    pointer-events: none;
+
+    transition: opacity .18s ease,
+                transform .18s ease;
+
+    z-index: 20;
+
+}
+
+
+.wo-tooltip::after {
+
+    content: "";
+
+    position: absolute;
+
+    top: 50%;
+
+    right: -5px;
+
+    transform: translateY(-50%);
+
+    border-width: 5px 0 5px 5px;
+
+    border-style: solid;
+
+    border-color: transparent transparent transparent #2B1B12;
+
+}
+
+
+.wo-tooltip-container:hover .wo-tooltip {
+
+    opacity: 1;
+
+    visibility: visible;
+
+    transform: translateY(-50%);
+
+}
+
+.wo-checkbox:disabled {
+
+    cursor: not-allowed;
+
+    opacity: 0.9;
+
+}
+
+.sin-remisiones {
+    font-size: 13px;
+    font-weight: 400;
+    color: #8f8177;
+    text-align: center;
+    padding: 14px 12px;
+}
+
+.remisiones-vacio {
+    width: 100%;
+
+    padding: 14px 20px;
+
+    text-align: center;
+
+    font-size: 13px;
+    font-weight: 400;
+
+    color: #8f8177;
+
+    background: transparent;
+}
+
+.remision-grupo-normal {
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.remision-grupo-alterno {
+    background: rgba(139, 94, 60, 0.06);
+}
+
+.remision-grupo-alterno,
+.remision-grupo-normal {
+    transition: background 0.2s ease;
+}
+
+/* MISMA REMISIÓN: sin líneas entre productos */
+
+.tabla-row.remision-grupo-normal,
+.tabla-row.remision-grupo-alterno {
+    border-bottom: none;
+}
+
+
+/* REMISIÓN NUEVA: división más marcada */
+
+.tabla-row.nueva-remision {
+    border-top: 2px solid #c9a887;
+}
+
+
+/* Color del primer grupo */
+
+.remision-grupo-normal {
+    background: #ffffff;
+}
+
+
+/* Color alterno para diferenciar otra remisión */
+
+.remision-grupo-alterno {
+    background: #f7f1eb;
+}
+
+
+/* Efecto suave */
+
+.tabla-row {
+    transition: background 0.2s ease;
+}
+
+.wo-resumen {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.wo-cantidad {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.wo-remisiones-lista {
+    font-size: 13px;
+    color: #7a6a5b;
+    line-height: 1.6;
+    padding-top: 10px;
+    border-top: 1px solid #e8dfd4;
+}
+
+.cartera.pagada {
+    background: #dcefe3;
+    color: #2f6b4f;
+}
+
+.cartera.pendiente {
+    background: #f8dddd;
+    color: #b42318;
+}

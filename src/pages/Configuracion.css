@@ -1,0 +1,1699 @@
+/* =========================================
+   PÁGINA CONFIGURACIÓN
+========================================= */
+
+.configuracion-page {
+    padding: 26px 28px;
+}
+
+
+/* ENCABEZADO */
+
+.configuracion-page-header {
+    margin-bottom: 20px;
+}
+
+.configuracion-tag {
+    display: block;
+
+    margin-bottom: 6px;
+
+    color: #b96f24;
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    letter-spacing: 3px;
+}
+
+.configuracion-page-header h1 {
+    margin: 0;
+
+    color: #241a15;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+.configuracion-page-header p {
+    margin: 5px 0 0;
+
+    color: #91847a;
+
+    font-size: 11px;
+}
+
+
+/* GRID */
+
+.configuracion-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 14px;
+
+    max-width: 1150px;
+}
+
+
+/* TARJETAS */
+
+.configuracion-card {
+    display: flex;
+
+    align-items: center;
+
+    gap: 16px;
+
+    width: 100%;
+
+    min-height: 115px;
+
+    padding: 20px;
+
+    background: white;
+
+    border: 1px solid #eadfd5;
+
+    border-radius: 12px;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.configuracion-card:hover {
+    transform: translateY(-2px);
+
+    border-color: #d9c4b3;
+
+    box-shadow:
+        0 8px 25px rgba(48, 30, 20, 0.08);
+}
+
+
+/* ICONO */
+
+.configuracion-card-icon {
+    width: 40px;
+
+    height: 40px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background: #f3e9df;
+
+    color: #8b5e3c;
+}
+
+
+/* TEXTO */
+
+.configuracion-card-content {
+    flex: 1;
+}
+
+.configuracion-card-content h3 {
+    margin: 0;
+
+    color: #33261f;
+
+    font-size: 12px;
+
+    font-weight: 700;
+}
+
+.configuracion-card-content p {
+    margin: 6px 0 0;
+
+    color: #93857b;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+
+/* FLECHA */
+
+.configuracion-card-arrow {
+    flex-shrink: 0;
+
+    color: #b4a49a;
+}
+
+
+/* SEGURIDAD */
+
+.configuracion-security {
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 13px;
+
+    max-width: 1150px;
+
+    margin-top: 20px;
+
+    padding: 18px;
+
+    background: #faf7f3;
+
+    border: 1px solid #eee4da;
+
+    border-radius: 13px;
+}
+
+.configuracion-security-icon {
+    width: 38px;
+
+    height: 38px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 10px;
+
+    background: #f0e5da;
+
+    color: #8b5e3c;
+}
+
+.configuracion-security strong {
+    display: block;
+
+    color: #57473c;
+
+    font-size: 12px;
+}
+
+.configuracion-security p {
+    margin: 4px 0 0;
+
+    color: #95877d;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 800px) {
+
+    .configuracion-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .configuracion-page {
+        padding: 25px 20px;
+    }
+
+}
+
+/* =========================================
+   DETALLE DE CONFIGURACIÓN
+========================================= */
+
+.configuracion-detail-header {
+    max-width: 1150px;
+    margin-bottom: 20px;
+}
+
+.configuracion-back {
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    margin-bottom: 22px;
+
+    padding: 0;
+
+    border: none;
+
+    background: transparent;
+
+    color: #8b5e3c;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.configuracion-back:hover {
+    color: #674329;
+}
+
+.configuracion-detail-header h1 {
+    margin: 0;
+
+    color: #241a15;
+
+    font-size: 26px;
+
+    font-weight: 700;
+}
+
+.configuracion-detail-header p {
+    margin: 7px 0 0;
+
+    color: #91847a;
+
+    font-size: 13px;
+}
+
+
+/* =========================================
+   SECCIÓN DE CUENTA
+========================================= */
+
+.cuenta-section {
+    width: 100%;
+
+    max-width: 1150px;
+
+    margin-bottom: 16px;
+
+    padding: 22px 24px;
+
+    background: white;
+
+    border: 1px solid #eadfd5;
+
+    border-radius: 14px;
+
+    box-sizing: border-box;
+}
+
+.cuenta-section-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 20px;
+}
+
+.cuenta-section-header h2 {
+    margin: 0;
+
+    color: #33261f;
+
+    font-size: 12px;
+
+    font-weight: 700;
+}
+
+.cuenta-section-header p {
+    margin: 5px 0 0;
+
+    color: #95877d;
+
+    font-size: 11px;
+}
+
+.cuenta-avatar {
+    width: 48px;
+
+    height: 48px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #8b5e3c;
+
+    color: white;
+
+    font-size: 14px;
+
+    font-weight: 700;
+}
+
+
+/* INFORMACIÓN */
+
+.cuenta-info-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+
+    gap: 14px;
+}
+
+.cuenta-info-item {
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    min-height: 64px;
+
+    padding: 14px 16px;
+
+    background: #faf7f3;
+
+    border: 1px solid #eee5dd;
+
+    border-radius: 10px;
+
+    box-sizing: border-box;
+}
+
+.cuenta-info-icon {
+    width: 34px;
+
+    height: 34px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 9px;
+
+    background: #f0e4d9;
+
+    color: #8b5e3c;
+}
+
+.cuenta-info-item span {
+    display: block;
+
+    margin-bottom: 3px;
+
+    color: #998b80;
+
+    font-size: 10px;
+}
+
+.cuenta-info-item strong {
+    display: block;
+
+    color: #33261f;
+
+    font-size: 12px;
+}
+
+
+/* =========================================
+   SEGURIDAD
+========================================= */
+
+.seguridad-header-icon {
+    color: #8b5e3c;
+}
+
+.seguridad-option {
+
+    width: 100%;
+
+    border: none;
+
+    border-top: 1px solid #eee8e3;
+
+    background: transparent;
+
+    padding: 20px 34px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 16px;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+
+}
+.seguridad-option:hover {
+
+    background: #faf8f6;
+
+}
+
+.seguridad-option-icon {
+
+    width: 46px;
+
+    height: 46px;
+
+    min-width: 46px;
+
+    border-radius: 14px;
+
+    background: #f3ede8;
+
+    color: #8b5e3c;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+}
+.seguridad-option-content {
+
+    flex: 1;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+.seguridad-option-content strong {
+
+    font-size: 12px;
+
+    font-weight: 650;
+
+    color: #332d29;
+
+}
+.seguridad-option-content span {
+
+    font-size: 11px;
+
+    color: #837a73;
+
+}
+
+.seguridad-arrow {
+
+    color: #9b9189;
+
+    transition: transform 0.2s ease;
+
+}
+
+
+.seguridad-option:hover .seguridad-arrow {
+
+    transform: translateX(4px);
+
+    color: #8b5e3c;
+
+}
+
+.estado-activo {
+
+    padding: 6px 12px;
+
+    border-radius: 20px;
+
+    background: #e5f5ea;
+
+    color: #299653 !important;
+
+    font-size: 10px !important;
+
+    font-weight: 700;
+
+}
+
+/* =========================================
+   CERRAR SESIÓN
+========================================= */
+
+.cerrar-sesion {
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 2px;
+
+    padding: 10px 15px;
+
+    border: 1px solid #ead7d2;
+
+    border-radius: 9px;
+
+    background: white;
+
+    color: #a34a3f;
+
+    font-size: 11px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.cerrar-sesion:hover {
+    background: #fff7f6;
+
+    border-color: #dfbdb8;
+}
+
+
+/* =========================================
+   PRÓXIMAMENTE
+========================================= */
+
+.proximamente-card {
+    max-width: 1150px;
+
+    min-height: 220px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    text-align: center;
+
+    background: white;
+
+    border: 1px solid #eadfd5;
+
+    border-radius: 14px;
+
+    color: #8b5e3c;
+}
+
+.proximamente-card h3 {
+    margin: 12px 0 5px;
+
+    color: #33261f;
+
+    font-size: 15px;
+}
+
+.proximamente-card p {
+    max-width: 380px;
+
+    margin: 0;
+
+    color: #95877d;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 700px) {
+
+    .cuenta-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+/* =========================================
+   USUARIOS Y PERMISOS
+========================================= */
+
+.usuarios-header {
+    width: 100%;
+    max-width: 1150px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 18px;
+}
+
+.usuarios-header h1 {
+    margin: 0;
+
+    color: #241a15;
+
+    font-size: 24px;
+
+    font-weight: 700;
+}
+
+.usuarios-header p {
+    margin: 5px 0 0;
+
+    color: #91847a;
+
+    font-size: 12px;
+}
+
+.nuevo-usuario-btn {
+    padding: 10px 16px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: #8b5e3c;
+
+    color: white;
+
+    font-size: 11px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+
+/* TARJETA DE USUARIOS */
+
+.usuarios-card {
+    width: 100%;
+    max-width: 1150px;
+
+    background: white;
+
+    border: 1px solid #eadfd5;
+
+    border-radius: 14px;
+
+    overflow-x: auto;
+}
+
+
+/* TABLA */
+
+.usuarios-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: auto;
+}
+
+.usuarios-table th {
+    padding: 14px 20px;
+
+    text-align: left;
+
+    background: #faf7f3;
+
+    color: #8b7d73;
+
+    font-size: 10px;
+
+    font-weight: 700;
+
+    letter-spacing: 0.5px;
+}
+
+.usuarios-table td {
+    padding: 15px 20px;
+
+    border-top: 1px solid #eee5dd;
+
+    color: #33261f;
+
+    font-size: 12px;
+
+    vertical-align: middle;
+}
+
+
+/* INFORMACIÓN DEL USUARIO */
+
+.usuario-info {
+    display: flex;
+
+    align-items: center;
+
+    gap: 11px;
+
+    min-width: 220px;
+}
+
+.usuario-avatar {
+    width: 38px;
+    height: 38px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #f0e4d9;
+
+    color: #8b5e3c;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+.usuario-info strong {
+    display: block;
+
+    color: #33261f;
+
+    font-size: 12px;
+}
+
+.usuario-info span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: #95877d;
+
+    font-size: 10px;
+}
+
+
+/* ROL */
+
+.rol-badge {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 5px 9px;
+
+    border-radius: 20px;
+
+    font-size: 9px;
+
+    font-weight: 700;
+}
+
+.rol-badge.admin {
+    background: #f1e7df;
+
+    color: #8b5e3c;
+}
+
+.rol-badge.facturacion {
+    background: #e8f1fa;
+
+    color: #3974a8;
+}
+
+.rol-badge.comercial {
+    background: #e9f4eb;
+
+    color: #388354;
+}
+
+
+/* ESTADO */
+
+.estado-badge {
+    display: inline-flex;
+
+    padding: 5px 9px;
+
+    border-radius: 20px;
+
+    font-size: 10px;
+
+    font-weight: 600;
+}
+
+.estado-badge.activo {
+    background: #e5f5ea;
+
+    color: #299653;
+}
+
+.estado-badge.inactivo {
+    background: #f9e7e5;
+
+    color: #b84b42;
+}
+
+
+/* ACCIÓN */
+
+.accion-usuario {
+    padding: 6px 10px;
+
+    border: 1px solid #eadfd5;
+
+    border-radius: 7px;
+
+    background: white;
+
+    color: #8b5e3c;
+
+    font-size: 10px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.accion-usuario:hover {
+    background: #faf7f3;
+}
+
+
+/* PERMISOS */
+
+.permisos-info {
+    width: 100%;
+    max-width: 1150px;
+
+    margin-top: 20px;
+}
+
+.permisos-info h3 {
+    margin: 0 0 12px;
+
+    color: #33261f;
+
+    font-size: 14px;
+}
+
+.permisos-grid {
+    display: grid;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 14px;
+}
+
+.permiso-card {
+    padding: 16px;
+
+    background: white;
+
+    border: 1px solid #eadfd5;
+
+    border-radius: 12px;
+}
+
+.permiso-card strong {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: #8b5e3c;
+
+    font-size: 10px;
+
+    letter-spacing: 0.5px;
+}
+
+.permiso-card p {
+    margin: 0;
+
+    color: #8f8177;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 850px) {
+
+    .usuarios-header {
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 14px;
+    }
+
+    .permisos-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+/* ============================= */
+/* MODAL CAMBIAR CONTRASEÑA */
+/* ============================= */
+
+.modal-password-overlay {
+
+    position: fixed;
+
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    width: 100%;
+    height: 100%;
+
+    background: rgba(0, 0, 0, 0.55);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    z-index: 9999;
+
+}
+
+
+/* HEADER */
+
+.modal-password-header {
+
+    padding: 28px 30px 22px;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-start;
+
+    border-bottom:
+        1px solid #e8e1da;
+
+}
+
+
+.modal-password-header span {
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    letter-spacing: 4px;
+
+    color: #9a642f;
+
+}
+
+
+.modal-password-header h2 {
+
+    margin: 8px 0 6px;
+
+    font-size: 14px;
+
+    color: #302722;
+
+}
+
+
+.modal-password-header p {
+
+    margin: 0;
+
+    font-size: 12px;
+
+    color: #81766f;
+
+}
+
+
+.cerrar-modal-password {
+
+    width: 42px;
+
+    height: 42px;
+
+    border: none;
+
+    border-radius: 12px;
+
+    background: #f3f0ed;
+
+    font-size: 28px;
+
+    color: #6f6259;
+
+    cursor: pointer;
+
+}
+
+
+/* BODY */
+
+.modal-password-body {
+
+    padding: 25px 30px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 18px;
+
+}
+
+
+.password-form-group {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 8px;
+
+}
+
+
+.password-form-group label {
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    color: #514842;
+
+}
+
+
+.password-form-group input {
+
+    width: 100%;
+
+    box-sizing: border-box;
+
+    padding: 13px 15px;
+
+    border:
+
+        1px solid #d9d0c8;
+
+    border-radius: 10px;
+
+    font-size: 14px;
+
+    outline: none;
+
+}
+
+
+.password-form-group input:focus {
+
+    border-color: #9a642f;
+
+}
+
+
+/* FOOTER */
+
+.modal-password-footer {
+
+    padding: 20px 30px;
+
+    border-top:
+        1px solid #e8e1da;
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 12px;
+
+}
+
+/* =========================
+   MODAL CAMBIAR CONTRASEÑA
+========================= */
+
+.modal-password-overlay {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.55);
+
+    backdrop-filter: blur(5px);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    z-index: 9999;
+
+    padding: 20px;
+
+}
+
+
+/* CONTENEDOR */
+
+.modal-password {
+
+    width: 100%;
+
+    max-width: 480px;
+
+    background: #ffffff;
+
+    border-radius: 22px;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 25px 70px rgba(0, 0, 0, 0.28);
+
+    animation: aparecerModalPassword 0.2s ease;
+
+}
+
+/* ANIMACIÓN */
+
+@keyframes aparecerModalPassword {
+
+    from {
+
+        opacity: 0;
+
+        transform:
+            translateY(15px)
+            scale(0.98);
+
+    }
+
+    to {
+
+        opacity: 1;
+
+        transform:
+            translateY(0)
+            scale(1);
+
+    }
+
+}
+
+
+/* =========================
+   HEADER
+========================= */
+
+.modal-password-header {
+
+    padding: 26px 38px 22px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 4px;
+
+    border-bottom:
+        1px solid #e8e1da;
+
+}
+
+.modal-password-title span {
+
+    display: block;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    letter-spacing: 4px;
+
+    color: #9a673c;
+
+    margin-bottom: 8px;
+
+}
+
+.modal-password-title h2 {
+
+    display: block;
+
+    margin: 0;
+
+    font-size: 28px;
+
+    color: #2f2925;
+
+    font-weight: 700;
+
+    line-height: 1.2;
+
+}
+
+
+
+/* BOTÓN CERRAR */
+
+.cerrar-modal-password {
+
+    width: 30px;
+
+    height: 30px;
+
+    border: none;
+
+    border-radius: 18px;
+
+    background: #f4f1ee;
+
+    color: #6f6761;
+
+    font-size: 20px;
+
+    cursor: pointer;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    transition: 0.2s;
+
+}
+
+
+.cerrar-modal-password:hover {
+
+    background: #eee7e1;
+
+    color: #4d3322;
+
+}
+
+
+/* =========================
+   BODY
+========================= */
+
+.modal-password-body {
+
+    padding: 26px 34px 28px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 20px;
+
+}
+
+
+/* CAJA INFORMATIVA */
+
+.password-info {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 13px;
+
+    padding: 14px 16px;
+
+    background: #f8f5f2;
+
+    border: 1px solid #eee6df;
+
+    border-radius: 14px;
+
+    margin-bottom: 28px;
+
+}
+
+
+.password-info-icon {
+
+    width: 40px;
+
+    height: 40px;
+
+    min-width: 40px;
+
+    border-radius: 11px;
+
+    background: #eee5dd;
+
+    color: #8b5e3c;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+}
+
+
+.password-info strong {
+
+    display: block;
+
+    font-size: 12px;
+
+    color: #403832;
+
+    margin-bottom: 3px;
+
+}
+
+
+.password-info span {
+
+    font-size: 10px;
+
+    color: #837a73;
+
+}
+
+
+/* CAMPOS */
+
+.password-form-group {
+
+    margin-bottom: 6px;
+
+}
+
+
+.password-form-group label {
+
+    display: block;
+
+    margin-bottom: 1px;
+
+    font-size: 12px;
+
+    font-weight: 400;
+
+    color: #514943;
+
+}
+
+
+.password-form-group input {
+
+    width: 80%;
+
+    height: 36px;
+
+    padding: 0 14px;
+
+    border-radius: 8px;
+
+    border: 1px solid #ded7d1;
+
+    outline: none;
+
+    font-size: 11px;
+
+    color: #403832;
+
+    background: #fff;
+
+    box-sizing: border-box;
+
+    transition: 0.2s;
+
+}
+
+
+.password-form-group input::placeholder {
+
+    color: #aaa39d;
+
+}
+
+
+.password-form-group input:focus {
+
+    border-color: #a8754d;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(168, 117, 77, 0.12);
+
+}
+
+
+/* RECOMENDACIÓN */
+
+.password-requirements {
+
+    margin-top: 8px;
+
+    padding: 14px 16px;
+
+    border-left: 3px solid #a8754d;
+
+    background: #faf8f6;
+
+    border-radius: 0 10px 10px 0;
+
+}
+
+
+.password-requirements span {
+
+    display: block;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    color: #8b5e3c;
+
+    margin-bottom: 4px;
+
+}
+
+
+.password-requirements p {
+
+    margin: 0;
+
+    font-size: 12px;
+
+    color: #817872;
+
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
+.modal-password-footer {
+
+    padding: 20px 32px;
+
+    border-top:
+        1px solid #eee8e3;
+
+    background: #faf9f8;
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 12px;
+
+}
+
+
+/* CANCELAR */
+
+.cancelar-password-btn {
+
+    height: 40px;
+
+    padding: 0 18px;
+
+    border-radius: 10px;
+
+    border: 1px solid #ddd5cf;
+
+    background: #ffffff;
+
+    color: #655d57;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+
+}
+
+
+/* ACTUALIZAR */
+
+.actualizar-password-btn {
+
+    height: 40px;
+
+    padding: 0 18px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #8b5e3c;
+
+    color: white;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    transition: 0.2s;
+
+}
+
+.cancelar-password-btn:hover {
+
+    background: #f3efec;
+
+}
+
+
+/* ACTUALIZAR */
+
+.actualizar-password-btn {
+
+    height: 40px;
+
+    padding: 0 18px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #8b5e3c;
+
+    color: white;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    transition: 0.2s;
+
+}
+
+.actualizar-password-btn:hover {
+
+    background: #70482d;
+
+    transform: translateY(-1px);
+
+}
+
+
+.modal-password-title {
+
+    flex: 1;
+
+}
+
+
+.modal-password-title h2 {
+
+    display: block;
+
+    margin: 0;
+
+    font-size: 28px;
+
+    color: #2f2925;
+
+    font-weight: 700;
+
+    line-height: 1.2;
+
+}
+
+
+.modal-password-title p {
+
+    display: block;
+
+    margin: 8px 0 0;
+
+    font-size: 14px;
+
+    color: #817972;
+
+    line-height: 1.5;
+
+    max-width: 430px;
+
+}
