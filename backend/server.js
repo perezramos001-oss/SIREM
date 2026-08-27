@@ -30,18 +30,6 @@ app.use((req, res, next) => {
     next();
 
 });
-/* =========================
-   RUTA PRINCIPAL
-========================= */
-
-app.get("/", (req, res) => {
-
-    res.json({
-        mensaje: "SIREM Backend funcionando"
-    });
-
-});
-
 
 /* =========================
    PRUEBA DEL SERVIDOR
