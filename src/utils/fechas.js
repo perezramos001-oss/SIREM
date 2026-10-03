@@ -13,7 +13,6 @@ const mesesNumericos = {
     Diciembre: "12"
 };
 
-
 export const obtenerPeriodo = (mesSeleccionado) => {
 
     const [nombreMes, anio] =

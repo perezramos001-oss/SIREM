@@ -10,7 +10,6 @@ const app = express();
 
 const PORT = process.env.PORT || 3001;
 
-
 /* =========================
    MIDDLEWARES
 ========================= */
@@ -20,15 +19,11 @@ app.use(cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
+  if (req.url.startsWith("/api/")) {
+    req.url = req.url.replace(/^\/api/, "");
+  }
 
-    if (req.url.startsWith("/api/")) {
-
-        req.url = req.url.replace(/^\/api/, "");
-
-    }
-
-    next();
-
+  next();
 });
 
 /* =========================
@@ -36,11 +31,9 @@ app.use((req, res, next) => {
 ========================= */
 
 app.get("/prueba", (req, res) => {
-
-    res.json({
-        mensaje: "Servidor SIREM funcionando correctamente"
-    });
-
+  res.json({
+    mensaje: "Servidor SIREM funcionando correctamente",
+  });
 });
 
 /* =========================
@@ -48,51 +41,98 @@ app.get("/prueba", (req, res) => {
 ========================= */
 
 app.get("/prueba-db", async (req, res) => {
+  try {
+    const [resultado] = await db.query("SELECT 1 AS conectado");
 
-    try {
+    res.json({
+      mensaje: "Conexión con MySQL exitosa",
+      resultado,
+    });
+  } catch (error) {
+    console.error("Error de conexión:", error);
 
-        const [resultado] = await db.query(
-            "SELECT 1 AS conectado"
-        );
+    res.status(500).json({
+      mensaje: "Error conectando con MySQL",
+      error: error.message,
+    });
+  }
+});
 
-        res.json({
-            mensaje: "Conexión con MySQL exitosa",
-            resultado
-        });
+/* =========================
+   FUNCIÓN AUXILIAR
+   SIGUIENTE NÚMERO REMISIÓN
+========================= */
 
-    } catch (error) {
+const obtenerSiguienteNumeroRemision = async (connection) => {
+  const [remisiones] = await connection.query(`
 
-        console.error("Error de conexión:", error);
+        SELECT numero_remision
+        FROM remisiones
 
-        res.status(500).json({
-            mensaje: "Error conectando con MySQL",
-            error: error.message
-        });
+    `);
 
+  let numeroMayor = 1032;
+
+  for (const remision of remisiones) {
+    const numero = parseInt(
+      String(remision.numero_remision).replace(/\D/g, ""),
+      10,
+    );
+
+    if (!isNaN(numero) && numero > numeroMayor) {
+      numeroMayor = numero;
     }
+  }
 
+  const siguienteNumero = numeroMayor + 1;
+
+  return `REM ${siguienteNumero}`;
+};
+
+/* =========================
+   OBTENER SIGUIENTE
+   NÚMERO DE REMISIÓN
+========================= */
+
+app.get("/remisiones/siguiente-numero", async (req, res) => {
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+
+    const numeroRemision = await obtenerSiguienteNumeroRemision(connection);
+
+    res.json({
+      numero_remision: numeroRemision,
+    });
+  } catch (error) {
+    console.error("Error obteniendo siguiente número de remisión:", error);
+
+    res.status(500).json({
+      mensaje: "No se pudo obtener el siguiente número de remisión.",
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
 });
 
 /* =========================
    REMISIONES
 ========================= */
 app.get("/remisiones", async (req, res) => {
+  const { mes, anio } = req.query;
 
-    const { mes, anio } = req.query;
+  if (!mes || !anio) {
+    return res.status(400).json({
+      mensaje: "Debes indicar mes y año.",
+    });
+  }
 
-    if (!mes || !anio) {
-
-        return res.status(400).json({
-
-            mensaje: "Debes indicar mes y año."
-
-        });
-
-    }
-
-    try {
-
-        const [remisiones] = await db.query(`
+  try {
+    const [remisiones] = await db.query(
+      `
 
             SELECT
 
@@ -153,158 +193,766 @@ app.get("/remisiones", async (req, res) => {
             WHERE
                 MONTH(r.fecha) = ?
                 AND YEAR(r.fecha) = ?
+ORDER BY
+    CAST(
+        REPLACE(r.numero_remision, 'REM ', '')
+        AS UNSIGNED
+    ) ASC,
+    d.id_detalle ASC
 
-            ORDER BY
-                r.fecha DESC,
-                CAST(
-                    REPLACE(r.numero_remision, 'REM ', '')
-                    AS UNSIGNED
-                ) DESC,
-                d.id_detalle ASC
+        `,
+      [mes, anio],
+    );
 
-        `, [
-            mes,
-            anio
-        ]);
+    res.json(remisiones);
+  } catch (error) {
+    console.error("Error obteniendo remisiones:", error);
 
-        res.json(remisiones);
-
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo remisiones:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje: "Error obteniendo las remisiones",
-
-            error: error.message
-
-        });
-
-    }
-
+    res.status(500).json({
+      mensaje: "Error obteniendo las remisiones",
+      error: error.message,
+    });
+  }
 });
 
+/* =========================
+   OBTENER REMISIÓN POR NÚMERO
+   PARA IMPRIMIR
+========================= */
+
+app.get("/remisiones/buscar", async (req, res) => {
+  const connection = await db.getConnection();
+
+  try {
+    const { numero } = req.query;
+
+    if (!numero) {
+      return res.status(400).json({
+        mensaje: "Debes indicar el número de la remisión.",
+      });
+    }
+
+    const numeroNormalizado = String(numero).replace(/\D/g, "");
+
+    console.log("🔎 BUSCANDO REMISIÓN:", numero, "→", numeroNormalizado);
+
+    /* =========================
+           DATOS DE LA REMISIÓN
+        ========================= */
+
+    const [remisiones] = await connection.query(
+      `
+
+                SELECT
+
+                    r.id_remision,
+                    r.numero_remision,
+                    r.fecha,
+
+                    r.id_cliente,
+                    r.id_comercial,
+
+                    r.medio_pago,
+                    r.total,
+                    r.saldo_pendiente,
+                    r.comentarios,
+                    r.estado,
+
+                    c.nombre AS cliente,
+                    c.ciudad,
+
+                    co.nombre AS comercial
+
+                FROM remisiones r
+
+                LEFT JOIN clientes c
+                    ON r.id_cliente = c.id_cliente
+
+                LEFT JOIN comerciales co
+                    ON r.id_comercial = co.id_comercial
+
+                WHERE CAST(
+    REPLACE(
+        REPLACE(
+            UPPER(TRIM(r.numero_remision)),
+            'REM',
+            ''
+        ),
+        ' ',
+        ''
+    ) AS UNSIGNED
+) = ?
+
+                LIMIT 1
+
+            `,
+      [numeroNormalizado],
+    );
+
+    /* =========================
+           VALIDAR
+        ========================= */
+
+    if (remisiones.length === 0) {
+      return res.status(404).json({
+        mensaje: `No existe la remisión ${numeroNormalizado}.`,
+      });
+    }
+
+    const remision = remisiones[0];
+
+    /* =========================
+           PRODUCTOS
+        ========================= */
+
+    const [productos] = await connection.query(
+      `
+
+                SELECT
+
+                    d.id_detalle,
+                    d.id_remision,
+                    d.id_producto,
+
+                    d.placa,
+                    d.precio_lista,
+                    d.cantidad,
+                    d.precio_venta,
+
+                    d.total AS total_producto,
+
+                    p.codigo AS codigo_producto,
+                    p.nombre AS nombre_producto,
+                    p.linea AS linea_producto
+
+                FROM detalle_remision d
+
+                LEFT JOIN productos p
+                    ON d.id_producto = p.id_producto
+
+                WHERE d.id_remision = ?
+
+                ORDER BY d.id_detalle ASC
+
+            `,
+      [remision.id_remision],
+    );
+
+    /* =========================
+           RESPUESTA
+        ========================= */
+
+    res.json({
+      remision: {
+        ...remision,
+
+        productos,
+      },
+    });
+  } catch (error) {
+    console.error("Error buscando remisión por número:", error);
+
+    res.status(500).json({
+      mensaje: "Error buscando la remisión.",
+
+      error: error.message,
+    });
+  } finally {
+    connection.release();
+  }
+});
+
+/* =========================
+   OBTENER REMISIÓN COMPLETA
+   PARA EDITAR
+========================= */
+
+app.get("/remisiones/:id", async (req, res) => {
+  const connection = await db.getConnection();
+
+  try {
+    const { id } = req.params;
+
+    /* =========================
+           DATOS DE LA REMISIÓN
+        ========================= */
+
+    const [remisiones] = await connection.query(
+      `
+
+            SELECT
+
+                r.id_remision,
+                r.numero_remision,
+                r.fecha,
+
+                r.id_cliente,
+                r.id_comercial,
+
+                r.medio_pago,
+                r.total,
+                r.saldo_pendiente,
+                r.comentarios,
+                r.estado,
+
+                c.nombre AS cliente,
+                c.ciudad,
+
+                co.nombre AS comercial
+
+            FROM remisiones r
+
+            LEFT JOIN clientes c
+                ON r.id_cliente = c.id_cliente
+
+            LEFT JOIN comerciales co
+                ON r.id_comercial = co.id_comercial
+
+            WHERE r.id_remision = ?
+
+            LIMIT 1
+
+        `,
+      [id],
+    );
+
+    /* =========================
+           VALIDAR REMISIÓN
+        ========================= */
+
+    if (remisiones.length === 0) {
+      return res.status(404).json({
+        mensaje: "La remisión no existe.",
+      });
+    }
+
+    const remision = remisiones[0];
+
+    /* =========================
+           PRODUCTOS
+        ========================= */
+
+    const [productos] = await connection.query(
+      `
+
+            SELECT
+
+                d.id_detalle,
+                d.id_remision,
+                d.id_producto,
+                d.placa,
+                d.precio_lista,
+                d.cantidad,
+                d.precio_venta,
+                d.total AS total_producto,
+
+                p.codigo AS codigo_producto,
+                p.nombre AS nombre_producto,
+                p.linea AS linea_producto
+
+            FROM detalle_remision d
+
+            LEFT JOIN productos p
+                ON d.id_producto = p.id_producto
+
+            WHERE d.id_remision = ?
+
+            ORDER BY d.id_detalle ASC
+
+        `,
+      [id],
+    );
+
+    /* =========================
+           ABONOS
+        ========================= */
+
+    const [abonos] = await connection.query(
+      `
+
+            SELECT
+
+                id_abono,
+                id_remision,
+                valor,
+                fecha,
+                id_usuario,
+                comentario
+
+            FROM abonos_remision
+
+            WHERE id_remision = ?
+
+            ORDER BY fecha ASC, id_abono ASC
+
+        `,
+      [id],
+    );
+
+    /* =========================
+           CONVERTIR ESTADO
+        ========================= */
+
+    let estadoPago = "pendiente";
+
+    if (remision.estado === "PAGADA") {
+      estadoPago = "pagada";
+    } else if (remision.estado === "ABONO") {
+      estadoPago = "abono";
+    }
+
+    /* =========================
+           RESPUESTA
+        ========================= */
+
+    res.json({
+      remision: {
+        ...remision,
+
+        estado_pago: estadoPago,
+
+        productos,
+
+        abonos,
+      },
+    });
+  } catch (error) {
+    console.error("Error obteniendo remisión para editar:", error);
+
+    res.status(500).json({
+      mensaje: "Error obteniendo la remisión.",
+
+      error: error.message,
+    });
+  } finally {
+    connection.release();
+  }
+});
+/* =========================
+   ACTUALIZAR REMISIÓN
+========================= */
+
+app.put("/remisiones/:id", async (req, res) => {
+  const connection = await db.getConnection();
+
+  try {
+    const { id } = req.params;
+
+    const { fecha, estado_pago, medio_pago, comentarios, productos } = req.body;
+
+    const fechaFormateada = fecha ? String(fecha).substring(0, 10) : null;
+
+    /* =========================
+           VALIDAR REMISIÓN
+        ========================= */
+
+    const [remisionExiste] = await connection.query(
+      `
+            SELECT
+                id_remision
+            FROM remisiones
+            WHERE id_remision = ?
+            LIMIT 1
+            `,
+      [id],
+    );
+
+    if (remisionExiste.length === 0) {
+      return res.status(404).json({
+        mensaje: "La remisión no existe.",
+      });
+    }
+
+    await connection.beginTransaction();
+
+    /* =========================
+           CONVERTIR ESTADO
+        ========================= */
+
+    let estado = "PENDIENTE";
+
+    if (estado_pago === "pagada") {
+      estado = "PAGADA";
+    } else if (estado_pago === "abono") {
+      estado = "ABONO";
+    }
+
+    /* =========================
+           CALCULAR TOTAL
+        ========================= */
+
+    let total = 0;
+
+    for (const producto of productos || []) {
+      const cantidad = Number(producto.cantidad) || 0;
+
+      const precio = Number(producto.precio_venta) || 0;
+
+      total += cantidad * precio;
+    }
+
+    /* =========================
+           CALCULAR SALDO
+        ========================= */
+
+    let saldoPendiente = total;
+
+    if (estado === "PAGADA") {
+      saldoPendiente = 0;
+    } else if (estado === "ABONO") {
+      const [abonos] = await connection.query(
+        `
+                SELECT
+                    COALESCE(SUM(valor), 0) AS total_abonos
+                FROM abonos_remision
+                WHERE id_remision = ?
+                `,
+        [id],
+      );
+
+      const totalAbonos = Number(abonos[0].total_abonos) || 0;
+
+      saldoPendiente = Math.max(total - totalAbonos, 0);
+    }
+
+    /* =========================
+           ACTUALIZAR REMISIÓN
+        ========================= */
+    await connection.query(
+      `
+    UPDATE remisiones
+
+    SET
+        fecha = ?,
+        medio_pago = ?,
+        comentarios = ?,
+        estado = ?,
+        total = ?,
+        saldo_pendiente = ?
+
+    WHERE id_remision = ?
+    `,
+      [
+        fechaFormateada,
+        medio_pago,
+        comentarios || null,
+        estado,
+        total,
+        saldoPendiente,
+        id,
+      ],
+    );
+
+    /* =========================
+   ELIMINAR PRODUCTOS QUITADOS
+========================= */
+
+    const idsDetalles = (productos || [])
+      .filter((producto) => producto.id_detalle)
+      .map((producto) => producto.id_detalle);
+
+    if (idsDetalles.length > 0) {
+      const placeholders = idsDetalles.map(() => "?").join(",");
+
+      await connection.query(
+        `
+        DELETE FROM detalle_remision
+        WHERE id_remision = ?
+        AND id_detalle NOT IN (${placeholders})
+        `,
+        [id, ...idsDetalles],
+      );
+    } else {
+      await connection.query(
+        `
+        DELETE FROM detalle_remision
+        WHERE id_remision = ?
+        `,
+        [id],
+      );
+    }
+
+    /* =========================
+   ACTUALIZAR / INSERTAR PRODUCTOS
+========================= */
+
+    for (const producto of productos || []) {
+      const cantidad = Number(producto.cantidad) || 0;
+
+      const precio = Number(producto.precio_venta) || 0;
+
+      const totalProducto = cantidad * precio;
+
+      /* =========================
+       PRODUCTO NUEVO
+    ========================= */
+
+      if (!producto.id_detalle) {
+        await connection.query(
+          `
+            INSERT INTO detalle_remision (
+                id_remision,
+                id_producto,
+                placa,
+                cantidad,
+                precio_venta,
+                total
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            `,
+          [
+            id,
+            producto.id_producto,
+            producto.placa || null,
+            cantidad,
+            precio,
+            totalProducto,
+          ],
+        );
+      } else {
+        /* =========================
+       PRODUCTO EXISTENTE
+    ========================= */
+        await connection.query(
+          `
+            UPDATE detalle_remision
+
+            SET
+                placa = ?,
+                cantidad = ?,
+                precio_venta = ?,
+                total = ?
+
+            WHERE id_detalle = ?
+            AND id_remision = ?
+            `,
+          [
+            producto.placa || null,
+            cantidad,
+            precio,
+            totalProducto,
+            producto.id_detalle,
+            id,
+          ],
+        );
+      }
+    }
+    await connection.commit();
+
+    res.json({
+      mensaje: "Remisión actualizada correctamente.",
+      total,
+      saldo_pendiente: saldoPendiente,
+    });
+  } catch (error) {
+    await connection.rollback();
+
+    console.error("Error actualizando remisión:", error);
+
+    res.status(500).json({
+      mensaje: "Error actualizando la remisión.",
+      error: error.message,
+    });
+  } finally {
+    connection.release();
+  }
+});
 /* =========================
    CREAR REMISIÓN
 ========================= */
 
 app.post("/remisiones", async (req, res) => {
+  const connection = await db.getConnection();
 
-    const connection = await db.getConnection();
+  try {
+    /* =========================
+           RECIBIR DATOS
+        ========================= */
 
-    try {
+    const {
+      fecha,
+      id_cliente,
+      id_comercial,
+      id_usuario,
+      estado_pago,
+      medio_pago,
+      total,
+      total_abonado,
+      saldo_pendiente,
+      abonos,
+      comentarios,
+      productos,
+    } = req.body;
 
-        const {
+    /* =========================
+   VALIDACIONES GENERALES
+========================= */
+
+    if (!fecha || !id_cliente || !id_comercial || !estado_pago) {
+      return res.status(400).json({
+        mensaje: "Faltan datos obligatorios de la remisión.",
+      });
+    }
+
+    /* =========================
+   VALIDAR ESTADO DE PAGO
+========================= */
+
+    const estadosPermitidos = ["pagada", "abono", "pendiente"];
+
+    if (!estadosPermitidos.includes(estado_pago)) {
+      return res.status(400).json({
+        mensaje: "El estado de pago no es válido.",
+      });
+    }
+
+    /* =========================
+   VALIDAR MÉTODO DE PAGO
+   SOLO PARA PAGADA
+========================= */
+
+    if (estado_pago === "pagada" && !medio_pago) {
+      return res.status(400).json({
+        mensaje:
+          "Debes seleccionar un método de pago para una remisión pagada.",
+      });
+    }
+
+    /* =========================
+   VALIDAR ABONOS
+========================= */
+
+    if (estado_pago === "abono") {
+      if (!abonos || !Array.isArray(abonos) || abonos.length === 0) {
+        return res.status(400).json({
+          mensaje: "Debes registrar al menos un abono.",
+        });
+      }
+    }
+    if (!productos || !Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({
+        mensaje: "La remisión debe tener al menos un producto.",
+      });
+    }
+
+    /* =========================
+           GENERAR NÚMERO DE REMISIÓN
+        ========================= */
+
+    const numero_remision = await obtenerSiguienteNumeroRemision(connection);
+
+    /* =========================
+           DEFINIR ESTADO Y SALDO
+        ========================= */
+
+    /* =========================
+   DEFINIR ESTADO Y SALDO
+========================= */
+
+    let estado;
+    let saldoPendiente;
+    let totalAbonado = 0;
+
+    const totalRemision = Number(total) || 0;
+
+    /* =========================
+   PAGADA
+========================= */
+
+    if (estado_pago === "pagada") {
+      estado = "PAGADA";
+
+      totalAbonado = totalRemision;
+
+      saldoPendiente = 0;
+    } else if (estado_pago === "abono") {
+      /* =========================
+   ABONO / PARCIAL
+========================= */
+      estado = "ABONO";
+
+      totalAbonado = Array.isArray(abonos)
+        ? abonos.reduce((suma, abono) => suma + (Number(abono.valor) || 0), 0)
+        : 0;
+
+      saldoPendiente = Math.max(totalRemision - totalAbonado, 0);
+    } else {
+      /* =========================
+   PENDIENTE
+========================= */
+      estado = "PENDIENTE";
+
+      totalAbonado = 0;
+
+      saldoPendiente = totalRemision;
+    }
+
+    /* =========================
+           INICIAR TRANSACCIÓN
+        ========================= */
+
+    await connection.beginTransaction();
+
+    /* =========================
+           INSERTAR REMISIÓN
+        ========================= */
+
+    const [resultadoRemision] = await connection.query(
+      `
+
+        INSERT INTO remisiones (
+
             numero_remision,
             fecha,
             id_cliente,
             id_comercial,
             medio_pago,
             total,
+            saldo_pendiente,
             comentarios,
-            productos
-        } = req.body;
+            estado
 
+        )
 
-        /* =========================
-           VALIDACIONES
-        ========================= */
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 
-        if (
-            !numero_remision ||
-            !fecha ||
-            !id_cliente ||
-            !id_comercial ||
-            !medio_pago
-        ) {
+    `,
+      [
+        numero_remision,
+        fecha,
+        id_cliente,
+        id_comercial,
+        medio_pago || null,
+        totalRemision,
+        saldoPendiente,
+        comentarios || null,
+        estado,
+      ],
+    );
 
-            return res.status(400).json({
+    const idRemision = resultadoRemision.insertId;
 
-                mensaje: "Faltan datos obligatorios de la remisión."
-
-            });
-
-        }
-
-
-        if (
-            !productos ||
-            !Array.isArray(productos) ||
-            productos.length === 0
-        ) {
-
-            return res.status(400).json({
-
-                mensaje: "La remisión debe tener al menos un producto."
-
-            });
-
-        }
-
-
-        /* =========================
-           INICIAR TRANSACCIÓN
-        ========================= */
-
-        await connection.beginTransaction();
-
-
-        /* =========================
-           INSERTAR REMISIÓN
-        ========================= */
-
-        const [resultadoRemision] = await connection.query(`
-
-            INSERT INTO remisiones (
-
-                numero_remision,
-                fecha,
-                id_cliente,
-                id_comercial,
-                medio_pago,
-                total,
-                saldo_pendiente,
-                comentarios,
-                estado
-
-            )
-
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE')
-
-        `, [
-
-            numero_remision,
-            fecha,
-            id_cliente,
-            id_comercial,
-            medio_pago,
-            total || 0,
-            total || 0,
-            comentarios || null
-
-        ]);
-
-
-        const idRemision =
-            resultadoRemision.insertId;
-
-
-        /* =========================
+    /* =========================
            INSERTAR PRODUCTOS
         ========================= */
 
-        for (const producto of productos) {
+    for (const producto of productos) {
+      /* VALIDAR PRODUCTO */
 
-            const totalProducto =
-                Number(producto.cantidad || 0) *
-                Number(producto.precio_venta || 0);
+      if (!producto.id_producto) {
+        throw new Error(
+          "Uno de los productos no tiene un producto válido seleccionado.",
+        );
+      }
 
+      const cantidad = Number(producto.cantidad) || 0;
 
-            await connection.query(`
+      const precioVenta = Number(producto.precio_venta) || 0;
+
+      const totalProducto = cantidad * precioVenta;
+
+      await connection.query(
+        `
 
                 INSERT INTO detalle_remision (
 
@@ -320,154 +968,191 @@ app.post("/remisiones", async (req, res) => {
 
                 VALUES (?, ?, ?, ?, ?, ?, ?)
 
-            `, [
+            `,
+        [
+          idRemision,
+          producto.id_producto,
+          producto.placa || null,
+          Number(producto.precio_lista) || 0,
+          cantidad,
+          precioVenta,
+          totalProducto,
+        ],
+      );
+    }
+    /* =========================
+   INSERTAR ABONOS
+========================= */
 
-                idRemision,
-                producto.id_producto,
-                producto.placa || null,
-                producto.precio_lista || 0,
-                producto.cantidad || 1,
-                producto.precio_venta || 0,
-                totalProducto
+    if (estado_pago === "abono" && Array.isArray(abonos) && abonos.length > 0) {
+      for (const abono of abonos) {
+        const valorAbono = Number(abono.valor) || 0;
 
-            ]);
-
+        if (valorAbono <= 0) {
+          throw new Error("Uno de los abonos tiene un valor inválido.");
         }
 
+        if (!abono.medioPago) {
+          throw new Error("Uno de los abonos no tiene método de pago.");
+        }
 
-        /* =========================
+        await connection.query(
+          `
+
+            INSERT INTO abonos_remision (
+
+                id_remision,
+                valor,
+                medio_pago,
+                comprobante,
+                fecha,
+                id_usuario,
+                comentario
+
+            )
+
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+
+        `,
+          [
+            idRemision,
+            valorAbono,
+            abono.medioPago,
+            abono.comprobante || null,
+            abono.fecha || new Date(),
+            null,
+            null,
+          ],
+        );
+      }
+    }
+
+    /* =========================
+   REGISTRAR AUDITORÍA
+========================= */
+
+    console.log("🔎 AUDITORÍA:", {
+      id_usuario,
+      idRemision,
+      numero_remision,
+    });
+
+    await connection.query(
+      `
+
+    
+
+    INSERT INTO auditoria (
+        id_usuario,
+        accion,
+        modulo,
+        id_referencia,
+        descripcion
+    )
+
+    VALUES (?, ?, ?, ?, ?)
+
+`,
+      [
+        id_usuario || null,
+        "CREAR",
+        "REMISIONES",
+        idRemision,
+        `Registró la remisión ${numero_remision}`,
+      ],
+    );
+
+    /* =========================
            CONFIRMAR TRANSACCIÓN
         ========================= */
 
-        await connection.commit();
+    await connection.commit();
 
+    /* =========================
+           RESPUESTA
+        ========================= */
 
-        res.status(201).json({
+    res.status(201).json({
+      mensaje: "Remisión creada correctamente.",
 
-            mensaje: "Remisión creada correctamente.",
+      id_remision: idRemision,
 
-            id_remision: idRemision,
+      numero_remision: numero_remision,
+    });
+  } catch (error) {
+    /* =========================
+           DESHACER CAMBIOS
+        ========================= */
 
-            numero_remision
-
-        });
-
-
-    } catch (error) {
-
-        await connection.rollback();
-
-        console.error(
-            "Error creando remisión:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje: "Error creando la remisión.",
-
-            error: error.message
-
-        });
-
-
-    } finally {
-
-        connection.release();
-
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      console.error("Error al revertir la transacción:", rollbackError);
     }
 
+    console.error("Error creando remisión:", error);
+
+    res.status(500).json({
+      mensaje: error.message || "Error creando la remisión.",
+    });
+  } finally {
+    connection.release();
+  }
 });
 
 /* =========================
    DATOS PARA EXPORTAR REMISIONES
 ========================= */
 
-app.get(
-    "/exportaciones/remisiones",
-    async (req, res) => {
+app.get("/exportaciones/remisiones", async (req, res) => {
+  try {
+    const { periodo } = req.query;
 
-        try {
+    if (!periodo) {
+      return res.status(400).json({
+        mensaje: "Debes indicar el período.",
+      });
+    }
 
-            const {
-                periodo
-            } = req.query;
-
-
-            if (!periodo) {
-
-                return res.status(400).json({
-
-                    mensaje:
-                        "Debes indicar el período."
-
-                });
-
-            }
-
-
-            /* =========================
+    /* =========================
                SEPARAR MES Y AÑO
             ========================= */
 
-            const partes =
-                periodo.split(" ");
+    const partes = periodo.split(" ");
 
+    const nombreMes = partes[0].toLowerCase();
 
-            const nombreMes =
-                partes[0]
-                    .toLowerCase();
+    const anio = Number(partes[1]);
 
+    const meses = {
+      enero: 1,
+      febrero: 2,
+      marzo: 3,
+      abril: 4,
+      mayo: 5,
+      junio: 6,
+      julio: 7,
+      agosto: 8,
+      septiembre: 9,
+      octubre: 10,
+      noviembre: 11,
+      diciembre: 12,
+    };
 
-            const anio =
-                Number(
-                    partes[1]
-                );
+    const mes = meses[nombreMes];
 
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "El período seleccionado no es válido.",
+      });
+    }
 
-            const meses = {
-
-                enero: 1,
-                febrero: 2,
-                marzo: 3,
-                abril: 4,
-                mayo: 5,
-                junio: 6,
-                julio: 7,
-                agosto: 8,
-                septiembre: 9,
-                octubre: 10,
-                noviembre: 11,
-                diciembre: 12
-
-            };
-
-
-            const mes =
-                meses[nombreMes];
-
-
-            if (!mes || !anio) {
-
-                return res.status(400).json({
-
-                    mensaje:
-                        "El período seleccionado no es válido."
-
-                });
-
-            }
-
-
-            /* =========================
+    /* =========================
                CONSULTAR REMISIONES
             ========================= */
 
-            const [remisiones] =
-                await db.query(
-
-                    `
+    const [remisiones] = await db.query(
+      `
 
                     SELECT
 
@@ -589,91 +1274,55 @@ app.get(
 
                     `,
 
-                    [
-                        mes,
-                        anio
-                    ]
+      [mes, anio],
+    );
 
-                );
+    console.log("REMISIONES PARA EXPORTACIÓN:", remisiones);
 
+    res.json({
+      periodo,
 
-            console.log(
-                "REMISIONES PARA EXPORTACIÓN:",
-                remisiones
-            );
+      cantidad_remisiones: new Set(
+        remisiones.map((remision) => remision.id_remision),
+      ).size,
 
+      remisiones,
+    });
+  } catch (error) {
+    console.error("Error obteniendo remisiones para exportar:", error);
 
-            res.json({
+    res.status(500).json({
+      mensaje: "No se pudieron obtener las remisiones.",
 
-                periodo,
-
-                cantidad_remisiones:
-                    new Set(
-                        remisiones.map(
-                            remision =>
-                                remision.id_remision
-                        )
-                    ).size,
-
-                remisiones
-
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "Error obteniendo remisiones para exportar:",
-                error
-            );
-
-
-            res.status(500).json({
-
-                mensaje:
-                    "No se pudieron obtener las remisiones.",
-
-                error:
-                    error.message
-
-            });
-
-        }
-
-    }
-);
+      error: error.message,
+    });
+  }
+});
 
 /* =========================
    LOGIN
 ========================= */
 
 app.post("/login", async (req, res) => {
+  try {
+    const { usuario, password } = req.body;
 
-    try {
-
-        const { usuario, password } = req.body;
-
-
-        /* =========================
+    /* =========================
            VALIDAR DATOS
         ========================= */
 
-        if (!usuario || !password) {
+    if (!usuario || !password) {
+      return res.status(400).json({
+        mensaje: "Usuario y contraseña son obligatorios.",
+      });
+    }
 
-            return res.status(400).json({
-
-                mensaje: "Usuario y contraseña son obligatorios."
-
-            });
-
-        }
-
-
-        /* =========================
+    /* =========================
            BUSCAR USUARIO
         ========================= */
 
-        const [usuarios] = await db.query(`
+    const [usuarios] = await db.query(
+      `
 
             SELECT
                 id_usuario,
@@ -689,99 +1338,66 @@ app.post("/login", async (req, res) => {
 
             LIMIT 1
 
-        `, [usuario]);
+        `,
+      [usuario],
+    );
 
+    if (usuarios.length === 0) {
+      return res.status(401).json({
+        mensaje: "Usuario o contraseña incorrectos.",
+      });
+    }
 
-        if (usuarios.length === 0) {
+    const usuarioBD = usuarios[0];
 
-            return res.status(401).json({
-
-                mensaje: "Usuario o contraseña incorrectos."
-
-            });
-
-        }
-
-
-        const usuarioBD = usuarios[0];
-
-
-        /* =========================
+    /* =========================
            VERIFICAR ESTADO
         ========================= */
 
-        if (usuarioBD.activo !== 1) {
+    if (usuarioBD.activo !== 1) {
+      return res.status(403).json({
+        mensaje: "Este usuario se encuentra inactivo.",
+      });
+    }
 
-            return res.status(403).json({
-
-                mensaje: "Este usuario se encuentra inactivo."
-
-            });
-
-        }
-
-
-        /* =========================
+    /* =========================
            VERIFICAR CONTRASEÑA
         ========================= */
 
-        const passwordCorrecta =
-            await bcrypt.compare(
-                password,
-                usuarioBD.password
-            );
+    const passwordCorrecta = await bcrypt.compare(password, usuarioBD.password);
 
+    if (!passwordCorrecta) {
+      return res.status(401).json({
+        mensaje: "Usuario o contraseña incorrectos.",
+      });
+    }
 
-        if (!passwordCorrecta) {
-
-            return res.status(401).json({
-
-                mensaje: "Usuario o contraseña incorrectos."
-
-            });
-
-        }
-
-        /* =========================
+    /* =========================
            RESPUESTA
         ========================= */
 
-        res.json({
+    res.json({
+      mensaje: "Inicio de sesión correcto.",
 
-            mensaje: "Inicio de sesión correcto.",
+      usuario: {
+        id_usuario: usuarioBD.id_usuario,
 
-            usuario: {
+        nombre: usuarioBD.nombre,
 
-                id_usuario: usuarioBD.id_usuario,
+        usuario: usuarioBD.usuario,
 
-                nombre: usuarioBD.nombre,
+        rol: usuarioBD.rol,
+      },
+    });
+  } catch (error) {
+    console.error("Error en login:", error);
 
-                usuario: usuarioBD.usuario,
+    res.status(500).json({
+      mensaje: "Error interno del servidor.",
 
-                rol: usuarioBD.rol
-
-            }
-
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Error en login:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje: "Error interno del servidor.",
-
-            error: error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -789,59 +1405,39 @@ app.post("/login", async (req, res) => {
 ========================= */
 
 app.post("/remisiones/world-office", async (req, res) => {
+  const connection = await db.getConnection();
 
-    const connection = await db.getConnection();
+  try {
+    const { id_remisiones, codigo_world_office, id_usuario } = req.body;
 
-    try {
-
-        const {
-            id_remisiones,
-            codigo_world_office,
-            id_usuario
-        } = req.body;
-
-
-        /* =========================
+    /* =========================
            VALIDACIONES
         ========================= */
 
-        if (
-            !Array.isArray(id_remisiones) ||
-            id_remisiones.length === 0
-        ) {
+    if (!Array.isArray(id_remisiones) || id_remisiones.length === 0) {
+      return res.status(400).json({
+        mensaje: "No hay remisiones seleccionadas.",
+      });
+    }
 
-            return res.status(400).json({
-                mensaje: "No hay remisiones seleccionadas."
-            });
+    if (!codigo_world_office || !codigo_world_office.trim()) {
+      return res.status(400).json({
+        mensaje: "El código de World Office es obligatorio.",
+      });
+    }
 
-        }
+    if (!id_usuario) {
+      return res.status(400).json({
+        mensaje: "No se recibió el usuario.",
+      });
+    }
 
-
-        if (!codigo_world_office || !codigo_world_office.trim()) {
-
-            return res.status(400).json({
-                mensaje:
-                    "El código de World Office es obligatorio."
-            });
-
-        }
-
-
-        if (!id_usuario) {
-
-            return res.status(400).json({
-                mensaje:
-                    "No se recibió el usuario."
-            });
-
-        }
-
-
-        /* =========================
+    /* =========================
            VERIFICAR USUARIO
         ========================= */
 
-        const [usuarios] = await connection.query(`
+    const [usuarios] = await connection.query(
+      `
 
             SELECT
                 id_usuario,
@@ -855,62 +1451,50 @@ app.post("/remisiones/world-office", async (req, res) => {
 
             LIMIT 1
 
-        `, [id_usuario]);
+        `,
+      [id_usuario],
+    );
 
+    if (usuarios.length === 0) {
+      return res.status(401).json({
+        mensaje: "Usuario no encontrado.",
+      });
+    }
 
-        if (usuarios.length === 0) {
+    const usuario = usuarios[0];
 
-            return res.status(401).json({
-                mensaje:
-                    "Usuario no encontrado."
-            });
-
-        }
-
-
-        const usuario = usuarios[0];
-
-
-        /* =========================
+    /* =========================
            VALIDAR ROL
         ========================= */
 
-        if (usuario.rol !== "ADMINISTRADOR") {
+    if (usuario.rol !== "ADMINISTRADOR") {
+      return res.status(403).json({
+        mensaje:
+          "Solo los administradores pueden confirmar movimientos de World Office.",
+      });
+    }
 
-            return res.status(403).json({
-                mensaje:
-                    "Solo los administradores pueden confirmar movimientos de World Office."
-            });
+    if (usuario.activo !== 1) {
+      return res.status(403).json({
+        mensaje: "El usuario se encuentra inactivo.",
+      });
+    }
 
-        }
-
-
-        if (usuario.activo !== 1) {
-
-            return res.status(403).json({
-                mensaje:
-                    "El usuario se encuentra inactivo."
-            });
-
-        }
-
-
-        /* =========================
+    /* =========================
            INICIAR TRANSACCIÓN
         ========================= */
 
-        await connection.beginTransaction();
+    await connection.beginTransaction();
 
-
-        /* =========================
+    /* =========================
            COMPROBAR REMISIONES
         ========================= */
 
-        for (const idRemision of id_remisiones) {
+    for (const idRemision of id_remisiones) {
+      // Verificar que la remisión exista
 
-            // Verificar que la remisión exista
-
-            const [remisiones] = await connection.query(`
+      const [remisiones] = await connection.query(
+        `
 
                 SELECT
                     id_remision
@@ -921,21 +1505,18 @@ app.post("/remisiones/world-office", async (req, res) => {
 
                 LIMIT 1
 
-            `, [idRemision]);
+            `,
+        [idRemision],
+      );
 
+      if (remisiones.length === 0) {
+        throw new Error(`La remisión ${idRemision} no existe.`);
+      }
 
-            if (remisiones.length === 0) {
+      // Verificar si ya fue pasada a World Office
 
-                throw new Error(
-                    `La remisión ${idRemision} no existe.`
-                );
-
-            }
-
-
-            // Verificar si ya fue pasada a World Office
-
-            const [worldOffice] = await connection.query(`
+      const [worldOffice] = await connection.query(
+        `
 
                 SELECT
                     id_wo
@@ -946,27 +1527,24 @@ app.post("/remisiones/world-office", async (req, res) => {
 
                 LIMIT 1
 
-            `, [idRemision]);
+            `,
+        [idRemision],
+      );
 
+      if (worldOffice.length > 0) {
+        throw new Error(
+          `La remisión ${idRemision} ya fue pasada a World Office.`,
+        );
+      }
+    }
 
-            if (worldOffice.length > 0) {
-
-                throw new Error(
-                    `La remisión ${idRemision} ya fue pasada a World Office.`
-                );
-
-            }
-
-        }
-
-
-        /* =========================
+    /* =========================
            REGISTRAR WORLD OFFICE
         ========================= */
 
-        for (const idRemision of id_remisiones) {
-
-            await connection.query(`
+    for (const idRemision of id_remisiones) {
+      await connection.query(
+        `
 
                 INSERT INTO remisiones_world_office (
 
@@ -978,63 +1556,38 @@ app.post("/remisiones/world-office", async (req, res) => {
 
                 VALUES (?, ?, ?)
 
-            `, [
+            `,
+        [idRemision, codigo_world_office.trim(), id_usuario],
+      );
+    }
 
-                idRemision,
-                codigo_world_office.trim(),
-                id_usuario
-
-            ]);
-
-        }
-
-
-        /* =========================
+    /* =========================
            CONFIRMAR
         ========================= */
 
-        await connection.commit();
+    await connection.commit();
 
+    res.json({
+      mensaje: "Movimiento de World Office registrado correctamente.",
 
-        res.json({
+      usuario: usuario.nombre,
 
-            mensaje:
-                "Movimiento de World Office registrado correctamente.",
+      codigo_world_office: codigo_world_office.trim(),
 
-            usuario: usuario.nombre,
+      remisiones: id_remisiones,
+    });
+  } catch (error) {
+    await connection.rollback();
 
-            codigo_world_office:
-                codigo_world_office.trim(),
+    console.error("Error registrando World Office:", error);
 
-            remisiones:
-                id_remisiones
-
-        });
-
-
-    } catch (error) {
-
-        await connection.rollback();
-
-        console.error(
-            "Error registrando World Office:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje:
-                error.message ||
-                "Error registrando el movimiento de World Office."
-
-        });
-
-    } finally {
-
-        connection.release();
-
-    }
-
+    res.status(500).json({
+      mensaje:
+        error.message || "Error registrando el movimiento de World Office.",
+    });
+  } finally {
+    connection.release();
+  }
 });
 
 /* =========================
@@ -1042,26 +1595,23 @@ app.post("/remisiones/world-office", async (req, res) => {
 ========================= */
 
 app.get("/inicio", async (req, res) => {
+  try {
+    const { mes, anio } = req.query;
 
-    try {
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "Debes indicar mes y año.",
+      });
+    }
 
-        const { mes, anio } = req.query;
-
-        if (!mes || !anio) {
-
-            return res.status(400).json({
-                mensaje: "Debes indicar mes y año."
-            });
-
-        }
-
-        /*
+    /*
         =========================
         MES ACTUAL
         =========================
         */
 
-        const [kpisMes] = await db.query(`
+    const [kpisMes] = await db.query(
+      `
 
             SELECT
 
@@ -1085,10 +1635,11 @@ app.get("/inicio", async (req, res) => {
 
               AND r.estado <> 'ANULADA'
 
-        `, [mes, anio]);
+        `,
+      [mes, anio],
+    );
 
-
-        /*
+    /*
         =========================
         MES ANTERIOR
         =========================
@@ -1101,24 +1652,22 @@ app.get("/inicio", async (req, res) => {
         Diciembre 2025
         */
 
-        let mesAnterior = Number(mes) - 1;
-        let anioAnterior = Number(anio);
+    let mesAnterior = Number(mes) - 1;
+    let anioAnterior = Number(anio);
 
-        if (mesAnterior === 0) {
+    if (mesAnterior === 0) {
+      mesAnterior = 12;
+      anioAnterior--;
+    }
 
-            mesAnterior = 12;
-            anioAnterior--;
-
-        }
-
-
-        /*
+    /*
         =========================
         DATOS DEL MES ANTERIOR
         =========================
         */
 
-        const [kpisMesAnterior] = await db.query(`
+    const [kpisMesAnterior] = await db.query(
+      `
 
             SELECT
 
@@ -1142,13 +1691,11 @@ app.get("/inicio", async (req, res) => {
 
               AND r.estado <> 'ANULADA'
 
-        `, [
-            mesAnterior,
-            anioAnterior
-        ]);
+        `,
+      [mesAnterior, anioAnterior],
+    );
 
-
-        /*
+    /*
         =========================
         VARIACIÓN VENTAS
         =========================
@@ -1158,112 +1705,65 @@ app.get("/inicio", async (req, res) => {
         ((actual - anterior) / anterior) * 100
         */
 
-        const ventasActual =
-            Number(kpisMes[0].ventas_mes || 0);
+    const ventasActual = Number(kpisMes[0].ventas_mes || 0);
 
-        const ventasAnterior =
-            Number(
-                kpisMesAnterior[0].ventas_mes_anterior || 0
-            );
+    const ventasAnterior = Number(kpisMesAnterior[0].ventas_mes_anterior || 0);
 
+    let variacionVentas = null;
 
-        let variacionVentas = null;
+    if (ventasAnterior > 0) {
+      variacionVentas = Number(
+        (((ventasActual - ventasAnterior) / ventasAnterior) * 100).toFixed(1),
+      );
+    }
 
-        if (ventasAnterior > 0) {
-
-         variacionVentas =
-    Number(
-        (
-            (
-                (
-                    ventasActual -
-                    ventasAnterior
-                ) /
-                ventasAnterior
-            ) * 100
-        ).toFixed(1)
-    );
-
-        }
-
-
-        /*
+    /*
         =========================
         VARIACIÓN REMISIONES
         =========================
         */
 
-        const remisionesActual =
-            Number(
-                kpisMes[0].total_remisiones || 0
-            );
+    const remisionesActual = Number(kpisMes[0].total_remisiones || 0);
 
-        const remisionesAnterior =
-            Number(
-                kpisMesAnterior[0]
-                    .remisiones_mes_anterior || 0
-            );
-
-
-        let variacionRemisiones = null;
-
-        if (remisionesAnterior > 0) {
-
-           variacionRemisiones =
-    Number(
-        (
-            (
-                (
-                    remisionesActual -
-                    remisionesAnterior
-                ) /
-                remisionesAnterior
-            ) * 100
-        ).toFixed(1)
+    const remisionesAnterior = Number(
+      kpisMesAnterior[0].remisiones_mes_anterior || 0,
     );
 
-        }
+    let variacionRemisiones = null;
 
+    if (remisionesAnterior > 0) {
+      variacionRemisiones = Number(
+        (
+          ((remisionesActual - remisionesAnterior) / remisionesAnterior) *
+          100
+        ).toFixed(1),
+      );
+    }
 
-        /*
+    /*
         =========================
         VARIACIÓN CLIENTES
         =========================
         */
 
-        const clientesActual =
-            Number(
-                kpisMes[0].total_clientes || 0
-            );
+    const clientesActual = Number(kpisMes[0].total_clientes || 0);
 
-        const clientesAnterior =
-            Number(
-                kpisMesAnterior[0]
-                    .clientes_mes_anterior || 0
-            );
-
-
-        let variacionClientes = null;
-
-        if (clientesAnterior > 0) {
-
-           variacionClientes =
-    Number(
-        (
-            (
-                (
-                    clientesActual -
-                    clientesAnterior
-                ) /
-                clientesAnterior
-            ) * 100
-        ).toFixed(1)
+    const clientesAnterior = Number(
+      kpisMesAnterior[0].clientes_mes_anterior || 0,
     );
 
-        }
+    let variacionClientes = null;
 
+    if (clientesAnterior > 0) {
+      variacionClientes = Number(
+        (
+          ((clientesActual - clientesAnterior) / clientesAnterior) *
+          100
+        ).toFixed(1),
+      );
+    }
 
-   /*
+    /*
 =========================
 CARTERA ACTUAL
 =========================
@@ -1274,7 +1774,7 @@ Siempre muestra el dinero que actualmente
 está pendiente de pago.
 */
 
-const [cartera] = await db.query(`
+    const [cartera] = await db.query(`
 
     SELECT
 
@@ -1298,7 +1798,8 @@ const [cartera] = await db.query(`
 
 `);
 
-const [carteraMesAnterior] = await db.query(`
+    const [carteraMesAnterior] = await db.query(
+      `
 
     SELECT
 
@@ -1316,96 +1817,57 @@ const [carteraMesAnterior] = await db.query(`
       AND MONTH(r.fecha) = ?
       AND YEAR(r.fecha) = ?
 
-`, [
-    mesAnterior,
-    anioAnterior
-]);
+`,
+      [mesAnterior, anioAnterior],
+    );
 
-const carteraActual = Number(
-    cartera[0].cartera_total || 0
-);
+    const carteraActual = Number(cartera[0].cartera_total || 0);
 
-const carteraAnterior = Number(
-    carteraMesAnterior[0].cartera_mes_anterior || 0
-);
+    const carteraAnterior = Number(
+      carteraMesAnterior[0].cartera_mes_anterior || 0,
+    );
 
-let variacionCartera = null;
+    let variacionCartera = null;
 
-if (carteraAnterior > 0) {
+    if (carteraAnterior > 0) {
+      variacionCartera =
+        ((carteraActual - carteraAnterior) / carteraAnterior) * 100;
+    }
 
-    variacionCartera =
-        (
-            (
-                carteraActual -
-                carteraAnterior
-            ) /
-            carteraAnterior
-        ) * 100;
-
-}
-
-
-        /*
+    /*
         =========================
         RESPUESTA
         =========================
         */
 
-        res.json({
+    res.json({
+      ventas_mes: ventasActual,
 
-            ventas_mes:
-                ventasActual,
+      total_remisiones: remisionesActual,
 
-            total_remisiones:
-                remisionesActual,
+      total_clientes: clientesActual,
 
-            total_clientes:
-                clientesActual,
+      cartera_total: Number(cartera[0].cartera_total || 0),
 
-            cartera_total:
-                Number(
-                    cartera[0].cartera_total || 0
-                ),
+      cuentas_pendientes: Number(cartera[0].cuentas_pendientes || 0),
 
-            cuentas_pendientes:
-                Number(
-                    cartera[0].cuentas_pendientes || 0
-                ),
+      variacion_ventas: variacionVentas,
 
-            variacion_ventas:
-                variacionVentas,
+      variacion_remisiones: variacionRemisiones,
 
-            variacion_remisiones:
-                variacionRemisiones,
+      variacion_clientes: variacionClientes,
 
-            variacion_clientes:
-                variacionClientes,
+      variacion_cartera: variacionCartera,
+    });
+  } catch (error) {
+    console.error("Error obteniendo KPIs de Inicio:", error);
 
-             variacion_cartera:
-    variacionCartera
+    res.status(500).json({
+      mensaje: "Error obteniendo los KPIs de Inicio.",
 
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo KPIs de Inicio:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje:
-                "Error obteniendo los KPIs de Inicio.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -1413,20 +1875,17 @@ if (carteraAnterior > 0) {
 ========================= */
 
 app.get("/inicio/ultimas-remisiones", async (req, res) => {
+  try {
+    const { mes, anio } = req.query;
 
-    try {
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "Debes indicar mes y año.",
+      });
+    }
 
-        const { mes, anio } = req.query;
-
-        if (!mes || !anio) {
-
-            return res.status(400).json({
-                mensaje: "Debes indicar mes y año."
-            });
-
-        }
-
-        const [remisiones] = await db.query(`
+    const [remisiones] = await db.query(
+      `
 
             SELECT
 
@@ -1454,27 +1913,20 @@ app.get("/inicio/ultimas-remisiones", async (req, res) => {
 
             LIMIT 3
 
-        `, [mes, anio]);
+        `,
+      [mes, anio],
+    );
 
-        res.json(remisiones);
+    res.json(remisiones);
+  } catch (error) {
+    console.error("Error obteniendo últimas remisiones:", error);
 
-    } catch (error) {
+    res.status(500).json({
+      mensaje: "Error obteniendo últimas remisiones.",
 
-        console.error(
-            "Error obteniendo últimas remisiones:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje: "Error obteniendo últimas remisiones.",
-
-            error: error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -1482,10 +1934,8 @@ app.get("/inicio/ultimas-remisiones", async (req, res) => {
 ========================= */
 
 app.get("/inicio/cartera-por-vencer", async (req, res) => {
-
-    try {
-
-        const [cartera] = await db.query(`
+  try {
+    const [cartera] = await db.query(`
 
             SELECT
 
@@ -1543,30 +1993,16 @@ app.get("/inicio/cartera-por-vencer", async (req, res) => {
 
         `);
 
+    res.json(cartera);
+  } catch (error) {
+    console.error("Error obteniendo cartera por vencer:", error);
 
-        res.json(cartera);
+    res.status(500).json({
+      mensaje: "Error obteniendo cartera por vencer.",
 
-
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo cartera por vencer:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "Error obteniendo cartera por vencer.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -1574,10 +2010,8 @@ app.get("/inicio/cartera-por-vencer", async (req, res) => {
 ========================= */
 
 app.get("/inicio/cartera-vencida", async (req, res) => {
-
-    try {
-
-        const [cartera] = await db.query(`
+  try {
+    const [cartera] = await db.query(`
 
             SELECT
 
@@ -1631,44 +2065,27 @@ app.get("/inicio/cartera-vencida", async (req, res) => {
 
         `);
 
+    res.json(cartera);
+  } catch (error) {
+    console.error("Error obteniendo cartera vencida:", error);
 
-        res.json(cartera);
+    res.status(500).json({
+      mensaje: "Error obteniendo cartera vencida.",
 
-
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo cartera vencida:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "Error obteniendo cartera vencida.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
+  try {
+    const { id_usuario } = req.params;
 
-    try {
-
-        const { id_usuario } = req.params;
-
-
-        /* =========================================
+    /* =========================================
            BUSCAR REMISIONES CON MÁS DE 30 DÍAS
         ========================================= */
 
-        const [remisionesVencidas] = await db.query(`
+    const [remisionesVencidas] = await db.query(`
 
             SELECT
 
@@ -1711,14 +2128,13 @@ app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
 
         `);
 
-
-        /* =========================================
+    /* =========================================
            CREAR NOTIFICACIONES QUE NO EXISTAN
         ========================================= */
 
-        for (const remision of remisionesVencidas) {
-
-            const [existente] = await db.query(`
+    for (const remision of remisionesVencidas) {
+      const [existente] = await db.query(
+        `
 
                 SELECT id_notificacion
 
@@ -1729,17 +2145,13 @@ app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
 
                 LIMIT 1
 
-            `, [
+            `,
+        [id_usuario, remision.id_remision],
+      );
 
-                id_usuario,
-                remision.id_remision
-
-            ]);
-
-
-            if (existente.length === 0) {
-
-                await db.query(`
+      if (existente.length === 0) {
+        await db.query(
+          `
 
                     INSERT INTO notificaciones (
 
@@ -1754,34 +2166,30 @@ app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
 
                     VALUES (?, ?, ?, ?, ?, 0)
 
-                `, [
+                `,
+          [
+            id_usuario,
 
-                    id_usuario,
+            remision.id_remision,
 
-                    remision.id_remision,
+            "alerta",
 
-                    "alerta",
+            "Cartera vencida",
 
-                    "Cartera vencida",
+            `${remision.cliente} tiene la remisión ` +
+              `${remision.numero_remision} con un saldo pendiente de ` +
+              `$${Number(remision.saldo_pendiente).toLocaleString("es-CO")}.`,
+          ],
+        );
+      }
+    }
 
-                    `${remision.cliente} tiene la remisión ` +
-                    `${remision.numero_remision} con un saldo pendiente de ` +
-                    `$${Number(
-                        remision.saldo_pendiente
-                    ).toLocaleString("es-CO")}.`
-
-                ]);
-
-            }
-
-        }
-
-
-        /* =========================================
+    /* =========================================
            OBTENER NOTIFICACIONES DEL USUARIO
         ========================================= */
 
-        const [notificaciones] = await db.query(`
+    const [notificaciones] = await db.query(
+      `
 
             SELECT
 
@@ -1837,45 +2245,28 @@ app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
             ORDER BY
                 r.fecha ASC
 
-        `, [
+        `,
+      [id_usuario],
+    );
 
-            id_usuario
+    res.json(notificaciones);
+  } catch (error) {
+    console.error("Error obteniendo notificaciones:", error);
 
-        ]);
+    res.status(500).json({
+      mensaje: "Error obteniendo notificaciones.",
 
-
-        res.json(notificaciones);
-
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo notificaciones:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje:
-                "Error obteniendo notificaciones.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
-app.put(
-    "/notificaciones/:id_notificacion/leida",
-    async (req, res) => {
+app.put("/notificaciones/:id_notificacion/leida", async (req, res) => {
+  try {
+    const { id_notificacion } = req.params;
 
-        try {
-
-            const { id_notificacion } = req.params;
-
-            await db.query(`
+    await db.query(
+      `
 
                 UPDATE notificaciones
 
@@ -1883,58 +2274,37 @@ app.put(
 
                 WHERE id_notificacion = ?
 
-            `, [
+            `,
+      [id_notificacion],
+    );
 
-                id_notificacion
+    res.json({
+      mensaje: "Notificación marcada como leída.",
+    });
+  } catch (error) {
+    console.error("Error marcando notificación como leída:", error);
 
-            ]);
-
-
-            res.json({
-
-                mensaje:
-                    "Notificación marcada como leída."
-
-            });
-
-        } catch (error) {
-
-            console.error(
-                "Error marcando notificación como leída:",
-                error
-            );
-
-            res.status(500).json({
-
-                mensaje:
-                    "Error marcando notificación como leída."
-
-            });
-
-        }
-
-    }
-);
+    res.status(500).json({
+      mensaje: "Error marcando notificación como leída.",
+    });
+  }
+});
 /* =========================
    INICIO - RENDIMIENTO COMERCIALES
 ========================= */
 
 app.get("/inicio/rendimiento-comerciales", async (req, res) => {
+  try {
+    const { mes, anio } = req.query;
 
-    try {
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "Debes indicar mes y año.",
+      });
+    }
 
-        const { mes, anio } = req.query;
-
-        if (!mes || !anio) {
-
-            return res.status(400).json({
-                mensaje: "Debes indicar mes y año."
-            });
-
-        }
-
-
-        const [comerciales] = await db.query(`
+    const [comerciales] = await db.query(
+      `
 
             SELECT
 
@@ -1973,29 +2343,20 @@ app.get("/inicio/rendimiento-comerciales", async (req, res) => {
 
             LIMIT 10
 
-        `, [mes, anio]);
+        `,
+      [mes, anio],
+    );
 
+    res.json(comerciales);
+  } catch (error) {
+    console.error("Error obteniendo rendimiento de comerciales:", error);
 
-        res.json(comerciales);
+    res.status(500).json({
+      mensaje: "Error obteniendo rendimiento de comerciales.",
 
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo rendimiento de comerciales:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje:
-                "Error obteniendo rendimiento de comerciales.",
-
-            error: error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 // ================================
@@ -2003,13 +2364,11 @@ app.get("/inicio/rendimiento-comerciales", async (req, res) => {
 // ================================
 
 app.get("/clientes/buscar/:texto", async (req, res) => {
+  try {
+    const texto = `%${req.params.texto}%`;
 
-    try {
-
-        const texto = `%${req.params.texto}%`;
-
-        const [clientes] = await db.query(
-            `
+    const [clientes] = await db.query(
+      `
             SELECT
                 id_cliente,
                 nombre,
@@ -2030,29 +2389,18 @@ app.get("/clientes/buscar/:texto", async (req, res) => {
             ORDER BY nombre ASC
             LIMIT 10
             `,
-            [
-                texto,
-                texto,
-                texto
-            ]
-        );
+      [texto, texto, texto],
+    );
 
-        res.json(clientes);
+    res.json(clientes);
+  } catch (error) {
+    console.error("Error buscando clientes:", error);
 
-    } catch (error) {
-
-        console.error(
-            "Error buscando clientes:",
-            error
-        );
-
-        res.status(500).json({
-            mensaje: "Error buscando clientes.",
-            error: error.message
-        });
-
-    }
-
+    res.status(500).json({
+      mensaje: "Error buscando clientes.",
+      error: error.message,
+    });
+  }
 });
 
 // ================================
@@ -2060,28 +2408,18 @@ app.get("/clientes/buscar/:texto", async (req, res) => {
 // ================================
 
 app.post("/clientes", async (req, res) => {
+  try {
+    const { nombre, tipo_documento, documento, telefono, correo, direccion } =
+      req.body;
 
-    try {
+    if (!nombre || !tipo_documento || !documento) {
+      return res.status(400).json({
+        mensaje: "Nombre, tipo de documento y documento son obligatorios.",
+      });
+    }
 
-        const {
-            nombre,
-            tipo_documento,
-            documento,
-            telefono,
-            correo,
-            direccion
-        } = req.body;
-
-        if (!nombre || !tipo_documento || !documento) {
-
-            return res.status(400).json({
-                mensaje: "Nombre, tipo de documento y documento son obligatorios."
-            });
-
-        }
-
-        const [resultado] = await db.query(
-            `
+    const [resultado] = await db.query(
+      `
             INSERT INTO clientes (
                 nombre,
                 tipo_documento,
@@ -2092,43 +2430,34 @@ app.post("/clientes", async (req, res) => {
             )
             VALUES (?, ?, ?, ?, ?, ?)
             `,
-            [
-                nombre.trim(),
-                tipo_documento,
-                documento.trim(),
-                telefono?.trim() || null,
-                correo?.trim() || null,
-                direccion?.trim() || null
-            ]
-        );
+      [
+        nombre.trim(),
+        tipo_documento,
+        documento.trim(),
+        telefono?.trim() || null,
+        correo?.trim() || null,
+        direccion?.trim() || null,
+      ],
+    );
 
-        res.status(201).json({
-            mensaje: "Cliente creado correctamente.",
-            id_cliente: resultado.insertId
-        });
+    res.status(201).json({
+      mensaje: "Cliente creado correctamente.",
+      id_cliente: resultado.insertId,
+    });
+  } catch (error) {
+    console.error("Error creando cliente:", error);
 
-    } catch (error) {
-
-        console.error(
-            "Error creando cliente:",
-            error
-        );
-
-        if (error.code === "ER_DUP_ENTRY") {
-
-            return res.status(409).json({
-                mensaje: "Ya existe un cliente con ese documento."
-            });
-
-        }
-
-        res.status(500).json({
-            mensaje: "Error creando cliente.",
-            error: error.message
-        });
-
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        mensaje: "Ya existe un cliente con ese documento.",
+      });
     }
 
+    res.status(500).json({
+      mensaje: "Error creando cliente.",
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -2136,10 +2465,8 @@ app.post("/clientes", async (req, res) => {
 ========================= */
 
 app.get("/comerciales", async (req, res) => {
-
-    try {
-
-        const [comerciales] = await db.query(`
+  try {
+    const [comerciales] = await db.query(`
 
             SELECT
                 id_comercial,
@@ -2153,24 +2480,503 @@ app.get("/comerciales", async (req, res) => {
 
         `);
 
-        res.json(comerciales);
+    res.json(comerciales);
+  } catch (error) {
+    console.error("Error obteniendo comerciales:", error);
 
-    } catch (error) {
+    res.status(500).json({
+      mensaje: "Error obteniendo comerciales.",
+      error: error.message,
+    });
+  }
+});
 
-        console.error(
-            "Error obteniendo comerciales:",
-            error
-        );
+// ================================
+// LISTAR Y BUSCAR CLIENTES
+// ================================
 
-        res.status(500).json({
+app.get("/clientes", async (req, res) => {
+  try {
+    const pagina = Math.max(Number(req.query.page) || 1, 1);
 
-            mensaje: "Error obteniendo comerciales.",
-            error: error.message
+    const limite = 20;
 
-        });
+    const offset = (pagina - 1) * limite;
 
+    const busqueda = (req.query.busqueda || "").trim();
+
+    // ================================
+    // CONDICIÓN DE BÚSQUEDA
+    // ================================
+
+    let where = "";
+    let parametrosBusqueda = [];
+
+    if (busqueda) {
+      where = `
+                WHERE
+                    nombre LIKE ?
+                    OR documento LIKE ?
+                    OR telefono LIKE ?
+            `;
+
+      const texto = `%${busqueda}%`;
+
+      parametrosBusqueda = [texto, texto, texto];
     }
 
+    // ================================
+    // TOTAL
+    // ================================
+
+    const [[resultadoTotal]] = await db.query(
+      `
+                SELECT COUNT(*) AS total
+                FROM clientes
+                ${where}
+                `,
+      parametrosBusqueda,
+    );
+
+    const total = Number(resultadoTotal.total) || 0;
+
+    // ================================
+    // CLIENTES
+    // ================================
+
+    const [clientes] = await db.query(
+      `
+                SELECT
+                    id_cliente,
+                    nombre,
+                    tipo_documento,
+                    documento,
+                    ciudad,
+                    telefono,
+                    correo,
+                    direccion,
+                    activo
+                FROM clientes
+                ${where}
+                ORDER BY nombre ASC
+                LIMIT ? OFFSET ?
+                `,
+      [...parametrosBusqueda, limite, offset],
+    );
+
+    // ================================
+    // RESPUESTA
+    // ================================
+
+    res.json({
+      clientes,
+
+      total,
+
+      pagina,
+
+      limite,
+
+      totalPaginas: Math.ceil(total / limite),
+    });
+  } catch (error) {
+    console.error("Error obteniendo clientes:", error);
+
+    res.status(500).json({
+      mensaje: "Error obteniendo clientes.",
+
+      error: error.message,
+    });
+  }
+});
+
+// ================================
+// ACTUALIZAR CLIENTE
+// ================================
+
+app.put("/clientes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      nombre,
+      tipo_documento,
+      documento,
+      ciudad,
+      telefono,
+      correo,
+      direccion,
+    } = req.body;
+
+    if (!nombre || !tipo_documento || !documento) {
+      return res.status(400).json({
+        mensaje: "Nombre, tipo de documento y documento son obligatorios.",
+      });
+    }
+
+    const [resultado] = await db.query(
+      `
+            UPDATE clientes
+            SET
+                nombre = ?,
+                tipo_documento = ?,
+                documento = ?,
+                ciudad = ?,
+                telefono = ?,
+                correo = ?,
+                direccion = ?
+            WHERE id_cliente = ?
+        `,
+      [
+        nombre.trim(),
+        tipo_documento,
+        documento.trim(),
+        ciudad?.trim() || null,
+        telefono?.trim() || null,
+        correo?.trim() || null,
+        direccion?.trim() || null,
+        id,
+      ],
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({
+        mensaje: "Cliente no encontrado.",
+      });
+    }
+
+    res.json({
+      mensaje: "Cliente actualizado correctamente.",
+    });
+  } catch (error) {
+    console.error("Error actualizando cliente:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        mensaje: "Ya existe otro cliente con ese documento.",
+      });
+    }
+
+    res.status(500).json({
+      mensaje: "Error actualizando cliente.",
+      error: error.message,
+    });
+  }
+});
+
+// ================================
+// DESACTIVAR CLIENTE
+// ================================
+
+app.delete("/clientes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [resultado] = await db.query(
+      `
+            UPDATE clientes
+            SET activo = 0
+            WHERE id_cliente = ?
+        `,
+      [id],
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({
+        mensaje: "Cliente no encontrado.",
+      });
+    }
+
+    res.json({
+      mensaje: "Cliente desactivado correctamente.",
+    });
+  } catch (error) {
+    console.error("Error desactivando cliente:", error);
+
+    res.status(500).json({
+      mensaje: "Error desactivando cliente.",
+      error: error.message,
+    });
+  }
+});
+
+/* =========================
+   AUDITORÍA
+========================= */
+
+app.get("/auditoria", async (req, res) => {
+  try {
+    const [registros] = await db.query(`
+            SELECT
+                a.id_auditoria,
+                a.id_usuario,
+                u.nombre AS usuario,
+                u.rol,
+                a.accion,
+                a.modulo,
+                a.id_referencia,
+                a.descripcion,
+                a.fecha
+
+            FROM auditoria a
+
+            LEFT JOIN usuarios u
+                ON a.id_usuario = u.id_usuario
+
+            ORDER BY a.fecha DESC
+        `);
+
+    res.json(registros);
+  } catch (error) {
+    console.error("Error obteniendo auditoría:", error);
+
+    res.status(500).json({
+      mensaje: "Error obteniendo registros de auditoría.",
+      error: error.message,
+    });
+  }
+});
+
+/* =========================
+   ADMINISTRAR PRODUCTOS
+========================= */
+
+/* =========================
+   LISTAR PRODUCTOS
+   CON PAGINACIÓN Y BÚSQUEDA
+========================= */
+
+app.get("/productos", async (req, res) => {
+  try {
+    const pagina = Math.max(parseInt(req.query.page) || 1, 1);
+
+    const limite = 20;
+
+    const busqueda = String(req.query.busqueda || "").trim();
+
+    const offset = (pagina - 1) * limite;
+
+    /* =========================
+           CONDICIONES
+        ========================= */
+
+    let where = "";
+    const parametros = [];
+
+    if (busqueda) {
+      where = `
+                WHERE
+                    codigo LIKE ?
+                    OR nombre LIKE ?
+                    OR linea LIKE ?
+            `;
+
+      const texto = `%${busqueda}%`;
+
+      parametros.push(texto, texto, texto);
+    }
+
+    /* =========================
+           TOTAL DE PRODUCTOS
+        ========================= */
+
+    const [totalResultado] = await db.query(
+      `
+                SELECT COUNT(*) AS total
+                FROM productos
+                ${where}
+                `,
+      parametros,
+    );
+
+    const total = Number(totalResultado[0].total) || 0;
+
+    const totalPaginas = Math.ceil(total / limite);
+
+    /* =========================
+           PRODUCTOS DE LA PÁGINA
+        ========================= */
+
+    const [productos] = await db.query(
+      `
+                SELECT
+                    id_producto,
+                    codigo,
+                    nombre,
+                    linea,
+                    precio_lista,
+                    activo
+                FROM productos
+                ${where}
+                ORDER BY nombre ASC
+                LIMIT ? OFFSET ?
+                `,
+      [...parametros, limite, offset],
+    );
+
+    res.json({
+      productos,
+      total,
+      totalPaginas,
+      pagina,
+    });
+  } catch (error) {
+    console.error("Error obteniendo productos:", error);
+
+    res.status(500).json({
+      mensaje: "Error obteniendo productos.",
+      error: error.message,
+    });
+  }
+});
+
+/* =========================
+   CREAR PRODUCTO
+========================= */
+
+app.post("/productos", async (req, res) => {
+  try {
+    const { codigo, nombre, linea, precio_lista } = req.body;
+
+    if (!codigo || !nombre) {
+      return res.status(400).json({
+        mensaje: "Código y nombre son obligatorios.",
+      });
+    }
+
+    const [resultado] = await db.query(
+      `
+            INSERT INTO productos (
+                codigo,
+                nombre,
+                linea,
+                precio_lista,
+                activo
+            )
+            VALUES (?, ?, ?, ?, 1)
+        `,
+      [
+        codigo.trim(),
+        nombre.trim(),
+        linea?.trim() || null,
+        Number(precio_lista) || 0,
+      ],
+    );
+
+    res.status(201).json({
+      mensaje: "Producto creado correctamente.",
+      id_producto: resultado.insertId,
+    });
+  } catch (error) {
+    console.error("Error creando producto:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        mensaje: "Ya existe un producto con ese código.",
+      });
+    }
+
+    res.status(500).json({
+      mensaje: "Error creando producto.",
+      error: error.message,
+    });
+  }
+});
+
+/* =========================
+   ACTUALIZAR PRODUCTO
+========================= */
+
+app.put("/productos/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { codigo, nombre, linea, precio_lista } = req.body;
+
+    if (!codigo || !nombre) {
+      return res.status(400).json({
+        mensaje: "Código y nombre son obligatorios.",
+      });
+    }
+
+    const [resultado] = await db.query(
+      `
+            UPDATE productos
+            SET
+                codigo = ?,
+                nombre = ?,
+                linea = ?,
+                precio_lista = ?
+            WHERE id_producto = ?
+        `,
+      [
+        codigo.trim(),
+        nombre.trim(),
+        linea?.trim() || null,
+        Number(precio_lista) || 0,
+        id,
+      ],
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({
+        mensaje: "Producto no encontrado.",
+      });
+    }
+
+    res.json({
+      mensaje: "Producto actualizado correctamente.",
+    });
+  } catch (error) {
+    console.error("Error actualizando producto:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        mensaje: "Ya existe otro producto con ese código.",
+      });
+    }
+
+    res.status(500).json({
+      mensaje: "Error actualizando producto.",
+      error: error.message,
+    });
+  }
+});
+
+/* =========================
+   DESACTIVAR PRODUCTO
+========================= */
+
+app.delete("/productos/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [resultado] = await db.query(
+      `
+            UPDATE productos
+            SET activo = 0
+            WHERE id_producto = ?
+        `,
+      [id],
+    );
+
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({
+        mensaje: "Producto no encontrado.",
+      });
+    }
+
+    res.json({
+      mensaje: "Producto desactivado correctamente.",
+    });
+  } catch (error) {
+    console.error("Error desactivando producto:", error);
+
+    res.status(500).json({
+      mensaje: "Error desactivando producto.",
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -2178,12 +2984,11 @@ app.get("/comerciales", async (req, res) => {
 ========================= */
 
 app.get("/productos/codigo/:codigo", async (req, res) => {
+  try {
+    const { codigo } = req.params;
 
-    try {
-
-        const { codigo } = req.params;
-
-        const [productos] = await db.query(`
+    const [productos] = await db.query(
+      `
 
             SELECT
                 id_producto,
@@ -2200,39 +3005,26 @@ app.get("/productos/codigo/:codigo", async (req, res) => {
 
             LIMIT 1
 
-        `, [codigo]);
+        `,
+      [codigo],
+    );
 
-
-        if (productos.length === 0) {
-
-            return res.status(404).json({
-
-                mensaje: "No se encontró un producto con ese código."
-
-            });
-
-        }
-
-
-        res.json(productos[0]);
-
-    } catch (error) {
-
-        console.error(
-            "Error buscando producto:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje: "Error buscando el producto.",
-
-            error: error.message
-
-        });
-
+    if (productos.length === 0) {
+      return res.status(404).json({
+        mensaje: "No se encontró un producto con ese código.",
+      });
     }
 
+    res.json(productos[0]);
+  } catch (error) {
+    console.error("Error buscando producto:", error);
+
+    res.status(500).json({
+      mensaje: "Error buscando el producto.",
+
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -2240,16 +3032,15 @@ app.get("/productos/codigo/:codigo", async (req, res) => {
 ========================= */
 
 app.get("/productos/buscar-codigo/:texto", async (req, res) => {
+  try {
+    const { texto } = req.params;
 
-    try {
+    if (!texto.trim()) {
+      return res.json([]);
+    }
 
-        const { texto } = req.params;
-
-        if (!texto.trim()) {
-            return res.json([]);
-        }
-
-        const [productos] = await db.query(`
+    const [productos] = await db.query(
+      `
 
             SELECT
                 id_producto,
@@ -2267,27 +3058,20 @@ app.get("/productos/buscar-codigo/:texto", async (req, res) => {
 
             LIMIT 10
 
-        `, [`${texto}%`]);
+        `,
+      [`${texto}%`],
+    );
 
-        res.json(productos);
+    res.json(productos);
+  } catch (error) {
+    console.error("Error buscando productos por código:", error);
 
-    } catch (error) {
+    res.status(500).json({
+      mensaje: "Error buscando productos.",
 
-        console.error(
-            "Error buscando productos por código:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje: "Error buscando productos.",
-
-            error: error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -2295,12 +3079,11 @@ app.get("/productos/buscar-codigo/:texto", async (req, res) => {
 ========================= */
 
 app.get("/productos/buscar-nombre/:texto", async (req, res) => {
+  try {
+    const { texto } = req.params;
 
-    try {
-
-        const { texto } = req.params;
-
-        const [productos] = await db.query(`
+    const [productos] = await db.query(
+      `
             SELECT
                 id_producto,
                 codigo,
@@ -2312,21 +3095,50 @@ app.get("/productos/buscar-nombre/:texto", async (req, res) => {
               AND nombre LIKE ?
             ORDER BY nombre ASC
             LIMIT 10
-        `, [`%${texto}%`]);
+        `,
+      [`%${texto}%`],
+    );
 
-        res.json(productos);
+    res.json(productos);
+  } catch (error) {
+    console.error("Error buscando productos por nombre:", error);
 
-    } catch (error) {
+    res.status(500).json({
+      mensaje: "Error buscando productos.",
+      error: error.message,
+    });
+  }
+});
 
-        console.error("Error buscando productos por nombre:", error);
+/* =========================
+   LÍNEAS DE PRODUCTOS
+========================= */
 
-        res.status(500).json({
-            mensaje: "Error buscando productos.",
-            error: error.message
-        });
+app.get("/productos/lineas", async (req, res) => {
+  try {
+    const [lineas] = await db.query(`
 
-    }
+            SELECT DISTINCT
+                TRIM(linea) AS linea
 
+            FROM productos
+
+            WHERE linea IS NOT NULL
+              AND TRIM(linea) <> ''
+
+            ORDER BY linea ASC
+
+        `);
+
+    res.json(lineas);
+  } catch (error) {
+    console.error("Error obteniendo líneas:", error);
+
+    res.status(500).json({
+      mensaje: "Error obteniendo las líneas de productos.",
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -2334,17 +3146,10 @@ app.get("/productos/buscar-nombre/:texto", async (req, res) => {
 ========================= */
 
 app.get("/cartera", async (req, res) => {
+  try {
+    const { comercial, estado, busqueda } = req.query;
 
-    try {
-
-        const {
-            comercial,
-            estado,
-            busqueda
-        } = req.query;
-
-
-        let sql = `
+    let sql = `
 
             SELECT
 
@@ -2465,35 +3270,26 @@ AND COALESCE(
 
         `;
 
+    const parametros = [];
 
-        const parametros = [];
-
-
-        /* =========================
+    /* =========================
            FILTRO POR COMERCIAL
         ========================= */
 
-        if (comercial) {
-
-            sql += `
+    if (comercial) {
+      sql += `
                 AND r.id_comercial = ?
             `;
 
-            parametros.push(
-                comercial
-            );
+      parametros.push(comercial);
+    }
 
-        }
-
-
-        /* =========================
+    /* =========================
            FILTRO POR ESTADO
         ========================= */
 
-
-        if (estado === "AL_DIA") {
-
-            sql += `
+    if (estado === "AL_DIA") {
+      sql += `
 
                 AND COALESCE(
                     r.saldo_pendiente,
@@ -2506,13 +3302,10 @@ AND COALESCE(
                 ) <= 30
 
             `;
+    }
 
-        }
-
-
-        if (estado === "SEGUIMIENTO") {
-
-            sql += `
+    if (estado === "SEGUIMIENTO") {
+      sql += `
 
                 AND COALESCE(
                     r.saldo_pendiente,
@@ -2530,13 +3323,10 @@ AND COALESCE(
                 ) <= 45
 
             `;
+    }
 
-        }
-
-
-        if (estado === "VENCIDA") {
-
-            sql += `
+    if (estado === "VENCIDA") {
+      sql += `
 
                 AND COALESCE(
                     r.saldo_pendiente,
@@ -2549,17 +3339,14 @@ AND COALESCE(
                 ) > 45
 
             `;
+    }
 
-        }
-
-
-        /* =========================
+    /* =========================
            BÚSQUEDA
         ========================= */
 
-        if (busqueda) {
-
-            sql += `
+    if (busqueda) {
+      sql += `
 
                 AND (
 
@@ -2573,29 +3360,22 @@ AND COALESCE(
 
             `;
 
+      const texto = `%${busqueda}%`;
 
-            const texto =
-                `%${busqueda}%`;
+      parametros.push(
+        texto,
 
+        texto,
 
-            parametros.push(
+        texto,
+      );
+    }
 
-                texto,
-
-                texto,
-
-                texto
-
-            );
-
-        }
-
-
-        /* =========================
+    /* =========================
            ORDEN
         ========================= */
 
-        sql += `
+    sql += `
 
             ORDER BY
 
@@ -2605,55 +3385,29 @@ AND COALESCE(
 
         `;
 
-const [cartera] =
-    await db.query(
-        sql,
-        parametros
-    );
+    const [cartera] = await db.query(sql, parametros);
 
-console.log(
-    "CARTERA CON ABONOS:",
-    cartera
-);
+    console.log("CARTERA CON ABONOS:", cartera);
 
-res.json(cartera);
+    res.json(cartera);
+  } catch (error) {
+    console.error("Error cargando cartera:", error);
 
+    res.status(500).json({
+      mensaje: "Error cargando la cartera.",
 
-    } catch (error) {
-
-        console.error(
-            "Error cargando cartera:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "Error cargando la cartera.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 /* =========================
    DATOS PARA EXPORTAR CARTERA
 ========================= */
 
-app.get(
-    "/exportaciones/cartera",
-    async (req, res) => {
-
-        try {
-
-            const [cartera] =
-                await db.query(
-
-                    `
+app.get("/exportaciones/cartera", async (req, res) => {
+  try {
+    const [cartera] = await db.query(
+      `
 
                     SELECT
 
@@ -2784,133 +3538,81 @@ app.get(
 
                         r.id_remision ASC
 
-                    `
+                    `,
+    );
 
-                );
+    console.log("CARTERA ACTUAL PARA EXPORTACIÓN:", cartera);
 
+    res.json(cartera);
+  } catch (error) {
+    console.error("Error obteniendo datos para exportar cartera:", error);
 
-            console.log(
-                "CARTERA ACTUAL PARA EXPORTACIÓN:",
-                cartera
-            );
+    res.status(500).json({
+      mensaje: "No se pudieron obtener los datos de cartera.",
 
-
-            res.json(cartera);
-
-
-        } catch (error) {
-
-            console.error(
-                "Error obteniendo datos para exportar cartera:",
-                error
-            );
-
-
-            res.status(500).json({
-
-                mensaje:
-                    "No se pudieron obtener los datos de cartera.",
-
-                error:
-                    error.message
-
-            });
-
-        }
-
-    }
-);
+      error: error.message,
+    });
+  }
+});
 
 /* =========================
    DATOS PARA REPORTE GENERAL
 ========================= */
 
-app.get(
-    "/exportaciones/general",
-    async (req, res) => {
+app.get("/exportaciones/general", async (req, res) => {
+  try {
+    const { periodo } = req.query;
 
-        try {
-
-            const {
-                periodo
-            } = req.query;
-
-
-            /* =========================
+    /* =========================
                VALIDAR PERÍODO
             ========================= */
 
-            if (!periodo) {
+    if (!periodo) {
+      return res.status(400).json({
+        mensaje: "Debes enviar un período.",
+      });
+    }
 
-                return res.status(400).json({
-
-                    mensaje:
-                        "Debes enviar un período."
-
-                });
-
-            }
-
-
-            /* =========================
+    /* =========================
                CONVERTIR MES A NÚMERO
             ========================= */
 
-            const meses = {
+    const meses = {
+      Enero: 1,
+      Febrero: 2,
+      Marzo: 3,
+      Abril: 4,
+      Mayo: 5,
+      Junio: 6,
+      Julio: 7,
+      Agosto: 8,
+      Septiembre: 9,
+      Octubre: 10,
+      Noviembre: 11,
+      Diciembre: 12,
+    };
 
-                Enero: 1,
-                Febrero: 2,
-                Marzo: 3,
-                Abril: 4,
-                Mayo: 5,
-                Junio: 6,
-                Julio: 7,
-                Agosto: 8,
-                Septiembre: 9,
-                Octubre: 10,
-                Noviembre: 11,
-                Diciembre: 12
+    const partes = periodo.trim().split(" ");
 
-            };
+    const nombreMes = partes[0];
 
+    const anio = Number(partes[1]);
 
-            const partes =
-                periodo.trim().split(" ");
+    const mes = meses[nombreMes];
 
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "El período recibido no es válido.",
+      });
+    }
 
-            const nombreMes =
-                partes[0];
-
-
-            const anio =
-                Number(partes[1]);
-
-
-            const mes =
-                meses[nombreMes];
-
-
-            if (!mes || !anio) {
-
-                return res.status(400).json({
-
-                    mensaje:
-                        "El período recibido no es válido."
-
-                });
-
-            }
-
-
-            /* =========================
+    /* =========================
                CONSULTAR REMISIONES
                DEL PERÍODO
             ========================= */
 
-            const [remisiones] =
-                await db.query(
-
-                    `
+    const [remisiones] = await db.query(
+      `
 
                     SELECT
 
@@ -2966,70 +3668,37 @@ app.get(
 
                     `,
 
-                    [
+      [mes, anio],
+    );
 
-                        mes,
-                        anio
+    console.log(`REPORTE GENERAL ${periodo}:`, remisiones);
 
-                    ]
+    res.json({
+      periodo,
 
-                );
+      cantidad_remisiones: remisiones.length,
 
+      remisiones,
+    });
+  } catch (error) {
+    console.error("Error obteniendo reporte general:", error);
 
-            console.log(
-                `REPORTE GENERAL ${periodo}:`,
-                remisiones
-            );
+    res.status(500).json({
+      mensaje: "No se pudo obtener el reporte general.",
 
-
-            res.json({
-
-                periodo,
-
-                cantidad_remisiones:
-                    remisiones.length,
-
-                remisiones
-
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "Error obteniendo reporte general:",
-                error
-            );
-
-
-            res.status(500).json({
-
-                mensaje:
-                    "No se pudo obtener el reporte general.",
-
-                error:
-                    error.message
-
-            });
-
-        }
-
-    }
-);
+      error: error.message,
+    });
+  }
+});
 /* =========================
    KPIs DE CARTERA
 ========================= */
 
 app.get("/cartera/kpis", async (req, res) => {
+  try {
+    const { comercial } = req.query;
 
-    try {
-
-        const {
-            comercial
-        } = req.query;
-
-
-        let sql = `
+    let sql = `
 
             SELECT
 
@@ -3157,62 +3826,34 @@ app.get("/cartera/kpis", async (req, res) => {
 
         `;
 
+    const parametros = [];
 
-        const parametros = [];
-
-
-        /* =========================
+    /* =========================
            FILTRO POR COMERCIAL
         ========================= */
 
-        if (comercial) {
-
-            sql += `
+    if (comercial) {
+      sql += `
 
                 AND r.id_comercial = ?
 
             `;
 
-
-            parametros.push(
-                comercial
-            );
-
-        }
-
-
-        const [resultado] =
-            await db.query(
-                sql,
-                parametros
-            );
-
-
-        res.json(
-            resultado[0]
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Error cargando KPIs de cartera:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "No se pudieron cargar los indicadores de cartera.",
-
-            error:
-                error.message
-
-        });
-
+      parametros.push(comercial);
     }
 
+    const [resultado] = await db.query(sql, parametros);
+
+    res.json(resultado[0]);
+  } catch (error) {
+    console.error("Error cargando KPIs de cartera:", error);
+
+    res.status(500).json({
+      mensaje: "No se pudieron cargar los indicadores de cartera.",
+
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -3222,10 +3863,8 @@ app.get("/cartera/kpis", async (req, res) => {
 /* OBTENER USUARIOS */
 
 app.get("/usuarios", async (req, res) => {
-
-    try {
-
-        const [usuarios] = await db.query(`
+  try {
+    const [usuarios] = await db.query(`
 
             SELECT
                 id_usuario,
@@ -3241,93 +3880,56 @@ app.get("/usuarios", async (req, res) => {
 
         `);
 
-        res.json(usuarios);
+    res.json(usuarios);
+  } catch (error) {
+    console.error("Error obteniendo usuarios:", error);
 
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo usuarios:",
-            error
-        );
-
-        res.status(500).json({
-            mensaje: "Error obteniendo los usuarios."
-        });
-
-    }
-
+    res.status(500).json({
+      mensaje: "Error obteniendo los usuarios.",
+    });
+  }
 });
 /* CREAR USUARIO */
 
 app.post("/usuarios", async (req, res) => {
+  try {
+    const { nombre, usuario, password, rol, activo } = req.body;
 
-    try {
+    console.log("DATOS RECIBIDOS PARA CREAR USUARIO:", req.body);
 
-        const {
-            nombre,
-            usuario,
-            password,
-            rol,
-            activo
-        } = req.body;
+    /* VALIDAR DATOS */
 
+    if (!nombre || !usuario || !password || !rol) {
+      return res.status(400).json({
+        mensaje: "Todos los campos son obligatorios.",
+      });
+    }
 
-        console.log(
-            "DATOS RECIBIDOS PARA CREAR USUARIO:",
-            req.body
-        );
+    /* VALIDAR USUARIO DUPLICADO */
 
-
-        /* VALIDAR DATOS */
-
-        if (
-            !nombre ||
-            !usuario ||
-            !password ||
-            !rol
-        ) {
-
-            return res.status(400).json({
-                mensaje: "Todos los campos son obligatorios."
-            });
-
-        }
-
-
-        /* VALIDAR USUARIO DUPLICADO */
-
-        const [usuarioExistente] =
-            await db.query(
-                `
+    const [usuarioExistente] = await db.query(
+      `
                 SELECT id_usuario
                 FROM usuarios
                 WHERE usuario = ?
                 `,
-                [usuario]
-            );
+      [usuario],
+    );
 
+    if (usuarioExistente.length > 0) {
+      return res.status(409).json({
+        mensaje: "Ya existe un usuario con este nombre de usuario.",
+      });
+    }
 
-        if (usuarioExistente.length > 0) {
+    /* ENCRIPTAR CONTRASEÑA */
 
-            return res.status(409).json({
-                mensaje:
-                    "Ya existe un usuario con este nombre de usuario."
-            });
+    const passwordHash = await bcrypt.hash(password, 10);
 
-        }
+    /* CREAR USUARIO */
 
-
-        /* ENCRIPTAR CONTRASEÑA */
-
-        const passwordHash =
-            await bcrypt.hash(password, 10);
-
-
-        /* CREAR USUARIO */
-
-        const [resultado] =
-            await db.query(
-                `
+    const [resultado] = await db.query(
+      `
                 INSERT INTO usuarios (
                     nombre,
                     usuario,
@@ -3337,58 +3939,33 @@ app.post("/usuarios", async (req, res) => {
                 )
                 VALUES (?, ?, ?, ?, ?)
                 `,
-                [
-                    nombre,
-                    usuario,
-                    passwordHash,
-                    rol,
-                    activo
-                ]
-            );
+      [nombre, usuario, passwordHash, rol, activo],
+    );
 
+    res.status(201).json({
+      mensaje: "Usuario creado correctamente.",
 
-        res.status(201).json({
+      usuario: {
+        id_usuario: resultado.insertId,
 
-            mensaje:
-                "Usuario creado correctamente.",
+        nombre,
 
-            usuario: {
+        usuario,
 
-                id_usuario:
-                    resultado.insertId,
+        rol,
 
-                nombre,
+        activo,
+      },
+    });
+  } catch (error) {
+    console.error("Error creando usuario:", error);
 
-                usuario,
+    res.status(500).json({
+      mensaje: "Error creando el usuario.",
 
-                rol,
-
-                activo
-
-            }
-
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Error creando usuario:",
-            error
-        );
-
-        res.status(500).json({
-
-            mensaje:
-                "Error creando el usuario.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 /* =========================
    CAMBIAR CONTRASEÑA
@@ -3396,41 +3973,22 @@ app.post("/usuarios", async (req, res) => {
 
 /* CAMBIAR CONTRASEÑA */
 
-app.put(
-    "/usuarios/:id/password",
-    async (req, res) => {
+app.put("/usuarios/:id/password", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        try {
+    const { passwordActual, passwordNueva } = req.body;
 
-            const { id } = req.params;
+    if (!passwordActual || !passwordNueva) {
+      return res.status(400).json({
+        mensaje: "Todos los campos son obligatorios.",
+      });
+    }
 
-            const {
-                passwordActual,
-                passwordNueva
-            } = req.body;
+    /* BUSCAR USUARIO */
 
-
-            if (
-                !passwordActual ||
-                !passwordNueva
-            ) {
-
-                return res.status(400).json({
-
-                    mensaje:
-                        "Todos los campos son obligatorios."
-
-                });
-
-            }
-
-
-            /* BUSCAR USUARIO */
-
-            const [usuarios] =
-                await db.query(
-
-                    `
+    const [usuarios] = await db.query(
+      `
                     SELECT
                         id_usuario,
                         password
@@ -3440,65 +3998,39 @@ app.put(
                     WHERE id_usuario = ?
                     `,
 
-                    [id]
+      [id],
+    );
 
-                );
+    if (usuarios.length === 0) {
+      return res.status(404).json({
+        mensaje: "Usuario no encontrado.",
+      });
+    }
 
+    const usuario = usuarios[0];
 
-            if (usuarios.length === 0) {
+    /* VERIFICAR CONTRASEÑA ACTUAL */
 
-                return res.status(404).json({
+    const passwordCorrecta = await bcrypt.compare(
+      passwordActual,
 
-                    mensaje:
-                        "Usuario no encontrado."
+      usuario.password,
+    );
 
-                });
+    if (!passwordCorrecta) {
+      return res.status(400).json({
+        mensaje: "La contraseña actual es incorrecta.",
+      });
+    }
 
-            }
+    /* ENCRIPTAR NUEVA CONTRASEÑA */
 
+    const passwordHash = await bcrypt.hash(passwordNueva, 10);
 
-            const usuario =
-                usuarios[0];
+    /* ACTUALIZAR */
 
-
-            /* VERIFICAR CONTRASEÑA ACTUAL */
-
-            const passwordCorrecta =
-                await bcrypt.compare(
-
-                    passwordActual,
-
-                    usuario.password
-
-                );
-
-
-            if (!passwordCorrecta) {
-
-                return res.status(400).json({
-
-                    mensaje:
-                        "La contraseña actual es incorrecta."
-
-                });
-
-            }
-
-
-            /* ENCRIPTAR NUEVA CONTRASEÑA */
-
-            const passwordHash =
-                await bcrypt.hash(
-                    passwordNueva,
-                    10
-                );
-
-
-            /* ACTUALIZAR */
-
-            await db.query(
-
-                `
+    await db.query(
+      `
                 UPDATE usuarios
 
                 SET password = ?
@@ -3506,84 +4038,37 @@ app.put(
                 WHERE id_usuario = ?
                 `,
 
-                [
+      [passwordHash, id],
+    );
 
-                    passwordHash,
+    res.json({
+      mensaje: "Contraseña actualizada correctamente.",
+    });
+  } catch (error) {
+    console.error("Error cambiando contraseña:", error);
 
-                    id
-
-                ]
-
-            );
-
-
-            res.json({
-
-                mensaje:
-                    "Contraseña actualizada correctamente."
-
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "Error cambiando contraseña:",
-                error
-            );
-
-
-            res.status(500).json({
-
-                mensaje:
-                    "Error cambiando la contraseña."
-
-            });
-
-        }
-
-    }
-);
+    res.status(500).json({
+      mensaje: "Error cambiando la contraseña.",
+    });
+  }
+});
 
 app.put("/usuarios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-    try {
+    const { nombre, usuario, rol, activo } = req.body;
 
-        const { id } = req.params;
+    console.log("DATOS RECIBIDOS PARA ACTUALIZAR:", req.body);
 
-        const {
-            nombre,
-            usuario,
-            rol,
-            activo
-        } = req.body;
+    if (!nombre || !usuario || !rol) {
+      return res.status(400).json({
+        mensaje: "Nombre, usuario y rol son obligatorios.",
+      });
+    }
 
-
-        console.log(
-            "DATOS RECIBIDOS PARA ACTUALIZAR:",
-            req.body
-        );
-
-
-        if (
-            !nombre ||
-            !usuario ||
-            !rol
-        ) {
-
-            return res.status(400).json({
-
-                mensaje:
-                    "Nombre, usuario y rol son obligatorios."
-
-            });
-
-        }
-
-
-        await db.query(
-
-            `
+    await db.query(
+      `
 
             UPDATE usuarios
 
@@ -3601,51 +4086,21 @@ app.put("/usuarios/:id", async (req, res) => {
 
             `,
 
-            [
+      [nombre, usuario, rol, activo, id],
+    );
 
-                nombre,
+    res.json({
+      mensaje: "Usuario actualizado correctamente.",
+    });
+  } catch (error) {
+    console.error("Error actualizando usuario:", error);
 
-                usuario,
+    res.status(500).json({
+      mensaje: "Error al actualizar el usuario.",
 
-                rol,
-
-                activo,
-
-                id
-
-            ]
-
-        );
-
-
-        res.json({
-
-            mensaje:
-                "Usuario actualizado correctamente."
-
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Error actualizando usuario:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "Error al actualizar el usuario.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -3653,65 +4108,41 @@ app.put("/usuarios/:id", async (req, res) => {
 ========================= */
 
 app.post("/cartera/abono", async (req, res) => {
+  const connection = await db.getConnection();
 
-    const connection = await db.getConnection();
+  try {
+    const { id_remision, valor, comentario, id_usuario } = req.body;
 
-    try {
-
-        const {
-            id_remision,
-            valor,
-            comentario,
-            id_usuario
-        } = req.body;
-
-
-        /* =========================
+    /* =========================
            VALIDACIONES
         ========================= */
 
-        if (!id_remision) {
+    if (!id_remision) {
+      return res.status(400).json({
+        mensaje: "No se recibió la remisión.",
+      });
+    }
 
-            return res.status(400).json({
+    if (!valor || Number(valor) <= 0) {
+      return res.status(400).json({
+        mensaje: "El valor del abono debe ser mayor a cero.",
+      });
+    }
 
-                mensaje: "No se recibió la remisión."
+    if (!id_usuario) {
+      return res.status(400).json({
+        mensaje: "No se recibió el usuario.",
+      });
+    }
 
-            });
+    await connection.beginTransaction();
 
-        }
-
-
-        if (!valor || Number(valor) <= 0) {
-
-            return res.status(400).json({
-
-                mensaje:
-                    "El valor del abono debe ser mayor a cero."
-
-            });
-
-        }
-
-
-        if (!id_usuario) {
-
-            return res.status(400).json({
-
-                mensaje: "No se recibió el usuario."
-
-            });
-
-        }
-
-
-        await connection.beginTransaction();
-
-
-        /* =========================
+    /* =========================
            CONSULTAR REMISIÓN
         ========================= */
 
-        const [remisiones] = await connection.query(`
+    const [remisiones] = await connection.query(
+      `
 
             SELECT
 
@@ -3726,56 +4157,40 @@ app.post("/cartera/abono", async (req, res) => {
 
             FOR UPDATE
 
-        `, [id_remision]);
+        `,
+      [id_remision],
+    );
 
+    if (remisiones.length === 0) {
+      throw new Error("La remisión no existe.");
+    }
 
-        if (remisiones.length === 0) {
+    const remision = remisiones[0];
 
-            throw new Error(
-                "La remisión no existe."
-            );
-
-        }
-
-
-        const remision = remisiones[0];
-
-
-        /* =========================
+    /* =========================
            VALIDAR SALDO
         ========================= */
 
-        const saldoPendiente =
-            Number(remision.saldo_pendiente);
+    const saldoPendiente = Number(remision.saldo_pendiente);
 
+    const valorAbono = Number(valor);
 
-        const valorAbono =
-            Number(valor);
+    if (saldoPendiente <= 0) {
+      throw new Error("Esta remisión ya se encuentra pagada.");
+    }
 
+    if (valorAbono > saldoPendiente) {
+      throw new Error(
+        `El abono no puede ser mayor al saldo pendiente de $${saldoPendiente.toLocaleString("es-CO")}.`,
+      );
+    }
 
-        if (saldoPendiente <= 0) {
-
-            throw new Error(
-                "Esta remisión ya se encuentra pagada."
-            );
-
-        }
-
-
-        if (valorAbono > saldoPendiente) {
-
-            throw new Error(
-                `El abono no puede ser mayor al saldo pendiente de $${saldoPendiente.toLocaleString("es-CO")}.`
-            );
-
-        }
-
-
-        /* =========================
+    /* =========================
            REGISTRAR ABONO
         ========================= */
 
-        await connection.query(`
+    await connection.query(
+      `
 
             INSERT INTO abonos_remision (
 
@@ -3788,37 +4203,25 @@ app.post("/cartera/abono", async (req, res) => {
 
             VALUES (?, ?, ?, ?)
 
-        `, [
+        `,
+      [id_remision, valorAbono, id_usuario, comentario?.trim() || null],
+    );
 
-            id_remision,
-
-            valorAbono,
-
-            id_usuario,
-
-            comentario?.trim() || null
-
-        ]);
-
-
-        /* =========================
+    /* =========================
            CALCULAR NUEVO SALDO
         ========================= */
-let nuevoSaldo =
-    saldoPendiente - valorAbono;
+    let nuevoSaldo = saldoPendiente - valorAbono;
 
-if (nuevoSaldo < 0) {
+    if (nuevoSaldo < 0) {
+      nuevoSaldo = 0;
+    }
 
-    nuevoSaldo = 0;
-
-}
-
-
-        /* =========================
+    /* =========================
            ACTUALIZAR REMISIÓN
         ========================= */
 
-        await connection.query(`
+    await connection.query(
+      `
 
             UPDATE remisiones
 
@@ -3830,82 +4233,47 @@ if (nuevoSaldo < 0) {
 
             WHERE id_remision = ?
 
-        `, [
+        `,
+      [nuevoSaldo, nuevoSaldo <= 0 ? "PAGADA" : "PENDIENTE", id_remision],
+    );
 
-            nuevoSaldo,
+    await connection.commit();
 
-            nuevoSaldo <= 0
-                ? "PAGADA"
-                : "PENDIENTE",
+    res.json({
+      mensaje:
+        nuevoSaldo <= 0
+          ? "Pago registrado. La remisión quedó totalmente pagada."
+          : "Abono registrado correctamente.",
 
-            id_remision
+      valor_abonado: valorAbono,
 
-        ]);
+      saldo_pendiente: nuevoSaldo,
 
+      pagada: nuevoSaldo <= 0,
+    });
+  } catch (error) {
+    await connection.rollback();
 
-        await connection.commit();
+    console.error("Error registrando abono:", error);
 
-
-        res.json({
-
-            mensaje:
-                nuevoSaldo <= 0
-                    ? "Pago registrado. La remisión quedó totalmente pagada."
-                    : "Abono registrado correctamente.",
-
-            valor_abonado:
-                valorAbono,
-
-            saldo_pendiente:
-                nuevoSaldo,
-
-            pagada:
-                nuevoSaldo <= 0
-
-        });
-
-
-    } catch (error) {
-
-        await connection.rollback();
-
-        console.error(
-            "Error registrando abono:",
-            error
-        );
-
-
-        res.status(400).json({
-
-            mensaje:
-                error.message ||
-                "No se pudo registrar el abono."
-
-        });
-
-
-    } finally {
-
-        connection.release();
-
-    }
-
+    res.status(400).json({
+      mensaje: error.message || "No se pudo registrar el abono.",
+    });
+  } finally {
+    connection.release();
+  }
 });
 
 /* =========================
    DETALLE DE PRODUCTOS
 ========================= */
 
-app.get(
-    "/cartera/:id_remision/productos",
-    async (req, res) => {
+app.get("/cartera/:id_remision/productos", async (req, res) => {
+  try {
+    const { id_remision } = req.params;
 
-        try {
-
-            const { id_remision } = req.params;
-
-
-            const [productos] = await db.query(`
+    const [productos] = await db.query(
+      `
 
                 SELECT
 
@@ -3938,44 +4306,30 @@ app.get(
 
                 ORDER BY d.id_detalle ASC
 
-            `, [id_remision]);
+            `,
+      [id_remision],
+    );
 
+    res.json(productos);
+  } catch (error) {
+    console.error("Error obteniendo productos de la remisión:", error);
 
-            res.json(productos);
-
-
-        } catch (error) {
-
-            console.error(
-                "Error obteniendo productos de la remisión:",
-                error
-            );
-
-
-            res.status(500).json({
-
-                mensaje:
-                    "No se pudieron cargar los productos de la remisión."
-
-            });
-
-        }
-
-    }
-);
+    res.status(500).json({
+      mensaje: "No se pudieron cargar los productos de la remisión.",
+    });
+  }
+});
 
 /* =========================
    OBTENER ABONOS REMISIÓN
 ========================= */
 
 app.get("/cartera/:id_remision/abonos", async (req, res) => {
+  try {
+    const { id_remision } = req.params;
 
-    try {
-
-        const { id_remision } = req.params;
-
-
-        const [abonos] = await db.query(`
+    const [abonos] = await db.query(
+      `
 
             SELECT
 
@@ -3996,32 +4350,20 @@ app.get("/cartera/:id_remision/abonos", async (req, res) => {
 
             ORDER BY a.fecha DESC
 
-        `, [id_remision]);
+        `,
+      [id_remision],
+    );
 
+    res.json(abonos);
+  } catch (error) {
+    console.error("Error obteniendo abonos:", error);
 
-        res.json(abonos);
+    res.status(500).json({
+      mensaje: "Error obteniendo los abonos.",
 
-
-    } catch (error) {
-
-        console.error(
-            "Error obteniendo abonos:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "Error obteniendo los abonos.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -4029,32 +4371,20 @@ app.get("/cartera/:id_remision/abonos", async (req, res) => {
 ========================= */
 
 app.get("/reportes/kpis", async (req, res) => {
+  try {
+    const { mes, anio } = req.query;
 
-    try {
-
-        const {
-            mes,
-            anio
-        } = req.query;
-
-
-        /* =========================
+    /* =========================
            VALIDAR PERÍODO
         ========================= */
 
-        if (!mes || !anio) {
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "Debe enviar el mes y el año.",
+      });
+    }
 
-            return res.status(400).json({
-
-                mensaje:
-                    "Debe enviar el mes y el año."
-
-            });
-
-        }
-
-
-        const sql = `
+    const sql = `
 
             SELECT
 
@@ -4118,44 +4448,22 @@ app.get("/reportes/kpis", async (req, res) => {
 
         `;
 
+    const [resultado] = await db.query(
+      sql,
 
-        const [resultado] = await db.query(
+      [Number(mes), Number(anio)],
+    );
 
-            sql,
+    res.json(resultado[0]);
+  } catch (error) {
+    console.error("Error cargando KPIs de reportes:", error);
 
-            [
-                Number(mes),
-                Number(anio)
-            ]
+    res.status(500).json({
+      mensaje: "No se pudieron cargar los KPIs de reportes.",
 
-        );
-
-
-        res.json(
-            resultado[0]
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Error cargando KPIs de reportes:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "No se pudieron cargar los KPIs de reportes.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -4163,10 +4471,8 @@ app.get("/reportes/kpis", async (req, res) => {
 ========================= */
 
 app.get("/reportes/resumen", async (req, res) => {
-
-    try {
-
-        const [resultado] = await db.query(`
+  try {
+    const [resultado] = await db.query(`
 
             SELECT
 
@@ -4264,32 +4570,16 @@ app.get("/reportes/resumen", async (req, res) => {
 
         `);
 
+    res.json(resultado[0]);
+  } catch (error) {
+    console.error("Error cargando resumen de reportes:", error);
 
-        res.json(
-            resultado[0]
-        );
+    res.status(500).json({
+      mensaje: "No se pudo cargar el resumen de reportes.",
 
-
-    } catch (error) {
-
-        console.error(
-            "Error cargando resumen de reportes:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            mensaje:
-                "No se pudo cargar el resumen de reportes.",
-
-            error:
-                error.message
-
-        });
-
-    }
-
+      error: error.message,
+    });
+  }
 });
 
 /* =========================
@@ -4300,31 +4590,18 @@ const __filename = fileURLToPath(import.meta.url);
 
 const __dirname = path.dirname(__filename);
 
-const frontendPath = path.join(
-    __dirname,
-    "..",
-    "dist"
-);
+const frontendPath = path.join(__dirname, "..", "dist");
 
 app.use(express.static(frontendPath));
 
 app.get("/{*splat}", (req, res) => {
-
-    res.sendFile(
-        path.join(frontendPath, "index.html")
-    );
-
+  res.sendFile(path.join(frontendPath, "index.html"));
 });
-
 
 /* =========================
    INICIAR SERVIDOR
 ========================= */
 
-app.listen(PORT, () => {
-
-    console.log(
-        `Servidor SIREM ejecutándose en el puerto ${PORT}`
-    );
-
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor SIREM ejecutándose en el puerto ${PORT}`);
 });

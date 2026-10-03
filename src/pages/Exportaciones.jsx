@@ -8,3275 +8,2342 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 import {
-    FileSpreadsheet,
-    FileText,
-    BarChart3,
-    Receipt,
-    WalletCards,
-    UsersRound,
-    UserRound,
-    Package,
-    CalendarDays,
-    Download,
-    Clock3
+  FileSpreadsheet,
+  FileText,
+  BarChart3,
+  Receipt,
+  WalletCards,
+  UsersRound,
+  UserRound,
+  Package,
+  CalendarDays,
+  Download,
+  Clock3,
 } from "lucide-react";
 
-function Exportaciones({
-    mesSeleccionado
-}) {
-
-    const periodo =
-    mesSeleccionado || "";
+function Exportaciones({ mesSeleccionado }) {
+  const periodo = mesSeleccionado || "";
 
   const exportaciones = [
-
     {
-        id: 1,
+      id: 1,
 
-        tipo: "general",
+      tipo: "general",
 
-        titulo: "Reporte general",
+      titulo: "Reporte general",
 
-        descripcion:
-            "Resumen completo de la actividad de SIREM.",
+      descripcion: "Resumen completo de la actividad de SIREM.",
 
-        icono: BarChart3,
+      icono: BarChart3,
 
-        clase: "general",
+      clase: "general",
 
-        usaPeriodo: true
-
+      usaPeriodo: true,
     },
 
     {
-        id: 2,
+      id: 2,
 
-        tipo: "remisiones",
+      tipo: "remisiones",
 
-        titulo: "Remisiones",
+      titulo: "Remisiones",
 
-        descripcion:
-            "Listado detallado de las remisiones registradas.",
+      descripcion: "Listado detallado de las remisiones registradas.",
 
-        icono: Receipt,
+      icono: Receipt,
 
-        clase: "remisiones",
+      clase: "remisiones",
 
-        usaPeriodo: true
-
+      usaPeriodo: true,
     },
 
     {
-        id: 3,
+      id: 3,
 
-        tipo: "cartera",
+      tipo: "cartera",
 
-        titulo: "Cartera",
+      titulo: "Cartera",
 
-        descripcion:
-            "Estado y antigüedad de la cartera.",
+      descripcion: "Estado y antigüedad de la cartera.",
 
-        icono: WalletCards,
+      icono: WalletCards,
 
-        clase: "cartera",
+      clase: "cartera",
 
-        usaPeriodo: false
+      usaPeriodo: false,
+    },
+  ];
 
-    }
+  /* =================================
+   IMPRIMIR UNA REMISIÓN
+================================= */
 
-];
-
-
-const exportar = async (
-    tipo,
-    formato
-) => {
-
+  const imprimirRemision = async () => {
     try {
-/* =================================
+      const numeroIngresado = window.prompt(
+        "Escribe el número de la remisión:\n\nEjemplo: REM 1033",
+      );
+
+      if (!numeroIngresado) {
+        return;
+      }
+
+      /* =========================
+           NORMALIZAR
+        ========================= */
+
+      let numero = numeroIngresado.trim().toUpperCase();
+
+      /*
+       * Permitir que escriban:
+       *
+       * REM 1033
+       * REM1033
+       * 1033
+       */
+
+      if (!numero.startsWith("REM ")) {
+        numero = numero.replace(/^REM\s*/i, "");
+
+        numero = `REM ${numero}`;
+      }
+
+      /* =========================
+           BUSCAR DIRECTAMENTE
+        ========================= */
+
+      const respuesta = await fetch(
+        `/api/remisiones/buscar?numero=${encodeURIComponent(numero)}`,
+      );
+
+      if (!respuesta.ok) {
+        let errorBackend = {};
+
+        try {
+          errorBackend = await respuesta.json();
+        } catch {
+          errorBackend = {};
+        }
+
+        throw new Error(
+          errorBackend.mensaje || `No se encontró la remisión ${numero}.`,
+        );
+      }
+
+      const datos = await respuesta.json();
+
+      const remision = datos.remision;
+
+      if (!remision) {
+        throw new Error(
+          "El servidor no devolvió la información de la remisión.",
+        );
+      }
+
+      /* =========================
+           CREAR PDF
+        ========================= */
+
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      /* =========================
+           ENCABEZADO
+        ========================= */
+
+      pdf.setFillColor(139, 94, 52);
+
+      pdf.roundedRect(15, 12, 180, 35, 4, 4, "F");
+
+      pdf.setTextColor(255, 255, 255);
+
+      pdf.setFont("helvetica", "bold");
+
+      pdf.setFontSize(20);
+
+      pdf.text("REMISIÓN", 25, 27);
+
+      pdf.setFont("helvetica", "normal");
+
+      pdf.setFontSize(10);
+
+      pdf.text("SISTEMA DE INFORMACIÓN SIREM", 25, 36);
+
+      /* =========================
+           NÚMERO
+        ========================= */
+
+      pdf.setFont("helvetica", "bold");
+
+      pdf.setFontSize(13);
+
+      pdf.text(remision.numero_remision || "", 185, 25, {
+        align: "right",
+      });
+
+      /* =========================
+           FECHA
+        ========================= */
+
+      pdf.setFont("helvetica", "normal");
+
+      pdf.setFontSize(9);
+
+      const fecha = remision.fecha
+        ? new Date(remision.fecha).toLocaleDateString("es-CO")
+        : "";
+
+      pdf.text(fecha, 185, 34, {
+        align: "right",
+      });
+
+      /* =========================
+           DATOS
+        ========================= */
+
+      pdf.setTextColor(60, 60, 60);
+
+      pdf.setFont("helvetica", "bold");
+
+      pdf.setFontSize(10);
+
+      pdf.text("DATOS DE LA REMISIÓN", 15, 60);
+
+      pdf.setFont("helvetica", "normal");
+
+      pdf.setFontSize(9);
+
+      pdf.text(`Cliente: ${remision.cliente || ""}`, 15, 69);
+
+      pdf.text(`Ciudad: ${remision.ciudad || ""}`, 15, 76);
+
+      pdf.text(`Comercial: ${remision.comercial || ""}`, 15, 83);
+
+      pdf.text(`Estado: ${remision.estado || ""}`, 110, 69);
+
+      pdf.text(`Medio de pago: ${remision.medio_pago || ""}`, 110, 76);
+
+      /* =========================
+           PRODUCTOS
+        ========================= */
+
+      const productos = remision.productos || [];
+
+      if (productos.length === 0) {
+        alert("La remisión no tiene productos registrados.");
+
+        return;
+      }
+
+      const filas = productos.map((producto) => [
+        producto.codigo_producto || "",
+
+        producto.nombre_producto || "",
+
+        producto.placa || "",
+
+        Number(producto.cantidad || 0),
+
+        `$ ${Number(producto.precio_venta || 0).toLocaleString("es-CO")}`,
+
+        `$ ${Number(producto.total_producto || 0).toLocaleString("es-CO")}`,
+      ]);
+
+      /* =========================
+           TABLA
+        ========================= */
+
+      autoTable(pdf, {
+        startY: 92,
+
+        head: [["Código", "Producto", "Placa", "Cant.", "Precio", "Total"]],
+
+        body: filas,
+
+        theme: "grid",
+
+        styles: {
+          fontSize: 8,
+
+          cellPadding: 3,
+
+          valign: "middle",
+        },
+
+        headStyles: {
+          fillColor: [91, 70, 54],
+
+          textColor: [255, 255, 255],
+
+          fontStyle: "bold",
+
+          halign: "center",
+        },
+
+        alternateRowStyles: {
+          fillColor: [248, 244, 240],
+        },
+
+        columnStyles: {
+          0: {
+            cellWidth: 25,
+          },
+
+          1: {
+            cellWidth: 70,
+          },
+
+          2: {
+            cellWidth: 25,
+          },
+
+          3: {
+            cellWidth: 15,
+            halign: "center",
+          },
+
+          4: {
+            cellWidth: 25,
+            halign: "right",
+          },
+
+          5: {
+            cellWidth: 25,
+            halign: "right",
+          },
+        },
+      });
+
+      /* =========================
+           TOTAL
+        ========================= */
+
+      let posicionY = pdf.lastAutoTable.finalY + 10;
+
+      if (posicionY > 230) {
+        pdf.addPage();
+
+        posicionY = 25;
+      }
+
+      pdf.setFont("helvetica", "bold");
+
+      pdf.setFontSize(11);
+
+      pdf.text("TOTAL REMISIÓN:", 125, posicionY);
+
+      pdf.text(
+        `$ ${Number(remision.total || 0).toLocaleString("es-CO")}`,
+        195,
+        posicionY,
+        {
+          align: "right",
+        },
+      );
+
+      /* =========================
+           SALDO
+        ========================= */
+
+      posicionY += 8;
+
+      pdf.text("SALDO PENDIENTE:", 125, posicionY);
+
+      pdf.text(
+        `$ ${Number(remision.saldo_pendiente || 0).toLocaleString("es-CO")}`,
+        195,
+        posicionY,
+        {
+          align: "right",
+        },
+      );
+
+      /* =========================
+           COMENTARIOS
+        ========================= */
+
+      if (remision.comentarios) {
+        posicionY += 12;
+
+        pdf.setFontSize(9);
+
+        pdf.text("Comentarios:", 15, posicionY);
+
+        posicionY += 6;
+
+        const comentarios = pdf.splitTextToSize(remision.comentarios, 180);
+
+        pdf.text(comentarios, 15, posicionY);
+      }
+
+      /* =========================
+           FIRMAS
+        ========================= */
+
+      const posicionFirmas = 260;
+
+      pdf.setFont("helvetica", "normal");
+
+      pdf.setFontSize(9);
+
+      pdf.setTextColor(60, 60, 60);
+
+      pdf.line(20, posicionFirmas, 85, posicionFirmas);
+
+      pdf.line(125, posicionFirmas, 190, posicionFirmas);
+
+      pdf.text("Firma quien realiza la remisión", 52.5, posicionFirmas + 6, {
+        align: "center",
+      });
+
+      pdf.text("Firma jefe", 157.5, posicionFirmas + 6, {
+        align: "center",
+      });
+
+      /* =========================
+           PIE
+        ========================= */
+
+      pdf.setFontSize(8);
+
+      pdf.setTextColor(130, 130, 130);
+
+      pdf.text("SIREM", 105, 290, {
+        align: "center",
+      });
+
+      /* =========================
+           GUARDAR
+        ========================= */
+
+      pdf.save(`Remisión ${remision.numero_remision}.pdf`);
+    } catch (error) {
+      console.error("ERROR IMPRIMIENDO REMISIÓN:", error);
+
+      alert(error.message || "No se pudo imprimir la remisión.");
+    }
+  };
+
+  const exportar = async (tipo, formato) => {
+    try {
+      /* =================================
    EXPORTAR REPORTE GENERAL A EXCEL
 ================================= */
 
-if (
-    tipo === "general" &&
-    formato === "PDF"
-) {
-
-    const respuesta =
-        await fetch(
-            `/api/exportaciones/general?periodo=${encodeURIComponent(periodo)}`
+      if (tipo === "general" && formato === "PDF") {
+        const respuesta = await fetch(
+          `/api/exportaciones/general?periodo=${encodeURIComponent(periodo)}`,
         );
 
-
-    console.log(
-        "RESPUESTA REPORTE GENERAL:",
-        respuesta.status,
-        respuesta.statusText
-    );
-
-
-    if (!respuesta.ok) {
-
-        const errorBackend =
-            await respuesta.json();
-
-        console.error(
-            "ERROR DEL BACKEND:",
-            errorBackend
+        console.log(
+          "RESPUESTA REPORTE GENERAL:",
+          respuesta.status,
+          respuesta.statusText,
         );
 
-        throw new Error(
-            errorBackend.mensaje ||
-            "No se pudo obtener el reporte general."
-        );
+        if (!respuesta.ok) {
+          const errorBackend = await respuesta.json();
 
-    }
+          console.error("ERROR DEL BACKEND:", errorBackend);
 
+          throw new Error(
+            errorBackend.mensaje || "No se pudo obtener el reporte general.",
+          );
+        }
 
-    const datos =
-        await respuesta.json();
+        const datos = await respuesta.json();
 
+        console.log("DATOS RECIBIDOS PARA REPORTE GENERAL:", datos);
 
-    console.log(
-        "DATOS RECIBIDOS PARA REPORTE GENERAL:",
-        datos
-    );
-
-
-    /* =================================
+        /* =================================
    CREAR PDF
 ================================= */
 
-const pdf =
-    new jsPDF(
-        "p",
-        "mm",
-        "a4"
-    );
+        const pdf = new jsPDF("p", "mm", "a4");
 
-
-/* =================================
+        /* =================================
    DATOS DEL REPORTE
 ================================= */
 
-const remisiones =
-    datos.remisiones || [];
+        const remisiones = datos.remisiones || [];
 
+        const totalFacturado = remisiones.reduce(
+          (total, remision) => total + Number(remision.total || 0),
+          0,
+        );
 
-const totalFacturado =
-    remisiones.reduce(
-        (total, remision) =>
-            total + Number(remision.total || 0),
-        0
-    );
+        const saldoPendiente = remisiones.reduce(
+          (total, remision) => total + Number(remision.saldo_pendiente || 0),
+          0,
+        );
 
-
-const saldoPendiente =
-    remisiones.reduce(
-        (total, remision) =>
-            total +
-            Number(
-                remision.saldo_pendiente || 0
-            ),
-        0
-    );
-
-
-/* =================================
+        /* =================================
    CLIENTES ÚNICOS
 ================================= */
 
-const clientesUnicos =
-    new Set(
-        remisiones.map(
-            (remision) =>
-                remision.cliente
-        )
-    );
+        const clientesUnicos = new Set(
+          remisiones.map((remision) => remision.cliente),
+        );
 
-
-/* =================================
+        /* =================================
    COMERCIALES ÚNICOS
 ================================= */
 
-const comercialesUnicos =
-    new Set(
-        remisiones.map(
-            (remision) =>
-                remision.comercial
-        )
-    );
+        const comercialesUnicos = new Set(
+          remisiones.map((remision) => remision.comercial),
+        );
 
-
-/* =================================
+        /* =================================
    FORMATO MONEDA
 ================================= */
 
-const formatoMoneda =
-    (valor) => {
+        const formatoMoneda = (valor) => {
+          return "$ " + Number(valor).toLocaleString("es-CO");
+        };
 
-        return "$ " +
-            Number(valor).toLocaleString(
-                "es-CO"
-            );
-
-    };
-
-
-/* =================================
+        /* =================================
    ENCABEZADO PRINCIPAL
 ================================= */
 
-pdf.setFillColor(
-    139,
-    94,
-    52
-);
+        pdf.setFillColor(139, 94, 52);
 
+        pdf.roundedRect(15, 15, 180, 38, 4, 4, "F");
 
-pdf.roundedRect(
-    15,
-    15,
-    180,
-    38,
-    4,
-    4,
-    "F"
-);
+        /* TÍTULO */
 
+        pdf.setTextColor(255, 255, 255);
 
-/* TÍTULO */
+        pdf.setFont("helvetica", "bold");
 
-pdf.setTextColor(
-    255,
-    255,
-    255
-);
+        pdf.setFontSize(20);
 
+        pdf.text("REPORTE GENERAL", 25, 31);
 
-pdf.setFont(
-    "helvetica",
-    "bold"
-);
+        /* SUBTÍTULO */
 
+        pdf.setFont("helvetica", "normal");
 
-pdf.setFontSize(
-    20
-);
+        pdf.setFontSize(11);
 
+        pdf.text("SISTEMA DE INFORMACIÓN SIREM", 25, 41);
 
-pdf.text(
-    "REPORTE GENERAL",
-    25,
-    31
-);
+        /* PERÍODO */
 
+        pdf.setFont("helvetica", "bold");
 
-/* SUBTÍTULO */
+        pdf.setFontSize(12);
 
-pdf.setFont(
-    "helvetica",
-    "normal"
-);
+        pdf.text(periodo.toUpperCase(), 185, 30, {
+          align: "right",
+        });
 
-
-pdf.setFontSize(
-    11
-);
-
-
-pdf.text(
-    "SISTEMA DE INFORMACIÓN SIREM",
-    25,
-    41
-);
-
-
-/* PERÍODO */
-
-pdf.setFont(
-    "helvetica",
-    "bold"
-);
-
-
-pdf.setFontSize(
-    12
-);
-
-
-pdf.text(
-    periodo.toUpperCase(),
-    185,
-    30,
-    {
-        align: "right"
-    }
-);
-
-
-/* =================================
+        /* =================================
    RESUMEN DEL PERÍODO
 ================================= */
 
-pdf.setTextColor(
-    60,
-    60,
-    60
-);
+        pdf.setTextColor(60, 60, 60);
 
+        pdf.setFont("helvetica", "bold");
 
-pdf.setFont(
-    "helvetica",
-    "bold"
-);
+        pdf.setFontSize(15);
 
+        pdf.text("Resumen del período", 15, 68);
 
-pdf.setFontSize(
-    15
-);
-
-
-pdf.text(
-    "Resumen del período",
-    15,
-    68
-);
-
-
-/* =================================
+        /* =================================
    TARJETAS
 ================================= */
 
-const tarjetas = [
+        const tarjetas = [
+          {
+            titulo: "Remisiones",
+            valor: remisiones.length,
+            color: [139, 94, 52],
+          },
 
-    {
-        titulo: "Remisiones",
-        valor: remisiones.length,
-        color: [139, 94, 52]
-    },
+          {
+            titulo: "Total facturado",
+            valor: formatoMoneda(totalFacturado),
+            color: [166, 116, 74],
+          },
 
-    {
-        titulo: "Total facturado",
-        valor: formatoMoneda(totalFacturado),
-        color: [166, 116, 74]
-    },
+          {
+            titulo: "Saldo pendiente",
+            valor: formatoMoneda(saldoPendiente),
+            color: [181, 111, 74],
+          },
 
-    {
-        titulo: "Saldo pendiente",
-        valor: formatoMoneda(saldoPendiente),
-        color: [181, 111, 74]
-    },
+          {
+            titulo: "Clientes",
+            valor: clientesUnicos.size,
+            color: [112, 91, 72],
+          },
 
-    {
-        titulo: "Clientes",
-        valor: clientesUnicos.size,
-        color: [112, 91, 72]
-    },
+          {
+            titulo: "Comerciales",
+            valor: comercialesUnicos.size,
+            color: [91, 70, 54],
+          },
+        ];
 
-    {
-        titulo: "Comerciales",
-        valor: comercialesUnicos.size,
-        color: [91, 70, 54]
-    }
+        const margenIzquierdo = 15;
 
-];
+        const margenDerecho = 15;
 
+        const espacioEntreTarjetas = 3;
 
-const margenIzquierdo = 15;
+        const anchoPagina = 210;
 
-const margenDerecho = 15;
+        const espacioDisponible =
+          anchoPagina -
+          margenIzquierdo -
+          margenDerecho -
+          espacioEntreTarjetas * (tarjetas.length - 1);
 
-const espacioEntreTarjetas = 3;
+        const anchoTarjeta = espacioDisponible / tarjetas.length;
 
-const anchoPagina = 210;
+        let x = margenIzquierdo;
 
-const espacioDisponible =
-    anchoPagina -
-    margenIzquierdo -
-    margenDerecho -
-    (
-        espacioEntreTarjetas *
-        (tarjetas.length - 1)
-    );
+        let y = 75;
 
-
-const anchoTarjeta =
-    espacioDisponible /
-    tarjetas.length;
-
-
-let x =
-    margenIzquierdo;
-
-let y =
-    75;
-
-
-tarjetas.forEach(
-    (tarjeta) => {
-
-        /* =================================
+        tarjetas.forEach((tarjeta) => {
+          /* =================================
            SOMBRA DECORATIVA
         ================================= */
 
-        pdf.setFillColor(
-            225,
-            220,
-            214
-        );
+          pdf.setFillColor(225, 220, 214);
 
+          pdf.roundedRect(x + 1, y + 1.5, anchoTarjeta, 30, 3, 3, "F");
 
-        pdf.roundedRect(
-    x + 1,
-    y + 1.5,
-    anchoTarjeta,
-    30,
-            3,
-            3,
-            "F"
-        );
-
-
-        /* =================================
+          /* =================================
            CUERPO DE LA TARJETA
         ================================= */
 
-        pdf.setFillColor(
-            255,
-            255,
-            255
-        );
+          pdf.setFillColor(255, 255, 255);
 
+          pdf.roundedRect(x, y, anchoTarjeta, 30, 3, 3, "F");
 
-        pdf.roundedRect(
-            x,
-            y,
-            anchoTarjeta,
-            30,
-            3,
-            3,
-            "F"
-        );
-
-
-        /* =================================
+          /* =================================
            FRANJA SUPERIOR
         ================================= */
 
-        pdf.setFillColor(
-            ...tarjeta.color
-        );
+          pdf.setFillColor(...tarjeta.color);
 
+          pdf.roundedRect(x, y, anchoTarjeta, 5, 3, 3, "F");
 
-        pdf.roundedRect(
-            x,
-            y,
-            anchoTarjeta,
-            5,
-            3,
-            3,
-            "F"
-        );
-
-
-        /* =================================
+          /* =================================
            CÍRCULO DECORATIVO
         ================================= */
 
-        pdf.setFillColor(
-            ...tarjeta.color
-        );
+          pdf.setFillColor(...tarjeta.color);
 
+          pdf.circle(x + anchoTarjeta - 6, y + 10, 3, "F");
 
-        pdf.circle(
-    x + anchoTarjeta - 6,
-    y + 10,
-    3,
-    "F"
-);
-
-
-        /* =================================
+          /* =================================
            TÍTULO
         ================================= */
 
-        pdf.setTextColor(
-            125,
-            125,
-            125
-        );
+          pdf.setTextColor(125, 125, 125);
 
+          pdf.setFont("helvetica", "normal");
 
-        pdf.setFont(
-            "helvetica",
-            "normal"
-        );
+          pdf.setFontSize(7.5);
 
+          pdf.text(tarjeta.titulo, x + 4, y + 12);
 
-        pdf.setFontSize(
-            7.5
-        );
-
-
-        pdf.text(
-            tarjeta.titulo,
-            x + 4,
-            y + 12
-        );
-
-
-        /* =================================
+          /* =================================
            VALOR
         ================================= */
 
-        pdf.setTextColor(
-            55,
-            55,
-            55
-        );
+          pdf.setTextColor(55, 55, 55);
 
+          pdf.setFont("helvetica", "bold");
 
-        pdf.setFont(
-            "helvetica",
-            "bold"
-        );
-
-
-        /*
+          /*
         Reducimos un poco el tamaño
         para valores monetarios largos
         */
 
-        const valor =
-            String(
-                tarjeta.valor
-            );
+          const valor = String(tarjeta.valor);
 
+          const tamañoValor = valor.length > 13 ? 8 : valor.length > 8 ? 9 : 13;
 
-        const tamañoValor =
-            valor.length > 13
-                ? 8
-                : valor.length > 8
-                    ? 9
-                    : 13;
+          pdf.setFontSize(tamañoValor);
 
+          pdf.text(valor, x + 4, y + 23);
 
-        pdf.setFontSize(
-            tamañoValor
-        );
-
-
-        pdf.text(
-            valor,
-            x + 4,
-            y + 23
-        );
-
-
-        /* =================================
+          /* =================================
            AVANZAR A LA SIGUIENTE TARJETA
         ================================= */
 
-      x +=
-    anchoTarjeta +
-    espacioEntreTarjetas;
+          x += anchoTarjeta + espacioEntreTarjetas;
+        });
 
-    }
-);
-
-/* =================================
+        /* =================================
    TABLA DE REMISIONES
 ================================= */
 
-const filas =
-    remisiones.map(
-        (remision) => [
+        const filas = remisiones.map((remision) => [
+          remision.numero_remision,
 
-            remision.numero_remision,
+          new Date(remision.fecha).toLocaleDateString("es-CO"),
 
-            new Date(
-                remision.fecha
-            ).toLocaleDateString(
-                "es-CO"
-            ),
+          remision.cliente,
 
-            remision.cliente,
+          remision.comercial,
 
-            remision.comercial,
+          formatoMoneda(remision.total),
 
-            formatoMoneda(
-                remision.total
-            ),
+          formatoMoneda(remision.saldo_pendiente),
+        ]);
 
-            formatoMoneda(
-                remision.saldo_pendiente
-            )
+        autoTable(pdf, {
+          startY: 112,
 
-        ]
-    );
+          head: [
+            ["Remisión", "Fecha", "Cliente", "Comercial", "Total", "Saldo"],
+          ],
 
+          body: filas,
 
-autoTable(
-    pdf,
-    {
+          theme: "striped",
 
-        startY:
-            112,
+          headStyles: {
+            fillColor: [139, 94, 52],
 
+            textColor: [255, 255, 255],
 
-        head: [
+            fontStyle: "bold",
+          },
 
-            [
+          styles: {
+            fontSize: 8,
 
-                "Remisión",
+            cellPadding: 3,
 
-                "Fecha",
+            textColor: [80, 80, 80],
+          },
 
-                "Cliente",
-
-                "Comercial",
-
-                "Total",
-
-                "Saldo"
-
-            ]
-
-        ],
-
-
-        body:
-            filas,
-
-
-        theme:
-            "striped",
-
-
-        headStyles: {
-
-            fillColor:
-                [
-                    139,
-                    94,
-                    52
-                ],
-
-            textColor:
-                [
-                    255,
-                    255,
-                    255
-                ],
-
-            fontStyle:
-                "bold"
-
-        },
-
-
-        styles: {
-
-            fontSize:
-                8,
-
-            cellPadding:
-                3,
-
-            textColor:
-                [
-                    80,
-                    80,
-                    80
-                ]
-
-        },
-
-
-        columnStyles: {
-
+          columnStyles: {
             0: {
-                cellWidth: 23
+              cellWidth: 23,
             },
 
             1: {
-                cellWidth: 22
+              cellWidth: 22,
             },
 
             2: {
-                cellWidth: 43
+              cellWidth: 43,
             },
 
             3: {
-                cellWidth: 43
+              cellWidth: 43,
             },
 
             4: {
-                cellWidth: 28,
-                halign: "right"
+              cellWidth: 28,
+              halign: "right",
             },
 
             5: {
-                cellWidth: 28,
-                halign: "right"
-            }
+              cellWidth: 28,
+              halign: "right",
+            },
+          },
+        });
 
-        }
-
-    }
-);
-
-
-/* =================================
+        /* =================================
    PIE DE PÁGINA
 ================================= */
 
-const paginas =
-    pdf.getNumberOfPages();
+        const paginas = pdf.getNumberOfPages();
 
+        for (let pagina = 1; pagina <= paginas; pagina++) {
+          pdf.setPage(pagina);
 
-for (
-    let pagina = 1;
-    pagina <= paginas;
-    pagina++
-) {
+          pdf.setFontSize(8);
 
-    pdf.setPage(
-        pagina
-    );
+          pdf.setTextColor(130, 130, 130);
 
-
-    pdf.setFontSize(
-        8
-    );
-
-
-    pdf.setTextColor(
-        130,
-        130,
-        130
-    );
-
-
-    pdf.text(
-        `SIREM • Reporte General • Página ${pagina} de ${paginas}`,
-        105,
-        287,
-        {
-            align: "center"
+          pdf.text(
+            `SIREM • Reporte General • Página ${pagina} de ${paginas}`,
+            105,
+            287,
+            {
+              align: "center",
+            },
+          );
         }
-    );
 
-}
-
-
-/* =================================
+        /* =================================
    DESCARGAR PDF
 ================================= */
 
-pdf.save(
-    `Reporte General - ${periodo}.pdf`
-);
+        pdf.save(`Reporte General - ${periodo}.pdf`);
 
-    return;
+        return;
+      }
 
-}
-
-
-/* =================================
+      /* =================================
    OBTENER REMISIONES PARA EXPORTAR
 ================================= */
 
-if (
-    tipo === "remisiones" &&
-    formato === "Excel"
-) {
-
-    const respuesta =
-        await fetch(
-            `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`
+      if (tipo === "remisiones" && formato === "Excel") {
+        const respuesta = await fetch(
+          `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`,
         );
 
+        if (!respuesta.ok) {
+          const errorBackend = await respuesta.json();
 
-    if (!respuesta.ok) {
+          throw new Error(
+            errorBackend.mensaje || "No se pudieron obtener las remisiones.",
+          );
+        }
 
-        const errorBackend =
-            await respuesta.json();
+        const datos = await respuesta.json();
 
-        throw new Error(
-            errorBackend.mensaje ||
-            "No se pudieron obtener las remisiones."
-        );
+        console.log("REMISIONES RECIBIDAS:", datos);
 
-    }
-
-
-    const datos =
-        await respuesta.json();
-
-
-    console.log(
-        "REMISIONES RECIBIDAS:",
-        datos
-    );
-
-
-    /* =================================
+        /* =================================
        PREPARAR DATOS
     ================================= */
 
-    const datosExcel =
-        datos.remisiones.map(
-            (remision) => ({
+        const datosExcel = datos.remisiones.map((remision) => ({
+          Remisión: remision.numero_remision,
 
-                "Remisión":
-                    remision.numero_remision,
+          Fecha: (() => {
+            const fecha = new Date(remision.fecha);
 
-                "Fecha":
-    new Date(
-        remision.fecha
-    ).toLocaleDateString(
-        "es-CO"
-    ),
-                    
+            const dia = String(fecha.getDate()).padStart(2, "0");
+            const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+            const año = fecha.getFullYear();
 
-                "Cliente":
-                    remision.cliente,
+            return `${dia}/${mes}/${año}`;
+          })(),
 
-                "Ciudad":
-                    remision.ciudad,
+          Cliente: remision.cliente,
 
-                "Comercial":
-                    remision.comercial,
+          Ciudad: remision.ciudad,
 
-                "Producto":
-                    remision.nombre_producto,
+          Comercial: remision.comercial,
 
-                "Código producto":
-                    remision.codigo_producto,
+          Producto: remision.nombre_producto,
 
-                "Línea":
-                    remision.linea_producto,
+          "Código producto": remision.codigo_producto,
 
-                "Placa":
-                    remision.placa,
+          Línea: remision.linea_producto,
 
-                "Cantidad":
-                    Number(remision.cantidad),
+          Placa: remision.placa,
 
-                "Precio lista":
-                    Number(remision.precio_lista),
+          Cantidad: Number(remision.cantidad),
 
-                "Precio venta":
-                    Number(remision.precio_venta),
+          "Precio lista": Number(remision.precio_lista),
 
-                "Total producto":
-                    Number(remision.total_producto),
+          "Precio venta": Number(remision.precio_venta),
 
-                "Total remisión":
-                    Number(remision.total),
+          "Total producto": Number(remision.total_producto),
 
-                "Saldo pendiente":
-                    Number(remision.saldo_pendiente),
+          "Total remisión": Number(remision.total),
 
-                "Medio de pago":
-                    remision.medio_pago,
+          "Total abonado": Math.max(
+            Number(remision.total || 0) - Number(remision.saldo_pendiente || 0),
+            0,
+          ),
 
-                "Estado":
-                    remision.estado,
+          "Saldo pendiente": Number(remision.saldo_pendiente),
 
-                "Comentarios":
-    remision.comentarios || "",
+          "Medio de pago": remision.medio_pago,
 
+          Estado: remision.estado,
 
-                 "Código WO":
-                    remision.codigo_world_office || ""
+          Comentarios: remision.comentarios || "",
 
-            })
-        );
+          "Código WO": remision.codigo_world_office || "",
 
+          Comentarios: remision.comentarios || "",
 
-  const totalFilas =
-    datosExcel.length;
+          "Código WO": remision.codigo_world_office || "",
+        }));
 
-    /* =================================
+        const totalFilas = datosExcel.length;
+
+        /* =================================
    CREAR EXCEL
 ================================= */
 
-const libro =
-    XLSX.utils.book_new();
+        const libro = XLSX.utils.book_new();
 
+        const hoja = XLSX.utils.json_to_sheet(datosExcel, {
+          origin: "A5",
+        });
 
-const hoja =
-    XLSX.utils.json_to_sheet(
-        datosExcel,
-        {
-            origin: "A5"
-        }
-    );
-
-
-/* =================================
+        /* =================================
    ENCABEZADO DEL REPORTE
 ================================= */
 
-XLSX.utils.sheet_add_aoa(
-    hoja,
-    [
-        ["REMISIONES SIREM"],
-        ["Listado detallado de remisiones"],
-        [`Período: ${periodo}`]
-    ],
-    {
-        origin: "A1"
-    }
-);
+        XLSX.utils.sheet_add_aoa(
+          hoja,
+          [
+            ["REMISIONES SIREM"],
+            ["Listado detallado de remisiones"],
+            [`Período: ${periodo}`],
+          ],
+          {
+            origin: "A1",
+          },
+        );
 
-
-/* =================================
+        /* =================================
    UNIR ENCABEZADOS
 ================================= */
 
-hoja["!merges"] = [
+        hoja["!merges"] = [
+          {
+            s: { r: 0, c: 0 },
+            e: { r: 0, c: 18 },
+          },
 
-    {
-        s: { r: 0, c: 0 },
-        e: { r: 0, c: 18 }
-    },
+          {
+            s: { r: 1, c: 0 },
+            e: { r: 1, c: 18 },
+          },
 
-    {
-        s: { r: 1, c: 0 },
-        e: { r: 1, c: 18 }
-    },
+          {
+            s: { r: 2, c: 0 },
+            e: { r: 2, c: 18 },
+          },
+        ];
 
-    {
-        s: { r: 2, c: 0 },
-        e: { r: 2, c: 18 }
-    }
-
-];
-
-
-/* =================================
+        /* =================================
    ESTILO TÍTULO
 ================================= */
 
-hoja["A1"].s = {
+        hoja["A1"].s = {
+          font: {
+            bold: true,
 
-    font: {
+            sz: 20,
 
-        bold: true,
+            color: {
+              rgb: "FFFFFF",
+            },
+          },
 
-        sz: 20,
+          fill: {
+            fgColor: {
+              rgb: "8B5E34",
+            },
+          },
 
-        color: {
-            rgb: "FFFFFF"
-        }
+          alignment: {
+            horizontal: "center",
 
-    },
+            vertical: "center",
+          },
+        };
 
-
-    fill: {
-
-        fgColor: {
-            rgb: "8B5E34"
-        }
-
-    },
-
-
-    alignment: {
-
-        horizontal: "center",
-
-        vertical: "center"
-
-    }
-
-};
-
-/* =================================
+        /* =================================
    ALTURA DEL TÍTULO
 ================================= */
 
-hoja["!rows"] = [
+        hoja["!rows"] = [
+          { hpt: 30 },
 
-    { hpt: 30 },
+          { hpt: 22 },
 
-    { hpt: 22 },
+          { hpt: 18 },
 
-    { hpt: 18 },
+          { hpt: 8 },
 
-    { hpt: 8 },
+          { hpt: 24 },
+        ];
 
-    { hpt: 24 }
-
-];
-
-
-/* =================================
+        /* =================================
    ESTILO SUBTÍTULO
 ================================= */
 
-hoja["A2"].s = {
+        hoja["A2"].s = {
+          font: {
+            bold: true,
 
-    font: {
+            sz: 12,
 
-        bold: true,
+            color: {
+              rgb: "6B4A2D",
+            },
+          },
 
-        sz: 12,
+          fill: {
+            fgColor: {
+              rgb: "F3EADF",
+            },
+          },
 
-        color: {
-            rgb: "6B4A2D"
-        }
+          alignment: {
+            horizontal: "center",
 
-    },
+            vertical: "center",
+          },
+        };
 
-
-    fill: {
-
-        fgColor: {
-            rgb: "F3EADF"
-        }
-
-    },
-
-
-    alignment: {
-
-        horizontal: "center",
-
-        vertical: "center"
-
-    }
-
-};
-
-
-/* =================================
+        /* =================================
    ESTILO PERÍODO
 ================================= */
 
-hoja["A3"].s = {
+        hoja["A3"].s = {
+          font: {
+            italic: true,
+            sz: 10,
+            color: {
+              rgb: "777777",
+            },
+          },
 
-    font: {
-        italic: true,
-        sz: 10,
-        color: {
-            rgb: "777777"
-        }
-    },
+          alignment: {
+            horizontal: "center",
+          },
+        };
 
-    alignment: {
-        horizontal: "center"
-    }
-
-};
-
-
-/* =================================
+        /* =================================
    ESTILO ENCABEZADOS DE COLUMNAS
 ================================= */
 
-for (
-    let columna = 0;
-    columna < 18;
-    columna++
-) {
-
-    const celda =
-        XLSX.utils.encode_cell({
+        for (let columna = 0; columna < 18; columna++) {
+          const celda = XLSX.utils.encode_cell({
             r: 4,
-            c: columna
-        });
+            c: columna,
+          });
 
+          if (!hoja[celda]) continue;
 
-    if (!hoja[celda]) continue;
-
-
-    hoja[celda].s = {
-
-        font: {
-            bold: true,
-            color: {
-                rgb: "FFFFFF"
+          hoja[celda].s = {
+            font: {
+              bold: true,
+              color: {
+                rgb: "FFFFFF",
+              },
+              sz: 10,
             },
-            sz: 10
-        },
 
-        fill: {
-            fgColor: {
-                rgb: "8B5E34"
-            }
-        },
+            fill: {
+              fgColor: {
+                rgb: "8B5E34",
+              },
+            },
 
-        alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: true
+            alignment: {
+              horizontal: "center",
+              vertical: "center",
+              wrapText: true,
+            },
+          };
         }
 
-    };
-
-}
-
-/* =================================
+        /* =================================
    FORMATOS NUMÉRICOS
 ================================= */
 
-for (
-    let fila = 5;
-    fila < totalFilas + 5;
-    fila++
-) {
+        for (let fila = 5; fila < totalFilas + 5; fila++) {
+          /* CANTIDAD */
 
-    /* CANTIDAD */
-
-    const cantidad =
-        XLSX.utils.encode_cell({
+          const cantidad = XLSX.utils.encode_cell({
             r: fila,
-            c: 9
-        });
+            c: 9,
+          });
 
-    if (hoja[cantidad]) {
+          if (hoja[cantidad]) {
+            hoja[cantidad].z = "#,##0";
+          }
 
-        hoja[cantidad].z =
-            '#,##0';
+          /* PRECIO LISTA */
 
-    }
-
-
-    /* PRECIO LISTA */
-
-    const precioLista =
-        XLSX.utils.encode_cell({
+          const precioLista = XLSX.utils.encode_cell({
             r: fila,
-            c: 10
-        });
+            c: 10,
+          });
 
-    if (hoja[precioLista]) {
+          if (hoja[precioLista]) {
+            hoja[precioLista].z = "$ #,##0";
+          }
 
-        hoja[precioLista].z =
-            '$ #,##0';
+          /* PRECIO VENTA */
 
-    }
-
-
-    /* PRECIO VENTA */
-
-    const precioVenta =
-        XLSX.utils.encode_cell({
+          const precioVenta = XLSX.utils.encode_cell({
             r: fila,
-            c: 11
-        });
+            c: 11,
+          });
 
-    if (hoja[precioVenta]) {
+          if (hoja[precioVenta]) {
+            hoja[precioVenta].z = "$ #,##0";
+          }
 
-        hoja[precioVenta].z =
-            '$ #,##0';
+          /* TOTAL PRODUCTO */
 
-    }
-
-
-    /* TOTAL PRODUCTO */
-
-    const totalProducto =
-        XLSX.utils.encode_cell({
+          const totalProducto = XLSX.utils.encode_cell({
             r: fila,
-            c: 12
-        });
+            c: 12,
+          });
 
-    if (hoja[totalProducto]) {
+          if (hoja[totalProducto]) {
+            hoja[totalProducto].z = "$ #,##0";
+          }
 
-        hoja[totalProducto].z =
-            '$ #,##0';
+          /* TOTAL REMISIÓN */
 
-    }
-
-
-    /* TOTAL REMISIÓN */
-
-    const totalRemision =
-        XLSX.utils.encode_cell({
+          const totalRemision = XLSX.utils.encode_cell({
             r: fila,
-            c: 13
-        });
+            c: 13,
+          });
 
-    if (hoja[totalRemision]) {
+          if (hoja[totalRemision]) {
+            hoja[totalRemision].z = "$ #,##0";
+          }
 
-        hoja[totalRemision].z =
-            '$ #,##0';
+          /* SALDO PENDIENTE */
 
-    }
-
-
-    /* SALDO PENDIENTE */
-
-    const saldo =
-        XLSX.utils.encode_cell({
+          const saldo = XLSX.utils.encode_cell({
             r: fila,
-            c: 14
-        });
+            c: 14,
+          });
 
-    if (hoja[saldo]) {
+          if (hoja[saldo]) {
+            hoja[saldo].z = "$ #,##0";
+          }
+        }
 
-        hoja[saldo].z =
-            '$ #,##0';
-
-    }
-
-}
-
-/* =================================
+        /* =================================
    DIFERENCIAR GRUPOS DE REMISIONES
 ================================= */
 
-let remisionAnterior = null;
+        let remisionAnterior = null;
 
+        for (let fila = 5; fila < totalFilas + 5; fila++) {
+          const remision = datosExcel[fila - 5]["Remisión"];
 
-for (
-    let fila = 5;
-    fila < totalFilas + 5;
-    fila++
-) {
+          const esNuevaRemision = remision !== remisionAnterior;
 
-    const remision =
-        datosExcel[fila - 5]["Remisión"];
-
-
-    const esNuevaRemision =
-        remision !== remisionAnterior;
-
-
-    /*
+          /*
        Color de fondo alternado
        para cada grupo de remisión
     */
 
-    const colorFondo =
-        esNuevaRemision
-            ? "F3E9DD"
-            : "FFFFFF";
+          const colorFondo = esNuevaRemision ? "F3E9DD" : "FFFFFF";
 
-
-    /*
+          /*
        Aplicar color a toda la fila
     */
 
- /* =================================
+          /* =================================
    APLICAR COLOR A TODA LA FILA
 ================================= */
 
-for (
-    let columna = 0;
-    columna < 19;
-    columna++
-) {
+          for (let columna = 0; columna < 19; columna++) {
+            const celda = XLSX.utils.encode_cell({
+              r: fila,
+              c: columna,
+            });
 
-    const celda =
-        XLSX.utils.encode_cell({
-            r: fila,
-            c: columna
-        });
-
-
-    /* =================================
+            /* =================================
        CREAR LA CELDA SI ESTÁ VACÍA
     ================================= */
 
-    if (!hoja[celda]) {
-
-        hoja[celda] = {
-            t: "s",
-            v: ""
-        };
-
-    }
-
-
-    hoja[celda].s = {
-
-        fill: {
-            fgColor: {
-                rgb: colorFondo
-            }
-        },
-
-        alignment: {
-            vertical: "center"
-        },
-
-        border: {
-
-            bottom: {
-                style: "thin",
-
-                color: {
-                    rgb: "DDCDBD"
-                }
+            if (!hoja[celda]) {
+              hoja[celda] = {
+                t: "s",
+                v: "",
+              };
             }
 
-        }
+            hoja[celda].s = {
+              fill: {
+                fgColor: {
+                  rgb: colorFondo,
+                },
+              },
 
-    };
+              alignment: {
+                vertical: "center",
+              },
 
-}
+              border: {
+                bottom: {
+                  style: "thin",
 
-    /*
+                  color: {
+                    rgb: "DDCDBD",
+                  },
+                },
+              },
+            };
+          }
+
+          /*
        DESTACAR NÚMERO DE REMISIÓN
     */
 
-const celdaNumeroRemision =
-    XLSX.utils.encode_cell({
-        r: fila,
-        c: 0
-    });
+          const celdaNumeroRemision = XLSX.utils.encode_cell({
+            r: fila,
+            c: 0,
+          });
 
-
-if (hoja[celdaNumeroRemision]) {
-
-        hoja[celdaNumeroRemision].s = {
-
-            font: {
+          if (hoja[celdaNumeroRemision]) {
+            hoja[celdaNumeroRemision].s = {
+              font: {
                 bold: true,
                 color: {
-                    rgb: "8B5E34"
-                }
-            },
+                  rgb: "8B5E34",
+                },
+              },
 
-            fill: {
+              fill: {
                 fgColor: {
-                    rgb: esNuevaRemision
-                        ? "E8D5BE"
-                        : "F8F1E8"
-                }
-            },
+                  rgb: esNuevaRemision ? "E8D5BE" : "F8F1E8",
+                },
+              },
 
-            alignment: {
+              alignment: {
                 horizontal: "center",
-                vertical: "center"
-            },
+                vertical: "center",
+              },
 
-            border: {
-
+              border: {
                 top: {
-                    style: esNuevaRemision
-                        ? "medium"
-                        : "thin",
+                  style: esNuevaRemision ? "medium" : "thin",
 
-                    color: {
-                        rgb: "B98A5D"
-                    }
+                  color: {
+                    rgb: "B98A5D",
+                  },
                 },
 
                 bottom: {
-                    style: "thin",
+                  style: "thin",
 
-                    color: {
-                        rgb: "D9C4AC"
-                    }
-                }
+                  color: {
+                    rgb: "D9C4AC",
+                  },
+                },
+              },
+            };
+          }
 
-            }
-
-        };
-
-    }
-
-
-    remisionAnterior =
-        remision;
-
-}
-/* =================================
+          remisionAnterior = remision;
+        }
+        /* =================================
    AJUSTAR COLUMNAS
 ================================= */
 
-hoja["!cols"] = [
+        hoja["!cols"] = [
+          { wch: 14 }, // Remisión
+          { wch: 14 }, // Fecha
+          { wch: 28 }, // Cliente
+          { wch: 18 }, // Ciudad
+          { wch: 24 }, // Comercial
+          { wch: 32 }, // Producto
+          { wch: 18 }, // Código producto
+          { wch: 22 }, // Línea
+          { wch: 14 }, // Placa
+          { wch: 10 }, // Cantidad
+          { wch: 16 }, // Precio lista
+          { wch: 16 }, // Precio venta
+          { wch: 18 }, // Total producto
+          { wch: 18 }, // Total remisión
+          { wch: 18 }, // Saldo pendiente
+          { wch: 18 }, // Medio de pago
+          { wch: 14 }, // Estado
+          { wch: 40 }, // Comentarios
+          { wch: 18 }, // Código WO
+        ];
 
-    { wch: 14 }, // Remisión
-    { wch: 14 }, // Fecha
-    { wch: 28 }, // Cliente
-    { wch: 18 }, // Ciudad
-    { wch: 24 }, // Comercial
-    { wch: 32 }, // Producto
-    { wch: 18 }, // Código producto
-    { wch: 22 }, // Línea
-    { wch: 14 }, // Placa
-    { wch: 10 }, // Cantidad
-    { wch: 16 }, // Precio lista
-    { wch: 16 }, // Precio venta
-    { wch: 18 }, // Total producto
-    { wch: 18 }, // Total remisión
-    { wch: 18 }, // Saldo pendiente
-    { wch: 18 }, // Medio de pago
-{ wch: 14 }, // Estado
-{ wch: 40 }, // Comentarios
-{ wch: 18 }  // Código WO
-
-];
-
-/* =================================
+        /* =================================
    FILTROS
 ================================= */
 
-hoja["!autofilter"] = {
+        hoja["!autofilter"] = {
+          ref: `A5:S${totalFilas + 5}`,
+        };
 
-    ref:
-        `A5:S${totalFilas + 5}`
-
-};
-
-
-/* =================================
+        /* =================================
    CONGELAR ENCABEZADOS
 ================================= */
 
-hoja["!freeze"] = {
+        hoja["!freeze"] = {
+          xSplit: 0,
 
-    xSplit: 0,
+          ySplit: 5,
+        };
 
-    ySplit: 5
-
-};
-
-
-/* =================================
+        /* =================================
    COLOR DE LA PESTAÑA
 ================================= */
 
-hoja["!tabColor"] = {
+        hoja["!tabColor"] = {
+          rgb: "8B5E34",
+        };
+        XLSX.utils.book_append_sheet(libro, hoja, "Remisiones");
 
-    rgb: "8B5E34"
-
-};
-XLSX.utils.book_append_sheet(
-    libro,
-    hoja,
-    "Remisiones"
-);
-
-    /* =================================
+        /* =================================
        DESCARGAR
     ================================= */
 
-    XLSX.writeFile(
-        libro,
-        `Remisiones ${periodo}.xlsx`
-    );
+        XLSX.writeFile(libro, `Remisiones ${periodo}.xlsx`);
 
+        return;
+      }
 
-    return;
-
-}
-
-/* =================================
+      /* =================================
    EXPORTAR REMISIONES A PDF
 ================================= */
 
-if (
-    tipo === "remisiones" &&
-    formato === "PDF"
-) {
-
-    const respuesta =
-        await fetch(
-            `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`
+      if (tipo === "remisiones" && formato === "PDF") {
+        const respuesta = await fetch(
+          `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`,
         );
 
+        if (!respuesta.ok) {
+          const errorBackend = await respuesta.json();
 
-    if (!respuesta.ok) {
+          throw new Error(
+            errorBackend.mensaje || "No se pudieron obtener las remisiones.",
+          );
+        }
 
-        const errorBackend =
-            await respuesta.json();
+        const datos = await respuesta.json();
 
-        throw new Error(
-            errorBackend.mensaje ||
-            "No se pudieron obtener las remisiones."
-        );
+        console.log("REMISIONES PARA PDF:", datos);
 
-    }
-
-
-    const datos =
-        await respuesta.json();
-
-
-    console.log(
-        "REMISIONES PARA PDF:",
-        datos
-    );
-
-
-    /* =================================
+        /* =================================
        VALIDAR REMISIONES
     ================================= */
 
-    if (
-        !datos.remisiones ||
-        datos.remisiones.length === 0
-    ) {
+        if (!datos.remisiones || datos.remisiones.length === 0) {
+          alert("No hay remisiones para exportar.");
 
-        alert(
-            "No hay remisiones para exportar."
-        );
+          return;
+        }
 
-        return;
-
-    }
-
-
-    /* =================================
+        /* =================================
        CREAR PDF
     ================================= */
 
-    const pdf =
-        new jsPDF(
-            "l",
-            "mm",
-            "a4"
-        );
+        const pdf = new jsPDF("l", "mm", "a4");
 
-
-    /* =================================
+        /* =================================
        TÍTULO
     ================================= */
 
-    pdf.setFillColor(
-        139,
-        94,
-        52
-    );
+        pdf.setFillColor(139, 94, 52);
 
+        pdf.rect(0, 0, 297, 25, "F");
 
-    pdf.rect(
-        0,
-        0,
-        297,
-        25,
-        "F"
-    );
+        pdf.setTextColor(255, 255, 255);
 
+        pdf.setFontSize(18);
 
-    pdf.setTextColor(
-        255,
-        255,
-        255
-    );
+        pdf.setFont("helvetica", "bold");
 
+        pdf.text("REMISIONES SIREM", 148.5, 12, {
+          align: "center",
+        });
 
-    pdf.setFontSize(18);
+        pdf.setFontSize(10);
 
+        pdf.setFont("helvetica", "normal");
 
-    pdf.setFont(
-        "helvetica",
-        "bold"
-    );
+        pdf.text(
+          `Listado detallado de remisiones - ${datos.periodo}`,
+          148.5,
+          19,
+          {
+            align: "center",
+          },
+        );
 
-
-    pdf.text(
-        "REMISIONES SIREM",
-        148.5,
-        12,
-        {
-            align: "center"
-        }
-    );
-
-
-    pdf.setFontSize(10);
-
-
-    pdf.setFont(
-        "helvetica",
-        "normal"
-    );
-
-
-    pdf.text(
-        `Listado detallado de remisiones - ${datos.periodo}`,
-        148.5,
-        19,
-        {
-            align: "center"
-        }
-    );
-
-
-    /* =================================
+        /* =================================
        PREPARAR TABLA
     ================================= */
 
-    const filas =
-        datos.remisiones.map(
-            (remision) => [
+        const filas = datos.remisiones.map((remision) => [
+          remision.numero_remision || "",
 
-                remision.numero_remision || "",
+          new Date(remision.fecha).toLocaleDateString("es-CO"),
 
-                new Date(
-                    remision.fecha
-                ).toLocaleDateString(
-                    "es-CO"
-                ),
+          remision.cliente || "",
 
-                remision.cliente || "",
+          remision.comercial || "",
 
-                remision.comercial || "",
+          remision.nombre_producto || "",
 
-                remision.nombre_producto || "",
+          remision.codigo_producto || "",
 
-                remision.codigo_producto || "",
+          remision.placa || "",
 
-                remision.placa || "",
+          Number(remision.cantidad || 0),
 
-                Number(
-                    remision.cantidad || 0
-                ),
+          Number(remision.precio_venta || 0).toLocaleString("es-CO"),
 
-                Number(
-                    remision.precio_venta || 0
-                ).toLocaleString(
-                    "es-CO"
-                ),
+          Number(remision.total_producto || 0).toLocaleString("es-CO"),
 
-                Number(
-                    remision.total_producto || 0
-                ).toLocaleString(
-                    "es-CO"
-                ),
+          remision.estado || "",
 
-                remision.estado || "",
+          remision.codigo_world_office || "",
 
-                remision.codigo_world_office || "",
+          remision.comentarios || "",
+        ]);
 
-                remision.comentarios || ""
-
-            ]
-        );
-
-
-    /* =================================
+        /* =================================
        CREAR TABLA
     ================================= */
 
-    autoTable(
-        pdf,
-        {
+        autoTable(pdf, {
+          startY: 32,
 
-            startY: 32,
+          head: [
+            [
+              "Remisión",
 
+              "Fecha",
 
-            head: [
+              "Cliente",
 
-                [
+              "Comercial",
 
-                    "Remisión",
+              "Producto",
 
-                    "Fecha",
+              "Código",
 
-                    "Cliente",
+              "Placa",
 
-                    "Comercial",
+              "Cant.",
 
-                    "Producto",
+              "Precio venta",
 
-                    "Código",
+              "Total",
 
-                    "Placa",
+              "Estado",
 
-                    "Cant.",
+              "Código WO",
 
-                    "Precio venta",
-
-                    "Total",
-
-                    "Estado",
-
-                    "Código WO",
-
-                    "Comentarios"
-
-                ]
-
+              "Comentarios",
             ],
+          ],
 
+          body: filas,
 
-            body:
-                filas,
+          theme: "grid",
 
+          styles: {
+            fontSize: 7,
 
-            theme:
-                "grid",
+            cellPadding: 2,
 
+            valign: "middle",
+          },
 
-            styles: {
+          headStyles: {
+            fillColor: [91, 70, 54],
 
-                fontSize: 7,
+            textColor: [255, 255, 255],
 
-                cellPadding: 2,
+            fontStyle: "bold",
 
-                valign:
-                    "middle"
+            halign: "center",
+          },
 
+          alternateRowStyles: {
+            fillColor: [248, 244, 240],
+          },
+
+          columnStyles: {
+            0: {
+              halign: "center",
             },
 
-
-            headStyles: {
-
-                fillColor: [
-                    91,
-                    70,
-                    54
-                ],
-
-                textColor: [
-                    255,
-                    255,
-                    255
-                ],
-
-                fontStyle:
-                    "bold",
-
-                halign:
-                    "center"
-
+            1: {
+              halign: "center",
             },
 
-
-            alternateRowStyles: {
-
-                fillColor: [
-                    248,
-                    244,
-                    240
-                ]
-
+            7: {
+              halign: "center",
             },
 
-
-            columnStyles: {
-
-                0: {
-                    halign:
-                        "center"
-                },
-
-                1: {
-                    halign:
-                        "center"
-                },
-
-                7: {
-                    halign:
-                        "center"
-                },
-
-                8: {
-                    halign:
-                        "right"
-                },
-
-                9: {
-                    halign:
-                        "right"
-                },
-
-                10: {
-                    halign:
-                        "center"
-                },
-
-                11: {
-                    halign:
-                        "center"
-                }
-
+            8: {
+              halign: "right",
             },
 
+            9: {
+              halign: "right",
+            },
 
-            margin: {
+            10: {
+              halign: "center",
+            },
 
-                top: 32,
+            11: {
+              halign: "center",
+            },
+          },
 
-                right: 5,
+          margin: {
+            top: 32,
 
-                bottom: 15,
+            right: 5,
 
-                left: 5
+            bottom: 15,
 
-            }
+            left: 5,
+          },
+        });
 
-        }
-    );
-
-
-    /* =================================
+        /* =================================
        PIE DE PÁGINA
     ================================= */
 
-    const totalPaginas =
-        pdf.getNumberOfPages();
+        const totalPaginas = pdf.getNumberOfPages();
 
+        for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+          pdf.setPage(pagina);
 
-    for (
-        let pagina = 1;
-        pagina <= totalPaginas;
-        pagina++
-    ) {
+          pdf.setFontSize(8);
 
-        pdf.setPage(
-            pagina
-        );
+          pdf.setTextColor(120, 120, 120);
 
+          pdf.text(`Página ${pagina} de ${totalPaginas}`, 292, 205, {
+            align: "right",
+          });
+        }
 
-        pdf.setFontSize(
-            8
-        );
-
-
-        pdf.setTextColor(
-            120,
-            120,
-            120
-        );
-
-
-        pdf.text(
-            `Página ${pagina} de ${totalPaginas}`,
-            292,
-            205,
-            {
-                align:
-                    "right"
-            }
-        );
-
-    }
-
-
-    /* =================================
+        /* =================================
        DESCARGAR PDF
     ================================= */
 
-    pdf.save(
-        `Remisiones ${datos.periodo}.pdf`
-    );
+        pdf.save(`Remisiones ${datos.periodo}.pdf`);
 
+        return;
+      }
 
-    return;
-
-}
-
-        /* =================================
+      /* =================================
            EXPORTAR CARTERA A EXCEL
         ================================= */
 
-        if (
-            tipo === "cartera" &&
-            formato === "Excel"
-        ) {
+      if (tipo === "cartera" && formato === "Excel") {
+        const respuesta = await fetch("/api/exportaciones/cartera");
 
-            const respuesta =
-                await fetch(
-                    "/api/exportaciones/cartera"
-                );
+        console.log(
+          "RESPUESTA EXPORTACIÓN:",
+          respuesta.status,
+          respuesta.statusText,
+        );
 
+        if (!respuesta.ok) {
+          const errorBackend = await respuesta.json();
 
-            console.log(
-                "RESPUESTA EXPORTACIÓN:",
-                respuesta.status,
-                respuesta.statusText
-            );
+          console.error("ERROR DEL BACKEND:", errorBackend);
 
+          throw new Error(
+            errorBackend.mensaje ||
+              "No se pudieron obtener los datos de cartera.",
+          );
+        }
 
-            if (!respuesta.ok) {
+        const datos = await respuesta.json();
 
-                const errorBackend =
-                    await respuesta.json();
+        console.log("DATOS RECIBIDOS PARA EXPORTACIÓN:", datos);
 
-                console.error(
-                    "ERROR DEL BACKEND:",
-                    errorBackend
-                );
-
-                throw new Error(
-                    errorBackend.mensaje ||
-                    "No se pudieron obtener los datos de cartera."
-                );
-
-            }
-
-
-            const datos =
-                await respuesta.json();
-
-
-            console.log(
-                "DATOS RECIBIDOS PARA EXPORTACIÓN:",
-                datos
-            );
-
-
-            /* =================================
+        /* =================================
                PREPARAR DATOS PARA EXCEL
             ================================= */
 
-            const datosExcel =
-                datos.map((cuenta) => ({
+        const datosExcel = datos.map((cuenta) => ({
+          Remisión: cuenta.numero_remision,
 
-                    "Remisión":
-                        cuenta.numero_remision,
+          Fecha: (() => {
+            const fecha = new Date(remision.fecha);
 
-                  "Fecha":
-    new Date(
-        cuenta.fecha
-    ).toLocaleDateString(
-        "es-CO"
-    ),
+            const dia = String(fecha.getDate()).padStart(2, "0");
+            const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+            const año = fecha.getFullYear();
 
-                    "Cliente":
-                        cuenta.cliente,
+            return `${dia}/${mes}/${año}`;
+          })(),
 
-                    "Documento":
-                        cuenta.documento,
+          Cliente: cuenta.cliente,
 
-                    "Comercial":
-                        cuenta.comercial,
+          Documento: cuenta.documento,
 
-                    "Total":
-                        Number(cuenta.total),
+          Comercial: cuenta.comercial,
 
-                    "Total abonado":
-                        Number(cuenta.total_abonado),
+          Total: Number(cuenta.total),
 
-                    "Saldo pendiente":
-                        Number(cuenta.saldo_pendiente),
+          "Total abonado": Number(cuenta.total_abonado),
 
-                    "Cantidad de abonos":
-                        Number(cuenta.cantidad_abonos),
+          "Saldo pendiente": Number(cuenta.saldo_pendiente),
 
-                    "Días":
-                        Number(cuenta.dias),
+          "Cantidad de abonos": Number(cuenta.cantidad_abonos),
 
-                    "Estado":
-                        cuenta.estado
+          Días: Number(cuenta.dias),
 
-                }));
+          Estado: cuenta.estado,
+        }));
 
-
-            /* =================================
+        /* =================================
                CREAR LIBRO EXCEL
             ================================= */
 
-            const libro =
-    XLSX.utils.book_new();
+        const libro = XLSX.utils.book_new();
 
+        const hoja = XLSX.utils.json_to_sheet(datosExcel, {
+          origin: "A5",
+        });
 
-const hoja =
-    XLSX.utils.json_to_sheet(
-        datosExcel,
-        {
-            origin: "A5"
-        }
-    );
+        XLSX.utils.sheet_add_aoa(
+          hoja,
+          [
+            ["CARTERA SIREM"],
+            ["Estado actual de la cartera"],
+            [`Generado: ${new Date().toLocaleDateString("es-CO")}`],
+          ],
+          {
+            origin: "A1",
+          },
+        );
 
+        XLSX.utils.book_append_sheet(libro, hoja, "Cartera");
 
-XLSX.utils.sheet_add_aoa(
-    hoja,
-    [
-        ["CARTERA SIREM"],
-        ["Estado actual de la cartera"],
-        [`Generado: ${new Date().toLocaleDateString("es-CO")}`]
-    ],
-    {
-        origin: "A1"
-    }
-);
-
-
-XLSX.utils.book_append_sheet(
-    libro,
-    hoja,
-    "Cartera"
-);
-
-/* =================================
+        /* =================================
    COMBINAR ENCABEZADOS
 ================================= */
 
-hoja["!merges"] = [
+        hoja["!merges"] = [
+          {
+            s: { r: 0, c: 0 },
+            e: { r: 0, c: 10 },
+          },
 
-    {
-        s: { r: 0, c: 0 },
-        e: { r: 0, c: 10 }
-    },
+          {
+            s: { r: 1, c: 0 },
+            e: { r: 1, c: 10 },
+          },
 
-    {
-        s: { r: 1, c: 0 },
-        e: { r: 1, c: 10 }
-    },
+          {
+            s: { r: 2, c: 0 },
+            e: { r: 2, c: 10 },
+          },
+        ];
 
-    {
-        s: { r: 2, c: 0 },
-        e: { r: 2, c: 10 }
-    }
-
-];
-
-
-/* =================================
+        /* =================================
    ESTILO TÍTULO PRINCIPAL
 ================================= */
 
-hoja["A1"].s = {
+        hoja["A1"].s = {
+          font: {
+            bold: true,
+            sz: 20,
+            color: {
+              rgb: "FFFFFF",
+            },
+          },
 
-    font: {
-        bold: true,
-        sz: 20,
-        color: {
-            rgb: "FFFFFF"
-        }
-    },
+          fill: {
+            fgColor: {
+              rgb: "8B5E34",
+            },
+          },
 
-    fill: {
-        fgColor: {
-            rgb: "8B5E34"
-        }
-    },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+          },
+        };
 
-    alignment: {
-        horizontal: "center",
-        vertical: "center"
-    }
-
-};
-
-
-/* =================================
+        /* =================================
    ESTILO SUBTÍTULO
 ================================= */
 
-hoja["A2"].s = {
+        hoja["A2"].s = {
+          font: {
+            bold: true,
+            sz: 13,
+            color: {
+              rgb: "5B4636",
+            },
+          },
 
-    font: {
-        bold: true,
-        sz: 13,
-        color: {
-            rgb: "5B4636"
-        }
-    },
+          fill: {
+            fgColor: {
+              rgb: "F3EDE7",
+            },
+          },
 
-    fill: {
-        fgColor: {
-            rgb: "F3EDE7"
-        }
-    },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+          },
+        };
 
-    alignment: {
-        horizontal: "center",
-        vertical: "center"
-    }
-
-};
-
-
-/* =================================
+        /* =================================
    ESTILO FECHA
 ================================= */
 
-hoja["A3"].s = {
+        hoja["A3"].s = {
+          font: {
+            italic: true,
+            sz: 10,
+            color: {
+              rgb: "777777",
+            },
+          },
 
-    font: {
-        italic: true,
-        sz: 10,
-        color: {
-            rgb: "777777"
-        }
-    },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+          },
+        };
 
-    alignment: {
-        horizontal: "center",
-        vertical: "center"
-    }
-
-};
-
-
-/* =================================
+        /* =================================
    ALTURA DE FILAS SUPERIORES
 ================================= */
 
-hoja["!rows"] = [
+        hoja["!rows"] = [
+          { hpt: 32 },
 
-    { hpt: 32 },
+          { hpt: 24 },
 
-    { hpt: 24 },
+          { hpt: 20 },
 
-    { hpt: 20 },
+          { hpt: 10 },
 
-    { hpt: 10 },
+          { hpt: 24 },
+        ];
 
-    { hpt: 24 }
-
-];
-
-
-/* =================================
+        /* =================================
    ESTILO ENCABEZADOS TABLA
 ================================= */
 
-const encabezados = [
+        const encabezados = [
+          "A5",
+          "B5",
+          "C5",
+          "D5",
+          "E5",
+          "F5",
+          "G5",
+          "H5",
+          "I5",
+          "J5",
+          "K5",
+        ];
 
-    "A5",
-    "B5",
-    "C5",
-    "D5",
-    "E5",
-    "F5",
-    "G5",
-    "H5",
-    "I5",
-    "J5",
-    "K5"
+        encabezados.forEach((celda) => {
+          hoja[celda].s = {
+            font: {
+              bold: true,
 
-];
-
-
-encabezados.forEach((celda) => {
-
-    hoja[celda].s = {
-
-        font: {
-
-            bold: true,
-
-            color: {
-                rgb: "FFFFFF"
-            }
-
-        },
-
-        fill: {
-
-            fgColor: {
-                rgb: "5B4636"
-            }
-
-        },
-
-        alignment: {
-
-            horizontal: "center",
-
-            vertical: "center",
-
-            wrapText: true
-
-        },
-
-        border: {
-
-            top: {
-                style: "thin",
-                color: {
-                    rgb: "8B5E34"
-                }
+              color: {
+                rgb: "FFFFFF",
+              },
             },
 
-            bottom: {
-                style: "thin",
-                color: {
-                    rgb: "8B5E34"
-                }
+            fill: {
+              fgColor: {
+                rgb: "5B4636",
+              },
             },
 
-            left: {
-                style: "thin",
-                color: {
-                    rgb: "8B5E34"
-                }
+            alignment: {
+              horizontal: "center",
+
+              vertical: "center",
+
+              wrapText: true,
             },
 
-            right: {
+            border: {
+              top: {
                 style: "thin",
                 color: {
-                    rgb: "8B5E34"
-                }
-            }
+                  rgb: "8B5E34",
+                },
+              },
 
-        }
+              bottom: {
+                style: "thin",
+                color: {
+                  rgb: "8B5E34",
+                },
+              },
 
-    };
+              left: {
+                style: "thin",
+                color: {
+                  rgb: "8B5E34",
+                },
+              },
 
-});
+              right: {
+                style: "thin",
+                color: {
+                  rgb: "8B5E34",
+                },
+              },
+            },
+          };
+        });
 
-
-/* =================================
+        /* =================================
    ESTILO FILAS DE DATOS
 ================================= */
 
-datos.forEach((cuenta, index) => {
+        datos.forEach((cuenta, index) => {
+          const fila = index + 6;
 
-    const fila = index + 6;
+          const colorFondo = index % 2 === 0 ? "FFFFFF" : "F7F3F0";
 
+          for (let columna = 0; columna <= 10; columna++) {
+            const letra = XLSX.utils.encode_col(columna);
 
-    const colorFondo =
-        index % 2 === 0
-            ? "FFFFFF"
-            : "F7F3F0";
+            const celda = hoja[`${letra}${fila}`];
 
-
-    for (
-        let columna = 0;
-        columna <= 10;
-        columna++
-    ) {
-
-        const letra =
-            XLSX.utils.encode_col(
-                columna
-            );
-
-
-        const celda =
-            hoja[`${letra}${fila}`];
-
-
-        if (celda) {
-
-            celda.s = {
-
+            if (celda) {
+              celda.s = {
                 fill: {
-
-                    fgColor: {
-                        rgb: colorFondo
-                    }
-
+                  fgColor: {
+                    rgb: colorFondo,
+                  },
                 },
 
                 alignment: {
-
-                    vertical: "center"
-
+                  vertical: "center",
                 },
 
                 border: {
+                  bottom: {
+                    style: "thin",
 
-                    bottom: {
+                    color: {
+                      rgb: "E6DDD5",
+                    },
+                  },
+                },
+              };
+            }
+          }
 
-                        style: "thin",
+          /* MONEDA */
 
-                        color: {
-                            rgb: "E6DDD5"
-                        }
-
-                    }
-
-                }
-
-            };
-
-        }
-
-    }
-
-
-    /* MONEDA */
-
-    ["F", "G", "H"].forEach(
-        (columna) => {
-
-            const celda =
-                hoja[`${columna}${fila}`];
-
+          ["F", "G", "H"].forEach((columna) => {
+            const celda = hoja[`${columna}${fila}`];
 
             if (celda) {
-
-                celda.z =
-                    '$#,##0';
-
+              celda.z = "$#,##0";
             }
+          });
 
-        }
-    );
+          /* CENTRAR COLUMNAS */
 
-
-    /* CENTRAR COLUMNAS */
-
-    ["A", "B", "I", "J", "K"].forEach(
-        (columna) => {
-
-            const celda =
-                hoja[`${columna}${fila}`];
-
+          ["A", "B", "I", "J", "K"].forEach((columna) => {
+            const celda = hoja[`${columna}${fila}`];
 
             if (celda) {
+              celda.s = {
+                ...celda.s,
 
-                celda.s = {
+                alignment: {
+                  horizontal: "center",
 
-                    ...celda.s,
+                  vertical: "center",
+                },
+              };
+            }
+          });
 
-                    alignment: {
+          /* COLOR SEGÚN ESTADO */
 
-                        horizontal: "center",
+          const celdaEstado = hoja[`K${fila}`];
 
-                        vertical: "center"
+          if (celdaEstado) {
+            let colorEstado = "777777";
 
-                    }
-
-                };
-
+            if (cuenta.estado === "VENCIDA") {
+              colorEstado = "B42318";
             }
 
-        }
-    );
+            if (cuenta.estado === "SEGUIMIENTO") {
+              colorEstado = "B54708";
+            }
 
+            if (cuenta.estado === "AL_DIA") {
+              colorEstado = "027A48";
+            }
 
-    /* COLOR SEGÚN ESTADO */
+            celdaEstado.s = {
+              ...celdaEstado.s,
 
-    const celdaEstado =
-        hoja[`K${fila}`];
-
-
-    if (celdaEstado) {
-
-        let colorEstado =
-            "777777";
-
-
-        if (
-            cuenta.estado === "VENCIDA"
-        ) {
-
-            colorEstado =
-                "B42318";
-
-        }
-
-
-        if (
-            cuenta.estado === "SEGUIMIENTO"
-        ) {
-
-            colorEstado =
-                "B54708";
-
-        }
-
-
-        if (
-            cuenta.estado === "AL_DIA"
-        ) {
-
-            colorEstado =
-                "027A48";
-
-        }
-
-
-        celdaEstado.s = {
-
-            ...celdaEstado.s,
-
-            font: {
-
+              font: {
                 bold: true,
 
                 color: {
-                    rgb: colorEstado
-                }
-
-            }
-
-        };
-
-    }
-
-});
-/* =================================
+                  rgb: colorEstado,
+                },
+              },
+            };
+          }
+        });
+        /* =================================
    ESTILO GENERAL DE LAS FILAS
 ================================= */
 
-const totalFilas =
-    datosExcel.length;
+        const totalFilas = datosExcel.length;
 
+        /* BORDES SUAVES */
 
-/* BORDES SUAVES */
+        const bordes = {
+          top: {
+            style: "thin",
+            color: {
+              rgb: "E8E1DA",
+            },
+          },
 
-const bordes = {
+          bottom: {
+            style: "thin",
+            color: {
+              rgb: "E8E1DA",
+            },
+          },
 
-    top: {
-        style: "thin",
-        color: {
-            rgb: "E8E1DA"
-        }
-    },
+          left: {
+            style: "thin",
+            color: {
+              rgb: "F3EEE9",
+            },
+          },
 
-    bottom: {
-        style: "thin",
-        color: {
-            rgb: "E8E1DA"
-        }
-    },
+          right: {
+            style: "thin",
+            color: {
+              rgb: "F3EEE9",
+            },
+          },
+        };
 
-    left: {
-        style: "thin",
-        color: {
-            rgb: "F3EEE9"
-        }
-    },
+        /* RECORRER TODAS LAS FILAS */
 
-    right: {
-        style: "thin",
-        color: {
-            rgb: "F3EEE9"
-        }
-    }
+        for (let fila = 5; fila < totalFilas + 5; fila++) {
+          const esFilaAlterna = (fila - 5) % 2 === 0;
 
-};
-
-
-/* RECORRER TODAS LAS FILAS */
-
-for (
-    let fila = 5;
-    fila < totalFilas + 5;
-    fila++
-) {
-
-    const esFilaAlterna =
-        (fila - 5) % 2 === 0;
-
-
-    for (
-        let columna = 0;
-        columna < 18;
-        columna++
-    ) {
-
-        const celda =
-            XLSX.utils.encode_cell({
-
-                r: fila,
-                c: columna
-
+          for (let columna = 0; columna < 18; columna++) {
+            const celda = XLSX.utils.encode_cell({
+              r: fila,
+              c: columna,
             });
 
+            if (!hoja[celda]) continue;
 
-        if (!hoja[celda]) continue;
-
-
-        hoja[celda].s = {
-
-            font: {
-
+            hoja[celda].s = {
+              font: {
                 sz: 9,
 
                 color: {
-                    rgb: "4F4F4F"
-                }
+                  rgb: "4F4F4F",
+                },
+              },
 
-            },
-
-
-            fill: {
-
+              fill: {
                 fgColor: {
+                  rgb: esFilaAlterna ? "F8F4F0" : "FFFFFF",
+                },
+              },
 
-                    rgb:
-                        esFilaAlterna
-                            ? "F8F4F0"
-                            : "FFFFFF"
+              border: bordes,
 
-                }
+              alignment: {
+                vertical: "center",
 
-            },
+                horizontal: columna >= 9 ? "right" : "left",
+              },
+            };
+          }
+        }
 
-
-            border:
-                bordes,
-
-
-            alignment: {
-
-                vertical:
-                    "center",
-
-                horizontal:
-
-                    columna >= 9
-                        ? "right"
-                        : "left"
-
-            }
-
-        };
-
-    }
-
-}
-
-/* =================================
+        /* =================================
    AJUSTAR ANCHO DE COLUMNAS
 ================================= */
 
-hoja["!cols"] = [
+        hoja["!cols"] = [
+          { wch: 14 }, // Remisión
+          { wch: 14 }, // Fecha
+          { wch: 28 }, // Cliente
+          { wch: 18 }, // Ciudad
+          { wch: 24 }, // Comercial
+          { wch: 32 }, // Producto
+          { wch: 18 }, // Código producto
+          { wch: 24 }, // Línea
+          { wch: 14 }, // Placa
+          { wch: 10 }, // Cantidad
+          { wch: 16 }, // Precio lista
+          { wch: 16 }, // Precio venta
+          { wch: 18 }, // Total producto
+          { wch: 18 }, // Total remisión
+          { wch: 18 }, // Saldo pendiente
+          { wch: 18 }, // Medio pago
+          { wch: 14 }, // Estado
+          { wch: 16 }, // Código WO
+        ];
 
-    { wch: 14 }, // Remisión
-    { wch: 14 }, // Fecha
-    { wch: 28 }, // Cliente
-    { wch: 18 }, // Ciudad
-    { wch: 24 }, // Comercial
-    { wch: 32 }, // Producto
-    { wch: 18 }, // Código producto
-    { wch: 24 }, // Línea
-    { wch: 14 }, // Placa
-    { wch: 10 }, // Cantidad
-    { wch: 16 }, // Precio lista
-    { wch: 16 }, // Precio venta
-    { wch: 18 }, // Total producto
-    { wch: 18 }, // Total remisión
-    { wch: 18 }, // Saldo pendiente
-    { wch: 18 }, // Medio pago
-    { wch: 14 }, // Estado
-    { wch: 16 }  // Código WO
-
-];
-
-/* =================================
+        /* =================================
    RESALTAR DÍAS MAYORES A 45
 ================================= */
 
-datos.forEach(
-    (cuenta, index) => {
+        datos.forEach((cuenta, index) => {
+          const fila = index + 6;
 
-        const fila =
-            index + 6;
-
-        if (
-            Number(cuenta.dias) > 45
-        ) {
-
-            const celda =
-                hoja[`J${fila}`];
+          if (Number(cuenta.dias) > 45) {
+            const celda = hoja[`J${fila}`];
 
             if (celda) {
+              celda.s = {
+                ...celda.s,
 
-                celda.s = {
+                font: {
+                  ...(celda.s?.font || {}),
+                  bold: true,
+                  color: {
+                    rgb: "C00000",
+                  },
+                },
 
-    ...celda.s,
-
-    font: {
-        ...(celda.s?.font || {}),
-        bold: true,
-        color: {
-            rgb: "C00000"
-        }
-    },
-
-    alignment: {
-        horizontal: "center",
-        vertical: "center"
-    }
-
-};
-
+                alignment: {
+                  horizontal: "center",
+                  vertical: "center",
+                },
+              };
             }
+          }
+        });
 
-        }
-
-    }
-);
-
-            /* =================================
+        /* =================================
                DESCARGAR ARCHIVO
             ================================= */
 
-            XLSX.writeFile(
+        XLSX.writeFile(
+          libro,
 
-                libro,
+          "Cartera SIREM.xlsx",
+        );
 
-                "Cartera SIREM.xlsx"
-
-            );
-
-            return;
-
-        }
-/* =================================
+        return;
+      }
+      /* =================================
    EXPORTAR CARTERA A PDF
 ================================= */
 
-if (
-    tipo === "cartera" &&
-    formato === "PDF"
-) {
+      if (tipo === "cartera" && formato === "PDF") {
+        const respuesta = await fetch("/api/exportaciones/cartera");
 
-    const respuesta =
-        await fetch(
-            "/api/exportaciones/cartera"
-        );
+        console.log("RESPUESTA PDF:", respuesta.status, respuesta.statusText);
 
+        if (!respuesta.ok) {
+          const errorBackend = await respuesta.json();
 
-    console.log(
-        "RESPUESTA PDF:",
-        respuesta.status,
-        respuesta.statusText
-    );
-
-
-    if (!respuesta.ok) {
-
-        const errorBackend =
-            await respuesta.json();
-
-        throw new Error(
+          throw new Error(
             errorBackend.mensaje ||
-            "No se pudieron obtener los datos de cartera."
-        );
+              "No se pudieron obtener los datos de cartera.",
+          );
+        }
 
-    }
+        const datos = await respuesta.json();
 
-
-    const datos =
-        await respuesta.json();
-
-
-    /* =================================
+        /* =================================
        CREAR DOCUMENTO PDF
     ================================= */
 
-    const pdf =
-        new jsPDF(
-            "l",
-            "mm",
-            "a4"
-        );
+        const pdf = new jsPDF("l", "mm", "a4");
 
-
-   /* =================================
+        /* =================================
    ENCABEZADO DEL PDF
 ================================= */
 
+        /* Fondo del encabezado */
 
-/* Fondo del encabezado */
+        pdf.setFillColor(139, 94, 52);
 
-pdf.setFillColor(
-    139,
-    94,
-    52
-);
+        pdf.roundedRect(14, 12, 269, 32, 3, 3, "F");
 
-pdf.roundedRect(
-    14,
-    12,
-    269,
-    32,
-    3,
-    3,
-    "F"
-);
+        /* Línea decorativa */
 
+        pdf.setFillColor(198, 155, 109);
 
-/* Línea decorativa */
+        pdf.roundedRect(14, 12, 7, 32, 3, 3, "F");
 
-pdf.setFillColor(
-    198,
-    155,
-    109
-);
+        /* Título */
 
-pdf.roundedRect(
-    14,
-    12,
-    7,
-    32,
-    3,
-    3,
-    "F"
-);
+        pdf.setTextColor(255, 255, 255);
 
+        pdf.setFont("helvetica", "bold");
 
-/* Título */
+        pdf.setFontSize(23);
 
-pdf.setTextColor(
-    255,
-    255,
-    255
-);
+        pdf.text("CARTERA", 30, 27);
 
-pdf.setFont(
-    "helvetica",
-    "bold"
-);
+        /* Nombre del sistema */
 
-pdf.setFontSize(23);
+        pdf.setFontSize(10);
 
-pdf.text(
-    "CARTERA",
-    30,
-    27
-);
+        pdf.setFont("helvetica", "normal");
 
+        pdf.text("SISTEMA DE INFORMACIÓN SIREM", 30, 35);
 
-/* Nombre del sistema */
+        /* Información derecha */
 
-pdf.setFontSize(10);
+        pdf.setFontSize(9);
 
-pdf.setFont(
-    "helvetica",
-    "normal"
-);
+        pdf.text("ESTADO ACTUAL DE LA CARTERA", 265, 23, {
+          align: "right",
+        });
 
-pdf.text(
-    "SISTEMA DE INFORMACIÓN SIREM",
-    30,
-    35
-);
+        pdf.setFontSize(8);
 
+        pdf.text(
+          `Generado el ${new Date().toLocaleDateString("es-CO")}`,
+          265,
+          31,
+          {
+            align: "right",
+          },
+        );
 
-/* Información derecha */
+        /* Restaurar color */
 
-pdf.setFontSize(9);
-
-pdf.text(
-    "ESTADO ACTUAL DE LA CARTERA",
-    265,
-    23,
-    {
-        align: "right"
-    }
-);
-
-
-pdf.setFontSize(8);
-
-pdf.text(
-    `Generado el ${new Date().toLocaleDateString("es-CO")}`,
-    265,
-    31,
-    {
-        align: "right"
-    }
-);
-
-
-/* Restaurar color */
-
-pdf.setTextColor(
-    0,
-    0,
-    0
-);
-    /* =================================
+        pdf.setTextColor(0, 0, 0);
+        /* =================================
        TABLA
     ================================= */
 
-    autoTable(
-        pdf,
-        {
+        autoTable(pdf, {
+          startY: 40,
 
-            startY: 40,
+          head: [
+            [
+              "Remisión",
 
+              "Fecha",
 
-            head: [
+              "Cliente",
 
-                [
+              "Comercial",
 
-                    "Remisión",
+              "Total",
 
-                    "Fecha",
+              "Abonado",
 
-                    "Cliente",
+              "Saldo",
 
-                    "Comercial",
+              "Abonos",
 
-                    "Total",
+              "Días",
 
-                    "Abonado",
-
-                    "Saldo",
-
-                    "Abonos",
-
-                    "Días",
-
-                    "Estado"
-
-                ]
-
+              "Estado",
             ],
+          ],
 
+          body: datos.map((cuenta) => [
+            cuenta.numero_remision,
 
-            body:
+            new Date(cuenta.fecha).toLocaleDateString("es-CO"),
 
-                datos.map(
-                    (cuenta) => [
+            cuenta.cliente,
 
-                        cuenta.numero_remision,
+            cuenta.comercial,
 
+            `$ ${Number(cuenta.total).toLocaleString("es-CO")}`,
 
-                        new Date(
-                            cuenta.fecha
-                        ).toLocaleDateString(
-                            "es-CO"
-                        ),
+            `$ ${Number(cuenta.total_abonado).toLocaleString("es-CO")}`,
 
+            `$ ${Number(cuenta.saldo_pendiente).toLocaleString("es-CO")}`,
 
-                        cuenta.cliente,
+            cuenta.cantidad_abonos,
 
+            cuenta.dias,
 
-                        cuenta.comercial,
+            cuenta.estado,
+          ]),
 
+          styles: {
+            fontSize: 7,
 
-                        `$ ${Number(
-                            cuenta.total
-                        ).toLocaleString(
-                            "es-CO"
-                        )}`,
+            cellPadding: 2,
 
+            valign: "middle",
+          },
 
-                        `$ ${Number(
-                            cuenta.total_abonado
-                        ).toLocaleString(
-                            "es-CO"
-                        )}`,
+          headStyles: {
+            fillColor: [139, 94, 52],
 
+            textColor: 255,
 
-                        `$ ${Number(
-                            cuenta.saldo_pendiente
-                        ).toLocaleString(
-                            "es-CO"
-                        )}`,
+            fontStyle: "bold",
 
+            halign: "center",
+          },
 
-                        cuenta.cantidad_abonos,
+          alternateRowStyles: {
+            fillColor: [248, 245, 241],
+          },
 
-
-                        cuenta.dias,
-
-
-                        cuenta.estado
-
-                    ]
-
-                ),
-
-
-            styles: {
-
-                fontSize: 7,
-
-                cellPadding: 2,
-
-                valign: "middle"
-
+          columnStyles: {
+            0: {
+              halign: "center",
             },
 
-
-            headStyles: {
-
-                fillColor: [
-                    139,
-                    94,
-                    52
-                ],
-
-                textColor: 255,
-
-                fontStyle: "bold",
-
-                halign: "center"
-
+            1: {
+              halign: "center",
             },
 
-
-            alternateRowStyles: {
-
-                fillColor: [
-                    248,
-                    245,
-                    241
-                ]
-
+            4: {
+              halign: "right",
             },
 
+            5: {
+              halign: "right",
+            },
 
-            columnStyles: {
+            6: {
+              halign: "right",
+            },
 
-                0: {
-                    halign: "center"
-                },
+            7: {
+              halign: "center",
+            },
 
-                1: {
-                    halign: "center"
-                },
+            8: {
+              halign: "center",
+            },
 
-                4: {
-                    halign: "right"
-                },
+            9: {
+              halign: "center",
+            },
+          },
+        });
 
-                5: {
-                    halign: "right"
-                },
-
-                6: {
-                    halign: "right"
-                },
-
-                7: {
-                    halign: "center"
-                },
-
-                8: {
-                    halign: "center"
-                },
-
-                9: {
-                    halign: "center"
-                }
-
-            }
-
-        }
-
-    );
-
-
-    /* =================================
+        /* =================================
        DESCARGAR PDF
     ================================= */
 
-    pdf.save(
-        "Cartera SIREM.pdf"
-    );
+        pdf.save("Cartera SIREM.pdf");
 
-    return;
+        return;
+      }
 
-}
-
-        /* =================================
+      /* =================================
            DEMÁS EXPORTACIONES
         ================================= */
 
-        alert(
-            `${tipo} - ${formato}\n` +
-            `Periodo: ${periodo}\n\n` +
-            `Esta exportación aún está en desarrollo.`
-        );
-
-
+      alert(
+        `${tipo} - ${formato}\n` +
+          `Periodo: ${periodo}\n\n` +
+          `Esta exportación aún está en desarrollo.`,
+      );
     } catch (error) {
+      console.error("Error exportando:", error);
 
-        console.error(
-            "Error exportando:",
-            error
-        );
-
-        alert(
-            error.message ||
-            "Ocurrió un error al obtener los datos para la exportación."
-        );
-
+      alert(
+        error.message ||
+          "Ocurrió un error al obtener los datos para la exportación.",
+      );
     }
+  };
 
-};
-
-    return (
-
-        <div className="exportaciones-page">
-
-
-            {/* =================================
+  return (
+    <div className="exportaciones-page">
+      {/* =================================
                 ENCABEZADO
             ================================= */}
 
-            <div className="exportaciones-header">
+      <div className="exportaciones-header">
+        <div>
+          <span className="exportaciones-tag">ARCHIVOS</span>
 
-                <div>
+          <h1>Exportaciones</h1>
 
-                    <span className="exportaciones-tag">
-                        ARCHIVOS
-                    </span>
+          <p>Genera y descarga información de SIREM.</p>
+        </div>
+      </div>
 
-                    <h1>
-                        Exportaciones
-                    </h1>
-
-                    <p>
-                        Genera y descarga información de SIREM.
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            {/* =================================
+      {/* =================================
                 INFORMACIÓN
             ================================= */}
 
-            <div className="exportaciones-nota">
+      <div className="exportaciones-nota">
+        <div className="exportaciones-nota-icon">
+          <Download size={19} />
+        </div>
 
-                <div className="exportaciones-nota-icon">
+        <div>
+          <strong>Selecciona el formato de exportación</strong>
 
-                    <Download size={19} />
+          <p>
+            Puedes generar la información del periodo seleccionado en formato
+            PDF o Excel.
+          </p>
+        </div>
+      </div>
 
-                </div>
-
-                <div>
-
-                    <strong>
-                        Selecciona el formato de exportación
-                    </strong>
-
-                    <p>
-                        Puedes generar la información del periodo seleccionado
-                        en formato PDF o Excel.
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            {/* =================================
+      {/* =================================
                 REPORTES
             ================================= */}
 
-            <div className="exportaciones-grid">
+      <div className="exportaciones-grid">
+        {exportaciones.map((reporte) => {
+          const Icono = reporte.icono;
 
-                {exportaciones.map((reporte) => {
-
-                    const Icono = reporte.icono;
-
-                    return (
-
-                        <div
-                            className="exportacion-card"
-                            key={reporte.id}
-                        >
-
-                            <div className="exportacion-card-top">
-
-                                <div
-                                    className={`exportacion-icon ${reporte.clase}`}
-                                >
-
-                                    <Icono size={22} />
-
-                                </div>
-
-                            </div>
-
-
-                            <div className="exportacion-content">
-
-                                <h3>
-                                    {reporte.titulo}
-                                </h3>
-
-                                <p>
-                                    {reporte.descripcion}
-                                </p>
-
-                            </div>
-
-
-                            <div className="exportacion-actions">
-
-                          <button
-    className="btn-exportar pdf"
-    onClick={() =>
-        exportar(
-            reporte.tipo,
-            "PDF"
-        )
-    }
->
-
-    <FileText size={15} />
-
-    PDF
-
-</button>
-
-
-                      {reporte.tipo !== "general" && (
-    <button
-        className="btn-exportar excel"
-        onClick={() =>
-            exportar(
-                reporte.tipo,
-                "Excel"
-            )
-        }
-    >
-        <FileSpreadsheet size={15} />
-
-        Excel
-    </button>
-)}
-
-                            </div>
-
-                        </div>
-
-                    );
-
-                })}
-
-            </div>
-
-
-            {/* =================================
-                EXPORTACIONES RECIENTES
-            ================================= */}
-
-            <div className="exportaciones-recientes">
-
-
-                <div className="recientes-header">
-
-                    <div>
-
-                        <h2>
-                            Exportaciones recientes
-                        </h2>
-
-                        <p>
-                            Archivos generados recientemente.
-                        </p>
-
-                    </div>
-
-                    <Clock3 size={20} />
-
+          return (
+            <div className="exportacion-card" key={reporte.id}>
+              <div className="exportacion-card-top">
+                <div className={`exportacion-icon ${reporte.clase}`}>
+                  <Icono size={22} />
                 </div>
+              </div>
 
+              <div className="exportacion-content">
+                <h3>{reporte.titulo}</h3>
 
-                <div className="recientes-lista">
+                <p>{reporte.descripcion}</p>
+              </div>
 
+              <div className="exportacion-actions">
+                <button
+                  className="btn-exportar pdf"
+                  onClick={() => exportar(reporte.tipo, "PDF")}
+                >
+                  <FileText size={15} />
+                  PDF
+                </button>
 
-                    <div className="reciente-item">
+                {reporte.tipo === "remisiones" && (
+                  <button
+                    className="btn-exportar pdf"
+                    onClick={imprimirRemision}
+                  >
+                    <Receipt size={15} />1 Remisión
+                  </button>
+                )}
+              </div>
 
-                        <div className="reciente-icon pdf">
-
-                            <FileText size={17} />
-
-                        </div>
-
-                        <div className="reciente-info">
-
-                            <strong>
-                                Reporte general
-                            </strong>
-
-                            <span>
-                                Agosto 2026 · PDF
-                            </span>
-
-                        </div>
-
-                        <span className="reciente-fecha">
-                            Hoy · 10:32
-                        </span>
-
-                        <button
-                            className="btn-descargar"
-                            title="Descargar"
-                        >
-
-                            <Download size={16} />
-
-                        </button>
-
-                    </div>
-
-
-                    <div className="reciente-item">
-
-                        <div className="reciente-icon excel">
-
-                            <FileSpreadsheet size={17} />
-
-                        </div>
-
-                        <div className="reciente-info">
-
-                            <strong>
-                                Cartera
-                            </strong>
-
-                            <span>
-                                Agosto 2026 · Excel
-                            </span>
-
-                        </div>
-
-                        <span className="reciente-fecha">
-                            Hoy · 09:15
-                        </span>
-
-                        <button
-                            className="btn-descargar"
-                            title="Descargar"
-                        >
-
-                            <Download size={16} />
-
-                        </button>
-
-                    </div>
-
-
-                    <div className="reciente-item">
-
-                        <div className="reciente-icon pdf">
-
-                            <FileText size={17} />
-
-                        </div>
-
-                        <div className="reciente-info">
-
-                            <strong>
-                                Remisiones
-                            </strong>
-
-                            <span>
-                                Julio 2026 · PDF
-                            </span>
-
-                        </div>
-
-                        <span className="reciente-fecha">
-                            Ayer · 16:40
-                        </span>
-
-                        <button
-                            className="btn-descargar"
-                            title="Descargar"
-                        >
-
-                            <Download size={16} />
-
-                        </button>
-
-                    </div>
-
-
-                </div>
-
+              {reporte.tipo !== "general" && (
+                <button
+                  className="btn-exportar excel"
+                  onClick={() => exportar(reporte.tipo, "Excel")}
+                >
+                  <FileSpreadsheet size={15} />
+                  Excel
+                </button>
+              )}
             </div>
-
-
-        </div>
-
-    );
-
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default Exportaciones;

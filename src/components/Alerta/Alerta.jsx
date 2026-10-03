@@ -1,101 +1,60 @@
 import React, { useEffect } from "react";
-import {
-    CheckCircle2,
-    AlertTriangle,
-    XCircle,
-    Info,
-    X
-} from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Info, X } from "lucide-react";
 
 import "./Alerta.css";
 
-function Alerta({
-    tipo = "exito",
-    titulo,
-    mensaje,
-    visible,
-    cerrar
-}) {
+function Alerta({ tipo = "exito", titulo, mensaje, visible, cerrar }) {
+  useEffect(() => {
+    if (!visible) return;
 
-    useEffect(() => {
+    const temporizador = setTimeout(() => {
+      cerrar();
+    }, 3500);
 
-        if (!visible) return;
+    return () => clearTimeout(temporizador);
+  }, [visible, cerrar]);
 
-        const temporizador = setTimeout(() => {
-            cerrar();
-        }, 3500);
+  if (!visible) return null;
 
-        return () => clearTimeout(temporizador);
+  const configuracion = {
+    exito: {
+      icono: <CheckCircle2 size={20} />,
+      clase: "alerta-exito",
+    },
 
-    }, [visible, cerrar]);
+    advertencia: {
+      icono: <AlertTriangle size={20} />,
+      clase: "alerta-advertencia",
+    },
 
+    error: {
+      icono: <XCircle size={20} />,
+      clase: "alerta-error",
+    },
 
-    if (!visible) return null;
+    info: {
+      icono: <Info size={20} />,
+      clase: "alerta-info",
+    },
+  };
 
+  const actual = configuracion[tipo] || configuracion.exito;
 
-    const configuracion = {
+  return (
+    <div className={`alerta-sirem ${actual.clase}`}>
+      <div className="alerta-sirem-icono">{actual.icono}</div>
 
-        exito: {
-            icono: <CheckCircle2 size={20} />,
-            clase: "alerta-exito"
-        },
+      <div className="alerta-sirem-contenido">
+        <strong>{titulo}</strong>
 
-        advertencia: {
-            icono: <AlertTriangle size={20} />,
-            clase: "alerta-advertencia"
-        },
+        <span>{mensaje}</span>
+      </div>
 
-        error: {
-            icono: <XCircle size={20} />,
-            clase: "alerta-error"
-        },
-
-        info: {
-            icono: <Info size={20} />,
-            clase: "alerta-info"
-        }
-
-    };
-
-
-    const actual =
-        configuracion[tipo] || configuracion.exito;
-
-
-    return (
-
-        <div className={`alerta-sirem ${actual.clase}`}>
-
-            <div className="alerta-sirem-icono">
-                {actual.icono}
-            </div>
-
-
-            <div className="alerta-sirem-contenido">
-
-                <strong>
-                    {titulo}
-                </strong>
-
-                <span>
-                    {mensaje}
-                </span>
-
-            </div>
-
-
-            <button
-                className="alerta-sirem-cerrar"
-                onClick={cerrar}
-                type="button"
-            >
-                <X size={15} />
-            </button>
-
-        </div>
-
-    );
-
+      <button className="alerta-sirem-cerrar" onClick={cerrar} type="button">
+        <X size={15} />
+      </button>
+    </div>
+  );
 }
 
 export default Alerta;

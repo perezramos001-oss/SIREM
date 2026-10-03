@@ -3,533 +3,512 @@
 ========================================= */
 
 .exportaciones-page {
-    padding: 20px 26px 30px;
+  padding: 20px 26px 30px;
 }
-
 
 /* =========================================
    ENCABEZADO
 ========================================= */
 
 .exportaciones-header {
-    display: flex;
+  display: flex;
 
-    align-items: flex-end;
+  align-items: flex-end;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .exportaciones-tag {
-    display: block;
+  display: block;
 
-    margin-bottom: 6px;
+  margin-bottom: 6px;
 
-    color: #b96f24;
+  color: #b96f24;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    font-weight: 800;
+  font-weight: 800;
 
-    letter-spacing: 3px;
+  letter-spacing: 3px;
 }
 
 .exportaciones-header h1 {
-    margin: 0;
+  margin: 0;
 
-    color: #241a15;
+  color: #241a15;
 
-    font-size: 18px;
+  font-size: 18px;
 
-    font-weight: 700;
+  font-weight: 700;
 }
 
 .exportaciones-header p {
-    margin: 6px 0 0;
+  margin: 6px 0 0;
 
-    color: #91847a;
+  color: #91847a;
 
-    font-size: 10px;
+  font-size: 10px;
 }
-
 
 /* PERIODO */
 
 .exportaciones-periodo {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 7px;
+  gap: 7px;
 
-    padding: 8px 11px;
+  padding: 8px 11px;
 
-    background: white;
+  background: white;
 
-    border: 1px solid #eadfd5;
+  border: 1px solid #eadfd5;
 
-    border-radius: 8px;
+  border-radius: 8px;
 
-    color: #8b5e3c;
+  color: #8b5e3c;
 }
 
 .exportaciones-periodo select {
-    border: none;
+  border: none;
 
-    outline: none;
+  outline: none;
 
-    background: transparent;
+  background: transparent;
 
-    color: #5c4c41;
+  color: #5c4c41;
 
-    font-size: 11px;
+  font-size: 11px;
 
-    font-weight: 600;
+  font-weight: 600;
 
-    cursor: pointer;
+  cursor: pointer;
 }
-
 
 /* =========================================
    NOTA
 ========================================= */
 
 .exportaciones-nota {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 12px;
+  gap: 12px;
 
-    margin-bottom: 18px;
+  margin-bottom: 18px;
 
-    padding: 13px 16px;
+  padding: 13px 16px;
 
-    background: #faf7f3;
+  background: #faf7f3;
 
-    border: 1px solid #eee4da;
+  border: 1px solid #eee4da;
 
-    border-radius: 11px;
+  border-radius: 11px;
 }
 
 .exportaciones-nota-icon {
-    width: 35px;
+  width: 35px;
 
-    height: 35px;
+  height: 35px;
 
-    flex-shrink: 0;
+  flex-shrink: 0;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    border-radius: 9px;
+  border-radius: 9px;
 
-    background: #f0e5da;
+  background: #f0e5da;
 
-    color: #8b5e3c;
+  color: #8b5e3c;
 }
 
 .exportaciones-nota strong {
-    display: block;
+  display: block;
 
-    color: #57473c;
+  color: #57473c;
 
-    font-size: 11px;
+  font-size: 11px;
 }
 
 .exportaciones-nota p {
-    margin: 3px 0 0;
+  margin: 3px 0 0;
 
-    color: #95877d;
+  color: #95877d;
 
-    font-size: 10px;
+  font-size: 10px;
 }
-
 
 /* =========================================
    GRID
 ========================================= */
 
 .exportaciones-grid {
-    display: grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 
-    gap: 15px;
+  gap: 15px;
 
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
-
 
 /* =========================================
    TARJETAS
 ========================================= */
 
 .exportacion-card {
-    display: flex;
+  display: flex;
 
-    flex-direction: column;
+  flex-direction: column;
 
-    min-height: 185px;
+  min-height: 185px;
 
-    padding: 17px;
+  padding: 17px;
 
-    background: white;
+  background: white;
 
-    border: 1px solid #eadfd5;
+  border: 1px solid #eadfd5;
 
-    border-radius: 13px;
+  border-radius: 13px;
 
-    transition:
-        transform 0.15s ease,
-        box-shadow 0.15s ease,
-        border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .exportacion-card:hover {
-    transform: translateY(-2px);
+  transform: translateY(-2px);
 
-    border-color: #d9c4b3;
+  border-color: #d9c4b3;
 
-    box-shadow:
-        0 8px 25px rgba(48, 30, 20, 0.08);
+  box-shadow: 0 8px 25px rgba(48, 30, 20, 0.08);
 }
-
 
 /* ICONO */
 
 .exportacion-icon {
-    width: 42px;
+  width: 42px;
 
-    height: 42px;
+  height: 42px;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    border-radius: 11px;
+  border-radius: 11px;
 }
 
 .exportacion-icon.general {
-    background: #f3e7d9;
-    color: #9b6330;
+  background: #f3e7d9;
+  color: #9b6330;
 }
 
 .exportacion-icon.remisiones {
-    background: #eee5f4;
-    color: #76528e;
+  background: #eee5f4;
+  color: #76528e;
 }
 
 .exportacion-icon.cartera {
-    background: #f6eadb;
-    color: #a86a27;
+  background: #f6eadb;
+  color: #a86a27;
 }
 
 .exportacion-icon.clientes {
-    background: #e5eef5;
-    color: #527994;
+  background: #e5eef5;
+  color: #527994;
 }
 
 .exportacion-icon.comerciales {
-    background: #eee7e0;
-    color: #765d4a;
+  background: #eee7e0;
+  color: #765d4a;
 }
 
 .exportacion-icon.productos {
-    background: #e7f1e9;
-    color: #4f8060;
+  background: #e7f1e9;
+  color: #4f8060;
 }
-
 
 /* CONTENIDO */
 
 .exportacion-content {
-    flex: 1;
+  flex: 1;
 
-    margin-top: 13px;
+  margin-top: 13px;
 }
 
 .exportacion-content h3 {
-    margin: 0;
+  margin: 0;
 
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 12px;
+  font-size: 12px;
 }
 
 .exportacion-content p {
-    margin: 5px 0 0;
+  margin: 5px 0 0;
 
-    color: #95877d;
+  color: #95877d;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    line-height: 1.5;
+  line-height: 1.5;
 }
-
 
 /* =========================================
    BOTONES
 ========================================= */
 
 .exportacion-actions {
-    display: flex;
+  display: flex;
 
-    gap: 7px;
+  gap: 7px;
 
-    margin-top: 15px;
+  margin-top: 15px;
 }
 
 .btn-exportar {
-    flex: 1;
+  flex: 1;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    gap: 6px;
+  gap: 6px;
 
-    padding: 8px;
+  padding: 8px;
 
-    border-radius: 7px;
+  border-radius: 7px;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    font-weight: 700;
+  font-weight: 700;
 
-    cursor: pointer;
+  cursor: pointer;
 
-    transition: background 0.15s ease;
+  transition: background 0.15s ease;
 }
 
 .btn-exportar.pdf {
-    border: 1px solid #e7d6d2;
+  border: 1px solid #e7d6d2;
 
-    background: #fffafa;
+  background: #fffafa;
 
-    color: #a34f45;
+  color: #a34f45;
 }
 
 .btn-exportar.pdf:hover {
-    background: #fcedeb;
+  background: #fcedeb;
 }
 
 .btn-exportar.excel {
-    border: 1px solid #d8e5db;
+  border: 1px solid #d8e5db;
 
-    background: #fbfefb;
+  background: #fbfefb;
 
-    color: #4f8060;
+  color: #4f8060;
 }
 
 .btn-exportar.excel:hover {
-    background: #edf7ef;
+  background: #edf7ef;
 }
-
 
 /* =========================================
    RECIENTES
 ========================================= */
 
 .exportaciones-recientes {
-    background: white;
+  background: white;
 
-    border: 1px solid #eadfd5;
+  border: 1px solid #eadfd5;
 
-    border-radius: 13px;
+  border-radius: 13px;
 
-    overflow: hidden;
+  overflow: hidden;
 }
 
 .recientes-header {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    padding: 17px 19px;
+  padding: 17px 19px;
 
-    border-bottom: 1px solid #eee5dd;
+  border-bottom: 1px solid #eee5dd;
 }
 
 .recientes-header h2 {
-    margin: 0;
+  margin: 0;
 
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 14px;
+  font-size: 14px;
 }
 
 .recientes-header p {
-    margin: 4px 0 0;
+  margin: 4px 0 0;
 
-    color: #97897e;
+  color: #97897e;
 
-    font-size: 10px;
+  font-size: 10px;
 }
 
 .recientes-header > svg {
-    color: #8b5e3c;
+  color: #8b5e3c;
 }
-
 
 /* LISTA */
 
 .reciente-item {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 12px;
+  gap: 12px;
 
-    padding: 13px 19px;
+  padding: 13px 19px;
 
-    border-bottom: 1px solid #f1ebe6;
+  border-bottom: 1px solid #f1ebe6;
 }
 
 .reciente-item:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
-
 
 /* ICONO */
 
 .reciente-icon {
-    width: 34px;
+  width: 34px;
 
-    height: 34px;
+  height: 34px;
 
-    flex-shrink: 0;
+  flex-shrink: 0;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    border-radius: 9px;
+  border-radius: 9px;
 }
 
 .reciente-icon.pdf {
-    background: #fcedeb;
+  background: #fcedeb;
 
-    color: #a34f45;
+  color: #a34f45;
 }
 
 .reciente-icon.excel {
-    background: #edf7ef;
+  background: #edf7ef;
 
-    color: #4f8060;
+  color: #4f8060;
 }
-
 
 /* INFO */
 
 .reciente-info {
-    flex: 1;
+  flex: 1;
 }
 
 .reciente-info strong {
-    display: block;
+  display: block;
 
-    color: #514239;
+  color: #514239;
 
-    font-size: 11px;
+  font-size: 11px;
 }
 
 .reciente-info span {
-    display: block;
+  display: block;
 
-    margin-top: 3px;
+  margin-top: 3px;
 
-    color: #a09288;
+  color: #a09288;
 
-    font-size: 9px;
+  font-size: 9px;
 }
 
 .reciente-fecha {
-    color: #9a8c82;
+  color: #9a8c82;
 
-    font-size: 9px;
+  font-size: 9px;
 }
-
 
 /* DESCARGAR */
 
 .btn-descargar {
-    width: 29px;
+  width: 29px;
 
-    height: 29px;
+  height: 29px;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    border: 1px solid #e8ddd4;
+  border: 1px solid #e8ddd4;
 
-    border-radius: 7px;
+  border-radius: 7px;
 
-    background: white;
+  background: white;
 
-    color: #8b5e3c;
+  color: #8b5e3c;
 
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .btn-descargar:hover {
-    background: #f7f0ea;
+  background: #f7f0ea;
 
-    border-color: #d8c4b3;
+  border-color: #d8c4b3;
 }
-
 
 /* =========================================
    RESPONSIVE
 ========================================= */
 
 @media (max-width: 1000px) {
-
-    .exportaciones-grid {
-        grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-    }
-
+  .exportaciones-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
+  .exportaciones-page {
+    padding: 25px 20px;
+  }
 
-    .exportaciones-page {
-        padding: 25px 20px;
-    }
+  .exportaciones-header {
+    align-items: flex-start;
 
-    .exportaciones-header {
-        align-items: flex-start;
+    flex-direction: column;
 
-        flex-direction: column;
+    gap: 14px;
+  }
 
-        gap: 14px;
-    }
+  .exportaciones-grid {
+    grid-template-columns: 1fr;
+  }
 
-    .exportaciones-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .reciente-fecha {
-        display: none;
-    }
-
+  .reciente-fecha {
+    display: none;
+  }
 }
 
 /* =========================================
@@ -537,235 +516,217 @@
 ========================================= */
 
 .modal-usuario-overlay {
-    position: fixed;
-    inset: 0;
+  position: fixed;
+  inset: 0;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
-    justify-content: center;
+  align-items: center;
+  justify-content: center;
 
-    padding: 20px;
+  padding: 20px;
 
-    background: rgba(35, 25, 18, 0.45);
+  background: rgba(35, 25, 18, 0.45);
 
-    backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
 
-    z-index: 9999;
+  z-index: 9999;
 }
-
 
 .modal-usuario {
-    width: 100%;
-    max-width: 520px;
+  width: 100%;
+  max-width: 520px;
 
-    background: #ffffff;
+  background: #ffffff;
 
-    border-radius: 18px;
+  border-radius: 18px;
 
-    box-shadow:
-        0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 
-    overflow: hidden;
+  overflow: hidden;
 }
-
 
 /* HEADER */
 
 .modal-usuario-header {
-    display: flex;
+  display: flex;
 
-    align-items: flex-start;
-    justify-content: space-between;
+  align-items: flex-start;
+  justify-content: space-between;
 
-    padding: 24px 26px 20px;
+  padding: 24px 26px 20px;
 
-    border-bottom: 1px solid #eee5dd;
+  border-bottom: 1px solid #eee5dd;
 }
 
 .modal-usuario-header span {
-    display: block;
+  display: block;
 
-    margin-bottom: 6px;
+  margin-bottom: 6px;
 
-    color: #a66a2c;
+  color: #a66a2c;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    font-weight: 800;
+  font-weight: 800;
 
-    letter-spacing: 3px;
+  letter-spacing: 3px;
 }
 
 .modal-usuario-header h2 {
-    margin: 0;
+  margin: 0;
 
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 22px;
+  font-size: 22px;
 }
 
 .modal-usuario-header p {
-    margin: 6px 0 0;
+  margin: 6px 0 0;
 
-    color: #95877d;
+  color: #95877d;
 
-    font-size: 12px;
+  font-size: 12px;
 }
-
 
 /* BOTÓN CERRAR */
 
 .cerrar-modal-usuario {
-    width: 36px;
-    height: 36px;
+  width: 36px;
+  height: 36px;
 
-    border: none;
+  border: none;
 
-    border-radius: 10px;
+  border-radius: 10px;
 
-    background: #f5f1ed;
+  background: #f5f1ed;
 
-    color: #6f625a;
+  color: #6f625a;
 
-    font-size: 24px;
+  font-size: 24px;
 
-    cursor: pointer;
+  cursor: pointer;
 }
-
 
 /* CUERPO */
 
 .modal-usuario-body {
-    display: grid;
+  display: grid;
 
-    grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 
-    gap: 16px;
+  gap: 16px;
 
-    padding: 24px 26px;
+  padding: 24px 26px;
 }
-
 
 .usuario-form-group {
-    display: flex;
+  display: flex;
 
-    flex-direction: column;
+  flex-direction: column;
 
-    gap: 7px;
+  gap: 7px;
 }
-
 
 .usuario-form-group label {
-    color: #5d5048;
+  color: #5d5048;
 
-    font-size: 11px;
+  font-size: 11px;
 
-    font-weight: 700;
+  font-weight: 700;
 }
-
 
 .usuario-form-group input,
 .usuario-form-group select {
-    width: 100%;
+  width: 100%;
 
-    height: 40px;
+  height: 40px;
 
-    padding: 0 12px;
+  padding: 0 12px;
 
-    border: 1px solid #ded5cc;
+  border: 1px solid #ded5cc;
 
-    border-radius: 8px;
+  border-radius: 8px;
 
-    outline: none;
+  outline: none;
 
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 12px;
+  font-size: 12px;
 
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
-
 
 .usuario-form-group input:focus,
 .usuario-form-group select:focus {
-    border-color: #a66a2c;
+  border-color: #a66a2c;
 }
-
 
 /* CONTRASEÑA OCUPA TODA LA FILA */
 
 .usuario-form-group:nth-child(4) {
-    grid-column: span 2;
+  grid-column: span 2;
 }
-
 
 /* FOOTER */
 
 .modal-usuario-footer {
-    display: flex;
+  display: flex;
 
-    justify-content: flex-end;
+  justify-content: flex-end;
 
-    gap: 10px;
+  gap: 10px;
 
-    padding: 18px 26px;
+  padding: 18px 26px;
 
-    border-top: 1px solid #eee5dd;
+  border-top: 1px solid #eee5dd;
 
-    background: #faf8f6;
+  background: #faf8f6;
 }
-
 
 .cancelar-usuario-btn,
 .guardar-usuario-btn {
-    height: 38px;
+  height: 38px;
 
-    padding: 0 16px;
+  padding: 0 16px;
 
-    border-radius: 8px;
+  border-radius: 8px;
 
-    font-size: 11px;
+  font-size: 11px;
 
-    font-weight: 700;
+  font-weight: 700;
 
-    cursor: pointer;
+  cursor: pointer;
 }
-
 
 .cancelar-usuario-btn {
-    background: white;
+  background: white;
 
-    border: 1px solid #ded5cc;
+  border: 1px solid #ded5cc;
 
-    color: #665950;
+  color: #665950;
 }
-
 
 .guardar-usuario-btn {
-    border: none;
+  border: none;
 
-    background: #8b5e3c;
+  background: #8b5e3c;
 
-    color: white;
+  color: white;
 }
-
 
 .guardar-usuario-btn:hover {
-    background: #70472b;
+  background: #70472b;
 }
-
 
 /* RESPONSIVE */
 
 @media (max-width: 600px) {
+  .modal-usuario-body {
+    grid-template-columns: 1fr;
+  }
 
-    .modal-usuario-body {
-        grid-template-columns: 1fr;
-    }
-
-    .usuario-form-group:nth-child(4) {
-        grid-column: span 1;
-    }
-
+  .usuario-form-group:nth-child(4) {
+    grid-column: span 1;
+  }
 }

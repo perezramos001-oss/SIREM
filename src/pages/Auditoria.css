@@ -1,0 +1,290 @@
+.auditoria-page {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* =========================
+   ENCABEZADO
+========================= */
+
+.auditoria-page .page-header {
+  margin-bottom: 24px;
+}
+
+.auditoria-page .page-tag {
+  display: inline-block;
+  margin-bottom: 8px;
+
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+
+  color: #a96b24;
+}
+
+.auditoria-page .page-header h1 {
+  margin: 0 0 5px;
+
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+
+  color: #17120f;
+}
+
+.auditoria-page .page-header p {
+  margin: 0;
+
+  font-size: 15px;
+  color: #85786d;
+}
+
+/* =========================
+   FILTRO
+========================= */
+
+.auditoria-toolbar {
+  display: flex;
+  align-items: center;
+
+  margin-bottom: 20px;
+}
+
+.auditoria-toolbar select {
+  width: 260px;
+  height: 48px;
+
+  padding: 0 42px 0 16px;
+
+  border: 1px solid #e6d8c9;
+  border-radius: 12px;
+
+  background-color: #fffdf9;
+
+  color: #302820;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  outline: none;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.auditoria-toolbar select:hover {
+  border-color: #c98a43;
+}
+
+.auditoria-toolbar select:focus {
+  border-color: #b8732b;
+
+  box-shadow: 0 0 0 3px rgba(184, 115, 43, 0.1);
+}
+
+/* =========================
+   LISTA
+========================= */
+
+.auditoria-lista {
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
+
+  width: 100%;
+}
+
+/* =========================
+   REGISTRO
+========================= */
+
+.auditoria-item {
+  display: flex;
+  align-items: center;
+
+  min-height: 76px;
+
+  padding: 16px 20px;
+
+  box-sizing: border-box;
+
+  background: #ffffff;
+
+  border: 1px solid #e8ddd2;
+  border-radius: 14px;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.auditoria-item:hover {
+  transform: translateY(-1px);
+
+  border-color: #dbc5ad;
+
+  box-shadow: 0 5px 18px rgba(69, 47, 27, 0.07);
+}
+
+/* =========================
+   ICONO
+========================= */
+
+.auditoria-icono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  width: 38px;
+  height: 38px;
+
+  margin-right: 15px;
+
+  border-radius: 50%;
+
+  background: #f7eadb;
+
+  color: #a96b24;
+
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* =========================
+   CONTENIDO
+========================= */
+
+.auditoria-contenido {
+  display: flex;
+  flex-direction: column;
+
+  flex: 1;
+
+  min-width: 0;
+
+  gap: 7px;
+}
+
+.auditoria-descripcion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+
+  gap: 6px;
+}
+
+.auditoria-descripcion strong {
+  color: #211a15;
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.auditoria-descripcion span {
+  color: #51473f;
+
+  font-size: 15px;
+  font-weight: 400;
+}
+
+/* =========================
+   INFORMACIÓN INFERIOR
+========================= */
+
+.auditoria-meta {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+.auditoria-meta span:first-child {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 4px 9px;
+
+  border-radius: 6px;
+
+  background: #f8f2eb;
+
+  color: #9b6125;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.7px;
+}
+
+.auditoria-meta span:last-child {
+  color: #95887c;
+
+  font-size: 12px;
+}
+
+/* =========================
+   ESTADO VACÍO / CARGANDO
+========================= */
+
+.auditoria-vacio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 130px;
+
+  padding: 30px;
+
+  box-sizing: border-box;
+
+  background: #fffdf9;
+
+  border: 1px dashed #dfd0c0;
+  border-radius: 14px;
+
+  color: #91847a;
+
+  font-size: 14px;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 700px) {
+  .auditoria-page .page-header h1 {
+    font-size: 24px;
+  }
+
+  .auditoria-toolbar select {
+    width: 100%;
+  }
+
+  .auditoria-item {
+    align-items: flex-start;
+
+    padding: 14px;
+  }
+
+  .auditoria-icono {
+    width: 34px;
+    height: 34px;
+
+    margin-right: 12px;
+  }
+
+  .auditoria-descripcion {
+    display: block;
+  }
+
+  .auditoria-descripcion strong {
+    margin-right: 5px;
+  }
+}

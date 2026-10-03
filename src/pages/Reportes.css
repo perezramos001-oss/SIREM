@@ -3,684 +3,661 @@
 ========================================= */
 
 .reportes-page {
-    padding: 30px 36px 40px;
+  padding: 30px 36px 40px;
 }
-
 
 /* =========================================
    ENCABEZADO
 ========================================= */
 
 .reportes-header {
-    display: flex;
+  display: flex;
 
-    align-items: flex-end;
+  align-items: flex-end;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    margin-bottom: 25px;
+  margin-bottom: 25px;
 }
 
 .reportes-tag {
-    display: block;
+  display: block;
 
-    margin-bottom: 6px;
+  margin-bottom: 6px;
 
-    color: #b96f24;
+  color: #b96f24;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    font-weight: 800;
+  font-weight: 800;
 
-    letter-spacing: 3px;
+  letter-spacing: 3px;
 }
 
 .reportes-header h1 {
-    margin: 0;
+  margin: 0;
 
-    color: #241a15;
+  color: #241a15;
 
-    font-size: 28px;
+  font-size: 28px;
 
-    font-weight: 700;
+  font-weight: 700;
 }
 
 .reportes-header p {
-    margin: 6px 0 0;
+  margin: 6px 0 0;
 
-    color: #91847a;
+  color: #91847a;
 
-    font-size: 12px;
+  font-size: 12px;
 }
-
 
 /* PERIODO */
 
 .reportes-periodo {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 8px;
+  gap: 8px;
 
-    padding: 9px 13px;
+  padding: 9px 13px;
 
-    background: white;
+  background: white;
 
-    border: 1px solid #eadfd5;
+  border: 1px solid #eadfd5;
 
-    border-radius: 8px;
+  border-radius: 8px;
 
-    color: #8b5e3c;
+  color: #8b5e3c;
 
-    font-size: 11px;
+  font-size: 11px;
 
-    font-weight: 600;
+  font-weight: 600;
 }
-
 
 /* =========================================
    KPIS
 ========================================= */
 
 .reportes-kpis {
-    display: grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 
-    gap: 14px;
+  gap: 14px;
 
-    margin-bottom: 18px;
+  margin-bottom: 18px;
 }
 
 .reporte-kpi {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 12px;
+  gap: 12px;
 
-    padding: 15px;
+  padding: 15px;
 
-    background: white;
+  background: white;
 
-    border: 1px solid #eadfd5;
+  border: 1px solid #eadfd5;
 
-    border-radius: 12px;
+  border-radius: 12px;
 }
 
 .reporte-kpi-icon {
-    width: 40px;
+  width: 40px;
 
-    height: 40px;
+  height: 40px;
 
-    flex-shrink: 0;
+  flex-shrink: 0;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 .reporte-kpi-icon.ventas {
-    background: #f3e7d9;
-    color: #9b6330;
+  background: #f3e7d9;
+  color: #9b6330;
 }
 
 .reporte-kpi-icon.remisiones {
-    background: #eee5f4;
-    color: #76528e;
+  background: #eee5f4;
+  color: #76528e;
 }
 
 .reporte-kpi-icon.clientes {
-    background: #e5eef5;
-    color: #527994;
+  background: #e5eef5;
+  color: #527994;
 }
 
 .reporte-kpi-icon.cartera {
-    background: #f6eadb;
-    color: #a86a27;
+  background: #f6eadb;
+  color: #a86a27;
 }
 
 .reporte-kpi span {
-    display: block;
+  display: block;
 
-    margin-bottom: 3px;
+  margin-bottom: 3px;
 
-    color: #91847a;
+  color: #91847a;
 
-    font-size: 9px;
+  font-size: 9px;
 }
 
 .reporte-kpi strong {
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 15px;
+  font-size: 15px;
 }
-
 
 /* =========================================
    PANELES
 ========================================= */
 
 .reporte-panel {
-    background: white;
+  background: white;
 
-    border: 1px solid #eadfd5;
+  border: 1px solid #eadfd5;
 
-    border-radius: 13px;
+  border-radius: 13px;
 
-    overflow: hidden;
+  overflow: hidden;
 }
 
 .reporte-panel-header {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    padding: 17px 19px;
+  padding: 17px 19px;
 
-    border-bottom: 1px solid #eee5dd;
+  border-bottom: 1px solid #eee5dd;
 }
 
 .reporte-panel-header h2 {
-    margin: 0;
+  margin: 0;
 
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 14px;
+  font-size: 14px;
 }
 
 .reporte-panel-header p {
-    margin: 4px 0 0;
+  margin: 4px 0 0;
 
-    color: #97897e;
+  color: #97897e;
 
-    font-size: 10px;
+  font-size: 10px;
 }
 
 .reporte-panel-header > svg {
-    color: #8b5e3c;
+  color: #8b5e3c;
 }
-
 
 /* TOTAL */
 
 .panel-total {
-    text-align: right;
+  text-align: right;
 }
 
 .panel-total span {
-    display: block;
+  display: block;
 
-    color: #a09288;
+  color: #a09288;
 
-    font-size: 9px;
+  font-size: 9px;
 }
 
 .panel-total strong {
-    display: block;
+  display: block;
 
-    margin-top: 3px;
+  margin-top: 3px;
 
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 14px;
+  font-size: 14px;
 }
-
 
 /* =========================================
    GRÁFICA DE VENTAS
 ========================================= */
 
 .ventas-mensuales {
-    margin-bottom: 18px;
+  margin-bottom: 18px;
 }
 
 .ventas-chart {
-    display: flex;
+  display: flex;
 
-    height: 260px;
+  height: 260px;
 
-    padding: 20px 20px 12px;
+  padding: 20px 20px 12px;
 }
 
 .chart-y-axis {
-    width: 45px;
+  width: 45px;
 
-    display: flex;
+  display: flex;
 
-    flex-direction: column;
+  flex-direction: column;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    padding-bottom: 22px;
+  padding-bottom: 22px;
 
-    color: #a2948a;
+  color: #a2948a;
 
-    font-size: 9px;
+  font-size: 9px;
 
-    text-align: right;
+  text-align: right;
 }
 
 .chart-area {
-    position: relative;
+  position: relative;
 
-    flex: 1;
+  flex: 1;
 
-    margin-left: 12px;
+  margin-left: 12px;
 }
 
 .chart-grid-line {
-    position: absolute;
+  position: absolute;
 
-    left: 0;
+  left: 0;
 
-    right: 0;
+  right: 0;
 
-    height: 1px;
+  height: 1px;
 
-    background: #f0e9e4;
+  background: #f0e9e4;
 }
 
 .line-1 {
-    top: 0;
+  top: 0;
 }
 
 .line-2 {
-    top: 25%;
+  top: 25%;
 }
 
 .line-3 {
-    top: 50%;
+  top: 50%;
 }
 
 .line-4 {
-    top: 75%;
+  top: 75%;
 }
 
 .line-5 {
-    top: 100%;
+  top: 100%;
 }
-
 
 /* BARRAS */
 
 .chart-bars {
-    position: absolute;
+  position: absolute;
 
-    inset: 0;
+  inset: 0;
 
-    display: flex;
+  display: flex;
 
-    align-items: flex-end;
+  align-items: flex-end;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    gap: 7px;
+  gap: 7px;
 
-    padding: 0 5px;
+  padding: 0 5px;
 }
 
 .chart-column {
-    height: 100%;
+  height: 100%;
 
-    flex: 1;
+  flex: 1;
 
-    display: flex;
+  display: flex;
 
-    flex-direction: column;
+  flex-direction: column;
 
-    justify-content: flex-end;
+  justify-content: flex-end;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 7px;
+  gap: 7px;
 }
 
 .chart-bar {
-    width: 100%;
+  width: 100%;
 
-    max-width: 24px;
+  max-width: 24px;
 
-    min-height: 4px;
+  min-height: 4px;
 
-    border-radius: 5px 5px 2px 2px;
+  border-radius: 5px 5px 2px 2px;
 
-    background: #8b5e3c;
+  background: #8b5e3c;
 
-    transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .chart-bar:hover {
-    opacity: 0.7;
+  opacity: 0.7;
 }
 
 .chart-column span {
-    color: #9b8d83;
+  color: #9b8d83;
 
-    font-size: 8px;
+  font-size: 8px;
 }
-
 
 /* =========================================
    DOS COLUMNAS
 ========================================= */
 
 .reportes-two-columns {
-    display: grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
-    gap: 18px;
+  gap: 18px;
 
-    margin-bottom: 18px;
+  margin-bottom: 18px;
 }
-
 
 /* =========================================
    COMERCIALES
 ========================================= */
 
 .ranking-comerciales {
-    padding: 8px 19px 14px;
+  padding: 8px 19px 14px;
 }
 
 .comercial-row {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 11px;
+  gap: 11px;
 
-    padding: 11px 0;
+  padding: 11px 0;
 
-    border-bottom: 1px solid #f1ebe6;
+  border-bottom: 1px solid #f1ebe6;
 }
 
 .comercial-row:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .comercial-position {
-    width: 24px;
+  width: 24px;
 
-    height: 24px;
+  height: 24px;
 
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: center;
+  justify-content: center;
 
-    border-radius: 7px;
+  border-radius: 7px;
 
-    background: #f5eee8;
+  background: #f5eee8;
 
-    color: #8b5e3c;
+  color: #8b5e3c;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    font-weight: 700;
+  font-weight: 700;
 }
 
 .comercial-info {
-    flex: 1;
+  flex: 1;
 }
 
 .comercial-name {
-    display: flex;
+  display: flex;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    margin-bottom: 6px;
+  margin-bottom: 6px;
 }
 
 .comercial-name strong {
-    color: #514239;
+  color: #514239;
 
-    font-size: 10px;
+  font-size: 10px;
 }
 
 .comercial-name span {
-    color: #8b5e3c;
+  color: #8b5e3c;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    font-weight: 700;
+  font-weight: 700;
 }
 
 .comercial-progress {
-    height: 5px;
+  height: 5px;
 
-    overflow: hidden;
+  overflow: hidden;
 
-    background: #f1ebe6;
+  background: #f1ebe6;
 
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 .comercial-progress div {
-    height: 100%;
+  height: 100%;
 
-    background: #8b5e3c;
+  background: #8b5e3c;
 
-    border-radius: 10px;
+  border-radius: 10px;
 }
-
 
 /* =========================================
    PRODUCTOS
 ========================================= */
 
 .productos-ranking {
-    padding: 8px 19px 14px;
+  padding: 8px 19px 14px;
 }
 
 .producto-ranking-row {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    gap: 10px;
+  gap: 10px;
 
-    padding: 11px 0;
+  padding: 11px 0;
 
-    border-bottom: 1px solid #f1ebe6;
+  border-bottom: 1px solid #f1ebe6;
 }
 
 .producto-ranking-row:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .producto-ranking-number {
-    width: 24px;
+  width: 24px;
 
-    color: #a09288;
+  color: #a09288;
 
-    font-size: 10px;
+  font-size: 10px;
 
-    text-align: center;
+  text-align: center;
 }
 
 .producto-ranking-name {
-    flex: 1;
+  flex: 1;
 
-    color: #514239;
+  color: #514239;
 
-    font-size: 10px;
+  font-size: 10px;
 }
 
 .producto-ranking-row strong {
-    color: #8b5e3c;
+  color: #8b5e3c;
 
-    font-size: 11px;
+  font-size: 11px;
 }
-
 
 /* =========================================
    CARTERA
 ========================================= */
 
 .cartera-reporte {
-    margin-bottom: 18px;
+  margin-bottom: 18px;
 }
 
 .cartera-report-bars {
-    display: grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 
-    gap: 25px;
+  gap: 25px;
 
-    padding: 20px;
+  padding: 20px;
 }
 
 .cartera-report-item > div:first-child {
-    display: flex;
+  display: flex;
 
-    align-items: center;
+  align-items: center;
 
-    justify-content: space-between;
+  justify-content: space-between;
 
-    margin-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 .cartera-report-item span {
-    color: #6f6259;
+  color: #6f6259;
 
-    font-size: 10px;
+  font-size: 10px;
 }
 
 .cartera-report-item strong {
-    color: #33261f;
+  color: #33261f;
 
-    font-size: 11px;
+  font-size: 11px;
 }
 
 .cartera-progress {
-    height: 7px;
+  height: 7px;
 
-    overflow: hidden;
+  overflow: hidden;
 
-    background: #f1ebe6;
+  background: #f1ebe6;
 
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 .cartera-progress div {
-    height: 100%;
+  height: 100%;
 
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 .cartera-progress .verde {
-    background: #55a66b;
+  background: #55a66b;
 }
 
 .cartera-progress .amarillo {
-    background: #d5a13b;
+  background: #d5a13b;
 }
 
 .cartera-progress .rojo {
-    background: #c85b50;
+  background: #c85b50;
 }
-
 
 /* =========================================
    RESUMEN
 ========================================= */
 
 .reporte-resumen {
-    display: grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 
-    gap: 12px;
+  gap: 12px;
 }
 
 .resumen-item {
-    padding: 14px 15px;
+  padding: 14px 15px;
 
-    background: #faf7f3;
+  background: #faf7f3;
 
-    border: 1px solid #eee4da;
+  border: 1px solid #eee4da;
 
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 .resumen-item span {
-    display: block;
+  display: block;
 
-    margin-bottom: 5px;
+  margin-bottom: 5px;
 
-    color: #96887e;
+  color: #96887e;
 
-    font-size: 9px;
+  font-size: 9px;
 }
 
 .resumen-item strong {
-    color: #514239;
+  color: #514239;
 
-    font-size: 11px;
+  font-size: 11px;
 }
-
 
 /* =========================================
    RESPONSIVE
 ========================================= */
 
 @media (max-width: 1050px) {
+  .reportes-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
-    .reportes-kpis {
-        grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-    }
-
-    .reporte-resumen {
-        grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-    }
-
+  .reporte-resumen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 750px) {
+  .reportes-page {
+    padding: 25px 20px;
+  }
 
-    .reportes-page {
-        padding: 25px 20px;
-    }
+  .reportes-header {
+    align-items: flex-start;
 
-    .reportes-header {
-        align-items: flex-start;
+    flex-direction: column;
 
-        flex-direction: column;
+    gap: 15px;
+  }
 
-        gap: 15px;
-    }
+  .reportes-kpis {
+    grid-template-columns: 1fr;
+  }
 
-    .reportes-kpis {
-        grid-template-columns: 1fr;
-    }
+  .reportes-two-columns {
+    grid-template-columns: 1fr;
+  }
 
-    .reportes-two-columns {
-        grid-template-columns: 1fr;
-    }
+  .cartera-report-bars {
+    grid-template-columns: 1fr;
+  }
 
-    .cartera-report-bars {
-        grid-template-columns: 1fr;
-    }
-
-    .reporte-resumen {
-        grid-template-columns: 1fr;
-    }
-
+  .reporte-resumen {
+    grid-template-columns: 1fr;
+  }
 }

@@ -3,307 +3,184 @@ import axios from "axios";
 import "./Cartera.css";
 
 import {
-    WalletCards,
-    Clock3,
-    AlertCircle,
-    CircleCheck,
-    Search,
-    Eye,
-    ChevronDown
+  WalletCards,
+  Clock3,
+  AlertCircle,
+  CircleCheck,
+  Search,
+  Eye,
+  ChevronDown,
 } from "lucide-react";
 
-function Cartera({
-    usuarioActual,
-    remisionDestacada
-}) {
+function Cartera({ usuarioActual, remisionDestacada }) {
+  const [filtro, setFiltro] = useState("Todos");
+  const [busqueda, setBusqueda] = useState("");
+  const [comercialSeleccionado, setComercialSeleccionado] = useState("Todos");
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null);
 
-    const [filtro, setFiltro] = useState("Todos");
-    const [busqueda, setBusqueda] = useState("");
-    const [comercialSeleccionado, setComercialSeleccionado] = useState("Todos");
-    const [cuentaSeleccionada, setCuentaSeleccionada] = useState(null);
+  const [productosRemision, setProductosRemision] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
+  const [cargando, setCargando] = useState(true);
 
-    const [productosRemision, setProductosRemision] = useState([]);
-    const [cuentas, setCuentas] = useState([]);
-    const [cargando, setCargando] = useState(true);
+  const [comerciales, setComerciales] = useState([]);
 
-    const [comerciales, setComerciales] = useState([]);
+  const [modalAbono, setModalAbono] = useState(false);
+  const [comentarioAbono, setComentarioAbono] = useState("");
+  const [errorAbono, setErrorAbono] = useState("");
 
-    const [modalAbono, setModalAbono] = useState(false);
-    const [comentarioAbono, setComentarioAbono] = useState("");
-    const [errorAbono, setErrorAbono] = useState("");
+  const [carteraTotal, setCarteraTotal] = useState(0);
+  const [carteraAlDia, setCarteraAlDia] = useState(0);
+  const [carteraSeguimiento, setCarteraSeguimiento] = useState(0);
+  const [carteraVencida, setCarteraVencida] = useState(0);
 
-    const [carteraTotal, setCarteraTotal] = useState(0);
-    const [carteraAlDia, setCarteraAlDia] = useState(0);
-    const [carteraSeguimiento, setCarteraSeguimiento] = useState(0);
-    const [carteraVencida, setCarteraVencida] = useState(0);
-
-    const cargarAbonos = async (idRemision) => {
-
+  const cargarAbonos = async (idRemision) => {
     try {
+      const respuesta = await fetch(`/api/cartera/${idRemision}/abonos`);
 
-        const respuesta = await fetch(
-            `/api/cartera/${idRemision}/abonos`
-        );
+      if (!respuesta.ok) {
+        throw new Error("No se pudieron cargar los abonos.");
+      }
 
-        if (!respuesta.ok) {
+      const datos = await respuesta.json();
 
-            throw new Error(
-                "No se pudieron cargar los abonos."
-            );
+      setAbonos((anteriores) => ({
+        ...anteriores,
 
-        }
-
-        const datos = await respuesta.json();
-
-
-        setAbonos((anteriores) => ({
-
-            ...anteriores,
-
-            [idRemision]: datos
-
-        }));
-
-
+        [idRemision]: datos,
+      }));
     } catch (error) {
-
-        console.error(
-            "Error cargando abonos:",
-            error
-        );
-
+      console.error("Error cargando abonos:", error);
     }
+  };
 
-};
-
-const cargarCartera = async () => {
-
+  const cargarCartera = async () => {
     try {
+      setCargando(true);
 
-        setCargando(true);
+      let url = "/api/cartera";
 
-
-        let url =
-            "/api/cartera";
-
-
-        /* =========================
+      /* =========================
            FILTRO COMERCIAL
         ========================= */
 
-        if (
-            comercialSeleccionado &&
-            comercialSeleccionado !== "Todos"
-        ) {
+      if (comercialSeleccionado && comercialSeleccionado !== "Todos") {
+        url += `?comercial=${comercialSeleccionado}`;
+      }
 
-            url +=
-                `?comercial=${comercialSeleccionado}`;
+      const respuesta = await axios.get(url);
 
-        }
+      const datos = respuesta.data.map((cuenta) => ({
+        id_remision: cuenta.id_remision,
 
+        numero_remision: cuenta.numero_remision,
 
-        const respuesta =
-            await axios.get(url);
+        cliente: cuenta.cliente,
 
+        documento: cuenta.documento,
 
-        const datos =
-            respuesta.data.map((cuenta) => ({
+        fechaRemision: new Date(cuenta.fecha).toLocaleDateString("es-CO"),
 
-                id_remision:
-                    cuenta.id_remision,
+        valor: Number(cuenta.total),
 
-                numero_remision:
-                    cuenta.numero_remision,
+        saldo_pendiente: Number(cuenta.saldo_pendiente),
 
-                cliente:
-                    cuenta.cliente,
+        cantidad_abonos: Number(cuenta.cantidad_abonos),
 
-                documento:
-                    cuenta.documento,
+        total_abonado: Number(cuenta.total_abonado),
 
-                fechaRemision:
-                    new Date(cuenta.fecha)
-                        .toLocaleDateString("es-CO"),
+        dias: Number(cuenta.dias),
 
-                valor:
-                    Number(cuenta.total),
+        comercial: cuenta.comercial,
 
-                saldo_pendiente:
-                    Number(cuenta.saldo_pendiente),
+        estadoPago: cuenta.estado,
+      }));
 
-                cantidad_abonos:
-                    Number(cuenta.cantidad_abonos),
-
-                total_abonado:
-                    Number(cuenta.total_abonado),
-
-                dias:
-                    Number(cuenta.dias),
-
-                comercial:
-                    cuenta.comercial,
-
-                estadoPago:
-                    cuenta.estado
-
-            }));
-
-
-        setCuentas(datos);
-
-
+      setCuentas(datos);
     } catch (error) {
-
-        console.error(
-            "Error cargando cartera:",
-            error
-        );
-
+      console.error("Error cargando cartera:", error);
     } finally {
-
-        setCargando(false);
-
+      setCargando(false);
     }
+  };
 
-};
-
-const cargarKPIs = async () => {
-
+  const cargarKPIs = async () => {
     try {
+      let url = "/api/cartera/kpis";
 
-        let url =
-            "/api/cartera/kpis";
-
-
-        /* =========================
+      /* =========================
            FILTRO POR COMERCIAL
         ========================= */
 
-        if (
-            comercialSeleccionado !== "Todos" &&
-            comercialSeleccionado !== ""
-        ) {
+      if (comercialSeleccionado !== "Todos" && comercialSeleccionado !== "") {
+        url += `?comercial=${comercialSeleccionado}`;
+      }
 
-            url +=
-                `?comercial=${comercialSeleccionado}`;
+      console.log("Cargando KPIs:", url);
 
-        }
+      const respuesta = await axios.get(url);
 
+      console.log("KPIs recibidos:", respuesta.data);
 
-        console.log(
-            "Cargando KPIs:",
-            url
-        );
+      const datos = respuesta.data;
 
+      setCarteraTotal(Number(datos.cartera_total) || 0);
 
-        const respuesta =
-            await axios.get(url);
+      setCarteraAlDia(Number(datos.al_dia) || 0);
 
+      setCarteraSeguimiento(Number(datos.seguimiento) || 0);
 
-        console.log(
-            "KPIs recibidos:",
-            respuesta.data
-        );
-
-
-        const datos =
-            respuesta.data;
-
-
-        setCarteraTotal(
-            Number(datos.cartera_total) || 0
-        );
-
-
-        setCarteraAlDia(
-            Number(datos.al_dia) || 0
-        );
-
-
-        setCarteraSeguimiento(
-            Number(datos.seguimiento) || 0
-        );
-
-
-        setCarteraVencida(
-            Number(datos.vencida) || 0
-        );
-
-
+      setCarteraVencida(Number(datos.vencida) || 0);
     } catch (error) {
+      console.error("Error cargando KPIs:", error);
 
-        console.error(
-            "Error cargando KPIs:",
-            error
-        );
+      setCarteraTotal(0);
 
+      setCarteraAlDia(0);
 
-        setCarteraTotal(0);
+      setCarteraSeguimiento(0);
 
-        setCarteraAlDia(0);
-
-        setCarteraSeguimiento(0);
-
-        setCarteraVencida(0);
-
+      setCarteraVencida(0);
     }
-
-};
-const cargarComerciales = async () => {
-
+  };
+  const cargarComerciales = async () => {
     try {
+      const respuesta = await axios.get("/api/comerciales");
 
-        const respuesta = await axios.get(
-            "/api/comerciales"
-        );
-
-        setComerciales(respuesta.data);
-
+      setComerciales(respuesta.data);
     } catch (error) {
+      console.error("Error cargando comerciales:", error);
 
-        console.error(
-            "Error cargando comerciales:",
-            error
-        );
-
-        setComerciales([]);
-
+      setComerciales([]);
     }
+  };
 
-};
-
-/* =========================
+  /* =========================
    CARGAR COMERCIALES
 ========================= */
 
-useEffect(() => {
-
+  useEffect(() => {
     cargarComerciales();
+  }, []);
 
-}, []);
-
-
-/* =========================
+  /* =========================
    CARGAR CARTERA Y KPIs
 ========================= */
-useEffect(() => {
-
+  useEffect(() => {
     cargarCartera();
 
     cargarKPIs();
+  }, [comercialSeleccionado]);
 
-}, [comercialSeleccionado]);
+  const [nuevoAbono, setNuevoAbono] = useState({
+    valor: "",
+    fecha: "",
+    medioPago: "",
+    referencia: "",
+    comentario: "",
+  });
 
-    const [nuevoAbono, setNuevoAbono] = useState({
-        valor: "",
-        fecha: "",
-        medioPago: "",
-        referencia: "",
-        comentario: ""
-    });
-
-    const [abonos, setAbonos] = useState({});
-    /*
+  const [abonos, setAbonos] = useState({});
+  /*
         DATOS DE PRUEBA
 
         Los días representan la cantidad de días
@@ -311,1418 +188,834 @@ useEffect(() => {
         se generó la remisión.
     */
 
-    /* =========================
+  /* =========================
        FORMATO DE PRECIO
     ========================= */
 
-    const formatearPrecio = (valor) => {
+  const formatearPrecio = (valor) => {
+    return Number(valor).toLocaleString("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    });
+  };
 
-        return Number(valor).toLocaleString("es-CO", {
-            style: "currency",
-            currency: "COP",
-            maximumFractionDigits: 0
-        });
-
-    };
-
-
-    /* =========================
+  /* =========================
    ESTADO SEGÚN ANTIGÜEDAD
 ========================= */
-const obtenerEstado = (cuenta) => {
-
+  const obtenerEstado = (cuenta) => {
     switch (cuenta.estadoPago) {
+      case "PAGADA":
+        return {
+          nombre: "Pagada",
+          clase: "pagada",
+        };
 
-        case "PAGADA":
+      case "AL_DIA":
+        return {
+          nombre: "Al día",
+          clase: "al-dia",
+        };
 
-            return {
-                nombre: "Pagada",
-                clase: "pagada"
-            };
+      case "SEGUIMIENTO":
+        return {
+          nombre: "Seguimiento",
+          clase: "seguimiento",
+        };
 
+      case "VENCIDA":
+        return {
+          nombre: "Vencida",
+          clase: "vencida",
+        };
 
-        case "AL_DIA":
-
-            return {
-                nombre: "Al día",
-                clase: "al-dia"
-            };
-
-
-        case "SEGUIMIENTO":
-
-            return {
-                nombre: "Seguimiento",
-                clase: "seguimiento"
-            };
-
-
-        case "VENCIDA":
-
-            return {
-                nombre: "Vencida",
-                clase: "vencida"
-            };
-
-
-        default:
-
-            return {
-                nombre: "Sin estado",
-                clase: ""
-            };
-
+      default:
+        return {
+          nombre: "Sin estado",
+          clase: "",
+        };
     }
+  };
 
-};
-
-const abrirModalAbono = () => {
-
+  const abrirModalAbono = () => {
     setNuevoAbono({
-        valor: "",
-        fecha: new Date().toISOString().split("T")[0],
-        medioPago: "",
-        referencia: "",
-        comentario: ""
+      valor: "",
+      fecha: new Date().toISOString().split("T")[0],
+      medioPago: "",
+      referencia: "",
+      comentario: "",
     });
 
     setModalAbono(true);
+  };
 
-};
-
-
-const cerrarModalAbono = () => {
-
+  const cerrarModalAbono = () => {
     setModalAbono(false);
 
     setNuevoAbono({
-        valor: "",
-        fecha: "",
-        medioPago: "",
-        referencia: "",
-        comentario: ""
+      valor: "",
+      fecha: "",
+      medioPago: "",
+      referencia: "",
+      comentario: "",
     });
 
     setErrorAbono("");
+  };
 
-};
-
-const manejarCambioAbono = (e) => {
-
+  const manejarCambioAbono = (e) => {
     const { name, value } = e.target;
 
     setNuevoAbono((previo) => ({
-        ...previo,
-        [name]: value
+      ...previo,
+      [name]: value,
     }));
+  };
 
-};
-
-const guardarAbono = async (e) => {
-
+  const guardarAbono = async (e) => {
     e.preventDefault();
 
     if (!cuentaSeleccionada) {
-        return;
+      return;
     }
-
 
     /* =========================
        VALOR DEL ABONO
     ========================= */
 
-    const valor =
-        Number(nuevoAbono.valor);
-
+    const valor = Number(nuevoAbono.valor);
 
     /* =========================
        VALIDAR VALOR
     ========================= */
 
     if (!valor || valor <= 0) {
+      setErrorAbono("Ingresa un valor de abono válido.");
 
-        setErrorAbono(
-            "Ingresa un valor de abono válido."
-        );
-
-        return;
-
+      return;
     }
-
 
     /* =========================
        VALIDAR SALDO
     ========================= */
 
-    if (
-        valor >
-        Number(cuentaSeleccionada.saldo_pendiente)
-    ) {
+    if (valor > Number(cuentaSeleccionada.saldo_pendiente)) {
+      setErrorAbono("El abono no puede ser mayor al saldo pendiente.");
 
-        setErrorAbono(
-            "El abono no puede ser mayor al saldo pendiente."
-        );
-
-        return;
-
+      return;
     }
 
-
     try {
+      setErrorAbono("");
 
-        setErrorAbono("");
+      const respuesta = await fetch("/api/cartera/abono", {
+        method: "POST",
 
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-        const respuesta = await fetch(
-            "/api/cartera/abono",
-            {
+        body: JSON.stringify({
+          id_remision: cuentaSeleccionada.id_remision,
 
-                method: "POST",
+          valor: valor,
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+          comentario: comentarioAbono,
 
-  body: JSON.stringify({
+          id_usuario: 1,
+        }),
+      });
 
-    id_remision:
-        cuentaSeleccionada.id_remision,
+      const datos = await respuesta.json();
 
-    valor: valor,
+      if (!respuesta.ok) {
+        setErrorAbono(datos.mensaje || "No se pudo registrar el abono.");
 
-    comentario:
-        comentarioAbono,
+        return;
+      }
 
-    id_usuario: 1
-
-})
-
-            }
-        );
-
-
-        const datos =
-            await respuesta.json();
-
-
-        if (!respuesta.ok) {
-
-            setErrorAbono(
-                datos.mensaje ||
-                "No se pudo registrar el abono."
-            );
-
-            return;
-
-        }
-
-
-        /* =========================
+      /* =========================
            RECARGAR ABONOS
         ========================= */
 
-        await cargarAbonos(
-            cuentaSeleccionada.id_remision
-        );
+      await cargarAbonos(cuentaSeleccionada.id_remision);
 
-
-        /* =========================
+      /* =========================
            ACTUALIZAR SALDO LOCAL
         ========================= */
 
-        setCuentaSeleccionada((anterior) => ({
+      setCuentaSeleccionada((anterior) => ({
+        ...anterior,
 
-            ...anterior,
+        saldo_pendiente: Number(datos.saldo_pendiente),
+      }));
 
-            saldo_pendiente:
-                Number(datos.saldo_pendiente)
-
-        }));
-
-
-        /* =========================
+      /* =========================
            RECARGAR CARTERA
         ========================= */
 
-        await cargarCartera();
+      await cargarCartera();
 
-
-        /* =========================
+      /* =========================
            CERRAR MODAL
         ========================= */
 
-        cerrarModalAbono();
-
-
+      cerrarModalAbono();
     } catch (error) {
+      console.error("Error registrando abono:", error);
 
-        console.error(
-            "Error registrando abono:",
-            error
-        );
-
-        setErrorAbono(
-            "No fue posible conectar con el servidor."
-        );
-
+      setErrorAbono("No fue posible conectar con el servidor.");
     }
+  };
 
-};
-
-/* =========================
+  /* =========================
    FILTRADO
 ========================= */
 
-const cuentasComercial = cuentas;
+  const cuentasComercial = cuentas;
 
-const cuentasFiltradas = cuentas.filter((cuenta) => {
+  const cuentasFiltradas = cuentas.filter((cuenta) => {
+    const dias = Number(cuenta.dias) || 0;
 
-    const estado = obtenerEstado(cuenta);
+    let coincideFiltro = true;
 
-    const coincideFiltro =
-        filtro === "Todos" ||
-        estado.nombre === filtro;
+    if (filtro === "0–30 días") {
+      coincideFiltro = dias <= 30;
+    }
+
+    if (filtro === "31–45 días") {
+      coincideFiltro = dias > 30 && dias <= 45;
+    }
+
+    if (filtro === "46+ días") {
+      coincideFiltro = dias > 45;
+    }
 
     const texto =
-        `${cuenta.cliente} ${cuenta.documento} ${cuenta.numero_remision}`
-            .toLowerCase();
+      `${cuenta.cliente} ${cuenta.documento} ${cuenta.numero_remision}`.toLowerCase();
 
-    const coincideBusqueda =
-        texto.includes(
-            busqueda.toLowerCase()
-        );
+    const coincideBusqueda = texto.includes(busqueda.toLowerCase());
 
     return coincideFiltro && coincideBusqueda;
+  });
 
-});
+  /* CANTIDAD DE CUENTAS PAGADAS */
 
+  const cuentasPagadas = cuentas.filter(
+    (cuenta) => cuenta.estadoPago === "PAGADA",
+  ).length;
 
-/* CANTIDAD DE CUENTAS PAGADAS */
-
-const cuentasPagadas = cuentas
-    .filter(
-        cuenta =>
-            cuenta.estadoPago === "PAGADA"
-    )
-    .length;
-
-    const abrirDetalleCuenta = async (cuenta) => {
-
+  const abrirDetalleCuenta = async (cuenta) => {
     setCuentaSeleccionada(cuenta);
 
     try {
+      const respuestaProductos = await fetch(
+        `/api/cartera/${cuenta.id_remision}/productos`,
+      );
 
-        const respuestaProductos = await fetch(
-    `/api/cartera/${cuenta.id_remision}/productos`
-);
+      if (!respuestaProductos.ok) {
+        throw new Error("No se pudieron cargar los productos.");
+      }
 
-        if (!respuestaProductos.ok) {
+      const datosProductos = await respuestaProductos.json();
 
-            throw new Error(
-                "No se pudieron cargar los productos."
-            );
+      setProductosRemision(datosProductos);
 
-        }
-
-        const datosProductos =
-            await respuestaProductos.json();
-
-        setProductosRemision(
-            datosProductos
-        );
-
-
-        await cargarAbonos(
-            cuenta.id_remision
-        );
-
+      await cargarAbonos(cuenta.id_remision);
     } catch (error) {
+      console.error("Error cargando detalle:", error);
 
-        console.error(
-            "Error cargando detalle:",
-            error
-        );
-
-        setProductosRemision([]);
-
+      setProductosRemision([]);
     }
+  };
 
-};
-
-    return (
-
-        <div className="cartera-page">
-
-
-            {/* =========================
+  return (
+    <div className="cartera-page">
+      {/* =========================
                 ENCABEZADO
             ========================= */}
 
-            <div className="cartera-header">
+      <div className="cartera-header">
+        <div>
+          <span className="cartera-tag">CARTERA</span>
 
-                <div>
+          <h1>Gestión de cartera</h1>
 
-                    <span className="cartera-tag">
-                        CARTERA
-                    </span>
+          <p>Consulta y administra las cuentas pendientes de los clientes.</p>
+        </div>
+      </div>
 
-                    <h1>
-                        Gestión de cartera
-                    </h1>
-
-                    <p>
-                        Consulta y administra las cuentas pendientes
-                        de los clientes.
-                    </p>
-
-                </div>
-
-            </div>
-
-{/* =========================
+      {/* =========================
     FILTRO COMERCIAL
 ========================= */}
 
-<div className="cartera-comercial-filtro">
+      <div className="cartera-comercial-filtro">
+        <div className="comercial-filtro-label">
+          <span>Comercial</span>
 
-    <div className="comercial-filtro-label">
+          <small>Selecciona el comercial para consultar su cartera.</small>
+        </div>
 
-        <span>
-            Comercial
-        </span>
-
-        <small>
-            Selecciona el comercial para consultar su cartera.
-        </small>
-
-    </div>
-
-
-    <select
-    value={comercialSeleccionado}
-    onChange={(e) =>
-        setComercialSeleccionado(e.target.value)
-    }
->
-
-    <option value="Todos">
-        Todos los comerciales
-    </option>
-
-    {comerciales.map((comercial) => (
-
-        <option
-            key={comercial.id_comercial}
-            value={comercial.id_comercial}
+        <select
+          value={comercialSeleccionado}
+          onChange={(e) => setComercialSeleccionado(e.target.value)}
         >
-            {comercial.nombre}
-        </option>
+          <option value="Todos">Todos los comerciales</option>
 
-    ))}
+          {comerciales.map((comercial) => (
+            <option key={comercial.id_comercial} value={comercial.id_comercial}>
+              {comercial.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
 
-</select>
-
-</div>
-
-            {/* =========================
+      {/* =========================
                 KPIS
             ========================= */}
 
-            <div className="cartera-kpis">
+      <div className="cartera-kpis">
+        <div className="cartera-kpi">
+          <div className="cartera-kpi-icon total">
+            <WalletCards size={21} />
+          </div>
 
+          <div>
+            <span>Cartera total</span>
 
-                <div className="cartera-kpi">
+            <strong>{formatearPrecio(carteraTotal)}</strong>
+          </div>
+        </div>
 
-                    <div className="cartera-kpi-icon total">
+        <div className="cartera-kpi">
+          <div className="cartera-kpi-icon al-dia">
+            <CircleCheck size={21} />
+          </div>
 
-                        <WalletCards size={21} />
+          <div>
+            <span>0–30 días</span>
 
-                    </div>
+            <strong>{formatearPrecio(carteraAlDia)}</strong>
+          </div>
+        </div>
 
-                    <div>
+        <div className="cartera-kpi">
+          <div className="cartera-kpi-icon seguimiento">
+            <Clock3 size={21} />
+          </div>
 
-                        <span>
-                            Cartera total
-                        </span>
+          <div>
+            <span>31–45 días</span>
 
-                        <strong>
-                            {formatearPrecio(carteraTotal)}
-                        </strong>
+            <strong>{formatearPrecio(carteraSeguimiento)}</strong>
+          </div>
+        </div>
 
-                    </div>
+        <div className="cartera-kpi">
+          <div className="cartera-kpi-icon vencida">
+            <AlertCircle size={21} />
+          </div>
 
-                </div>
+          <div>
+            <span>46+ días</span>
 
+            <strong>{formatearPrecio(carteraVencida)}</strong>
+          </div>
+        </div>
+      </div>
 
-                <div className="cartera-kpi">
-
-                    <div className="cartera-kpi-icon al-dia">
-
-                        <CircleCheck size={21} />
-
-                    </div>
-
-                    <div>
-
-                        <span>
-                            0–30 días
-                        </span>
-
-                        <strong>
-                            {formatearPrecio(carteraAlDia)}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="cartera-kpi">
-
-                    <div className="cartera-kpi-icon seguimiento">
-
-                        <Clock3 size={21} />
-
-                    </div>
-
-                    <div>
-
-                        <span>
-                            31–45 días
-                        </span>
-
-                        <strong>
-                            {formatearPrecio(carteraSeguimiento)}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="cartera-kpi">
-
-                    <div className="cartera-kpi-icon vencida">
-
-                        <AlertCircle size={21} />
-
-                    </div>
-
-                    <div>
-
-                        <span>
-                            46+ días
-                        </span>
-
-                        <strong>
-                            {formatearPrecio(carteraVencida)}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            {/* =========================
+      {/* =========================
                 TABLA
             ========================= */}
 
-            <div className="cartera-card">
-
-
-                {/* TOOLBAR */}
-
-                <div className="cartera-toolbar">
-
-
-                    <div className="cartera-search">
-
-                        <Search size={17} />
-
-                        <input
-                            type="text"
-                            placeholder="Buscar cliente, documento o remisión..."
-                            value={busqueda}
-                            onChange={(e) =>
-                                setBusqueda(e.target.value)
-                            }
-                        />
-
-                    </div>
-
-
-                    <div className="cartera-filtros">
-
-                        {[
-                            "Todos",
-                            "Al día",
-                            "Seguimiento",
-                            "Vencida",
-                        ].map((opcion) => (
-
-                            <button
-                                key={opcion}
-                                className={
-                                    filtro === opcion
-                                        ? "filtro-activo"
-                                        : ""
-                                }
-                                onClick={() =>
-                                    setFiltro(opcion)
-                                }
-                            >
-
-                                {opcion}
-
-                            </button>
-
-                        ))}
-
-                    </div>
-
-                </div>
-
-
-                {/* TABLA */}
-
-                <div className="cartera-table-wrapper">
-
-                    <table className="cartera-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th>
-                                    CLIENTE
-                                </th>
-
-                                <th>
-                                    REMISIÓN
-                                </th>
-
-                                <th>
-                                    FECHA REMISIÓN
-                                </th>
-
-                                <th>
-                                    DÍAS
-                                </th>
-
-                                <th>
-                                    SALDO PENDIENTE
-                                </th>
-
-                                <th>
-                                    ABONOS
-                                </th>
-
-                                <th>
-                                    ESTADO
-                                </th>
-
-                                 <th>
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-
-                        <tbody>
-
-                            {cuentasFiltradas.map((cuenta) => {
-
-                                const estado =
-                                    obtenerEstado(cuenta);
-
-                               return (
-
-   <tr
-    key={cuenta.id_remision}
-    className={
-        Number(cuenta.id_remision) === Number(remisionDestacada)
-            ? "remision-destacada"
-            : ""
-    }
->
-
-
-                                        {/* CLIENTE */}
-
-                                        <td>
-
-                                            <div className="cliente-cartera">
-
-                                                <strong>
-                                                    {cuenta.cliente}
-                                                </strong>
-
-                                                <span>
-                                                    {cuenta.documento}
-                                                </span>
-
-                                            </div>
-
-                                        </td>
-
-
-                                        {/* REMISIÓN */}
-
-                                        <td>
-
-                                            <span className="remision-cartera">
-
-                                               {cuenta.numero_remision}
-
-                                            </span>
-
-                                        </td>
-
-
-                                        {/* FECHA */}
-
-                                        <td>
-
-                                            <span className="fecha-cartera">
-
-                                                {cuenta.fechaRemision}
-
-                                            </span>
-
-                                        </td>
-
-
-                                        {/* DÍAS */}
-
-                                        <td>
-
-                                            {cuenta.estadoPago === "Pagada" ? (
-
-                                                <span className="dias-pagada">
-
-                                                    Pagada
-
-                                                </span>
-
-                                            ) : (
-
-                                                <span
-                                                    className={`dias-cartera ${estado.clase}`}
-                                                >
-
-                                                    {cuenta.dias}{" "}
-                                                    {cuenta.dias === 1
-                                                        ? "día"
-                                                        : "días"}
-
-                                                </span>
-
-                                            )}
-
-                                        </td>
-
-
-                                      {/* SALDO PENDIENTE */}
-
-<td>
-
-    <strong className="valor-cartera">
-
-        {formatearPrecio(
-            cuenta.saldo_pendiente
-        )}
-
-    </strong>
-
-</td>
-{/* ABONOS */}
-
-<td>
-
-    {cuenta.cantidad_abonos > 0 ? (
-
-        <div className="abonos-info">
-
-            <strong className="abonos-valor">
-
-                {formatearPrecio(
-                    cuenta.total_abonado
-                )}
-
-            </strong>
-
-            <span className="abonos-cantidad">
-
-                {cuenta.cantidad_abonos === 1
-                    ? "1 abono registrado"
-                    : `${cuenta.cantidad_abonos} abonos registrados`}
-
-            </span>
-
+      <div className="cartera-card">
+        {/* TOOLBAR */}
+
+        <div className="cartera-toolbar">
+          <div className="cartera-search">
+            <Search size={17} />
+
+            <input
+              type="text"
+              placeholder="Buscar cliente, documento o remisión..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
+
+          <div className="cartera-filtros">
+            {["Todos", "0–30 días", "31–45 días", "46+ días"].map((opcion) => (
+              <button
+                key={opcion}
+                className={filtro === opcion ? "filtro-activo" : ""}
+                onClick={() => setFiltro(opcion)}
+              >
+                {opcion}
+              </button>
+            ))}
+          </div>
         </div>
 
-    ) : (
+        {/* TABLA */}
 
-        <span className="sin-abonos">
+        <div className="cartera-table-wrapper">
+          <table className="cartera-table">
+            <thead>
+              <tr>
+                <th>CLIENTE</th>
 
-            Sin abonos
+                <th>REMISIÓN</th>
 
-        </span>
+                <th>FECHA REMISIÓN</th>
 
-    )}
+                <th>DÍAS</th>
 
-</td>
-                                        {/* ESTADO */}
+                <th>SALDO PENDIENTE</th>
 
-                                        <td>
+                <th>ABONOS</th>
 
-                                            <span
-                                                className={`estado-cartera ${estado.clase}`}
-                                            >
+                <th>ESTADO</th>
 
-                                                {estado.nombre}
+                <th></th>
+              </tr>
+            </thead>
 
-                                            </span>
+            <tbody>
+              {cuentasFiltradas.map((cuenta) => {
+                const estado = obtenerEstado(cuenta);
 
-                                        </td>
+                return (
+                  <tr
+                    key={cuenta.id_remision}
+                    className={
+                      Number(cuenta.id_remision) === Number(remisionDestacada)
+                        ? "remision-destacada"
+                        : ""
+                    }
+                  >
+                    {/* CLIENTE */}
 
+                    <td>
+                      <div className="cliente-cartera">
+                        <strong>{cuenta.cliente}</strong>
 
-                                        {/* ACCIÓN */}
+                        <span>{cuenta.documento}</span>
+                      </div>
+                    </td>
 
-                                        <td>
+                    {/* REMISIÓN */}
 
-                                        <button
-    className="btn-ver-cartera"
-    title="Ver detalle"
-    onClick={() => abrirDetalleCuenta(cuenta)}
->
-    <Eye size={16} />
-</button>
-                                        </td>
+                    <td>
+                      <span className="remision-cartera">
+                        {cuenta.numero_remision}
+                      </span>
+                    </td>
 
-                                    </tr>
+                    {/* FECHA */}
 
-                                );
+                    <td>
+                      <span className="fecha-cartera">
+                        {cuenta.fechaRemision}
+                      </span>
+                    </td>
 
-                            })}
+                    {/* DÍAS */}
 
+                    <td>
+                      {cuenta.estadoPago === "Pagada" ? (
+                        <span className="dias-pagada">Pagada</span>
+                      ) : (
+                        <span className={`dias-cartera ${estado.clase}`}>
+                          {cuenta.dias} {cuenta.dias === 1 ? "día" : "días"}
+                        </span>
+                      )}
+                    </td>
 
-                            {cuentasFiltradas.length === 0 && (
+                    {/* SALDO PENDIENTE */}
 
-                                <tr>
+                    <td>
+                      <strong className="valor-cartera">
+                        {formatearPrecio(cuenta.saldo_pendiente)}
+                      </strong>
+                    </td>
+                    {/* ABONOS */}
 
-                                    <td
-                                        colSpan="7"
-                                        className="cartera-vacia"
-                                    >
+                    <td>
+                      {cuenta.cantidad_abonos > 0 ? (
+                        <div className="abonos-info">
+                          <strong className="abonos-valor">
+                            {formatearPrecio(cuenta.total_abonado)}
+                          </strong>
 
-                                        No se encontraron cuentas.
+                          <span className="abonos-cantidad">
+                            {cuenta.cantidad_abonos === 1
+                              ? "1 abono registrado"
+                              : `${cuenta.cantidad_abonos} abonos registrados`}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="sin-abonos">Sin abonos</span>
+                      )}
+                    </td>
+                    {/* ESTADO */}
 
-                                    </td>
+                    <td>
+                      <span className={`estado-cartera ${estado.clase}`}>
+                        {estado.nombre}
+                      </span>
+                    </td>
 
-                                </tr>
+                    {/* ACCIÓN */}
 
-                            )}
+                    <td>
+                      <button
+                        className="btn-ver-cartera"
+                        title="Ver detalle"
+                        onClick={() => abrirDetalleCuenta(cuenta)}
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
 
-                        </tbody>
+              {cuentasFiltradas.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="cartera-vacia">
+                    No se encontraron cuentas.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-                    </table>
+        {/* FOOTER */}
 
-                </div>
+        <div className="cartera-footer">
+          <span>Mostrando {cuentasFiltradas.length} cuentas</span>
 
+          <button>
+            Ver más
+            <ChevronDown size={15} />
+          </button>
+        </div>
+      </div>
 
-                {/* FOOTER */}
-
-                <div className="cartera-footer">
-
-                    <span>
-                        Mostrando {cuentasFiltradas.length} cuentas
-                    </span>
-
-                    <button>
-
-                        Ver más
-
-                        <ChevronDown size={15} />
-
-                    </button>
-
-                </div>
-
-            </div>
-
-            {/* =========================
+      {/* =========================
                 MODAL DETALLE CARTERA
             ========================= */}
 
-            {cuentaSeleccionada && (
+      {cuentaSeleccionada && (
+        <div className="modal-overlay-cartera">
+          <div className="modal-detalle-cartera">
+            {/* HEADER */}
 
-                <div className="modal-overlay-cartera">
+            <div className="detalle-header">
+              <div>
+                <span className="detalle-tag">CARTERA</span>
 
-                    <div className="modal-detalle-cartera">
+                <h2>Detalle de cuenta</h2>
+              </div>
 
-                        {/* HEADER */}
-
-                        <div className="detalle-header">
-
-                            <div>
-
-                                <span className="detalle-tag">
-                                    CARTERA
-                                </span>
-
-                                <h2>
-                                    Detalle de cuenta
-                                </h2>
-
-                            </div>
-
-                            <button
-                                className="detalle-cerrar"
-                                onClick={() =>
-                                    setCuentaSeleccionada(null)
-                                }
-                            >
-                                ✕
-                            </button>
-
-                        </div>
-
-{modalAbono && cuentaSeleccionada && (
-
-    <div className="modal-overlay-abono">
-
-        <div className="modal-abono">
-
-            <div className="abono-header">
-
-                <div>
-
-                    <span>
-                        CARTERA
-                    </span>
-
-                    <h2>
-                        Registrar abono
-                    </h2>
-
-                </div>
-
-                <button
-                    type="button"
-                    onClick={cerrarModalAbono}
-                    className="abono-cerrar"
-                >
-                    ✕
-                </button>
-
+              <button
+                className="detalle-cerrar"
+                onClick={() => setCuentaSeleccionada(null)}
+              >
+                ✕
+              </button>
             </div>
 
+            {modalAbono && cuentaSeleccionada && (
+              <div className="modal-overlay-abono">
+                <div className="modal-abono">
+                  <div className="abono-header">
+                    <div>
+                      <span>CARTERA</span>
 
-            <form
-                className="abono-form"
-                onSubmit={guardarAbono}
-            >
-
-                <div className="abono-cliente">
-
-                    <span>
-                        CLIENTE
-                    </span>
-
-                    <strong>
-                        {cuentaSeleccionada.cliente}
-                    </strong>
-
-                    <small>
-                        {cuentaSeleccionada.numero_remision}
-                    </small>
-
-                </div>
-
-
-                {/* SALDO REAL */}
-
-                <div className="abono-saldo">
-
-                    <span>
-                        Saldo pendiente
-                    </span>
-
-                <strong>
-    {formatearPrecio(
-        cuentaSeleccionada.saldo_pendiente
-    )}
-</strong>
-
-                </div>
-
-
-             {/* VALOR */}
-
-<div className="abono-grupo">
-
-    <label>
-        Valor del abono *
-    </label>
-
-    <input
-        type="number"
-        name="valor"
-        min="1"
-        max={cuentaSeleccionada.saldo_pendiente}
-        value={nuevoAbono.valor}
-        onChange={manejarCambioAbono}
-        placeholder="Ej. 500000"
-        required
-    />
-
-</div>
-                {/* COMENTARIO */}
-
-                <div className="abono-grupo">
-
-                    <label>
-                        Comentario
-                    </label>
-
-                   <textarea
-    value={comentarioAbono}
-    onChange={(e) => {
-        setComentarioAbono(e.target.value);
-    }}
-    placeholder="Ej. Pago parcial, transferencia, observaciones..."
-/>
-
-                </div>
-
-
-                {/* ERROR */}
-
-                {errorAbono && (
-
-                    <div className="alerta-abono-error">
-
-                        {errorAbono}
-
+                      <h2>Registrar abono</h2>
                     </div>
 
-                )}
-
-
-                <div className="abono-acciones">
-
                     <button
+                      type="button"
+                      onClick={cerrarModalAbono}
+                      className="abono-cerrar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form className="abono-form" onSubmit={guardarAbono}>
+                    <div className="abono-cliente">
+                      <span>CLIENTE</span>
+
+                      <strong>{cuentaSeleccionada.cliente}</strong>
+
+                      <small>{cuentaSeleccionada.numero_remision}</small>
+                    </div>
+
+                    {/* SALDO REAL */}
+
+                    <div className="abono-saldo">
+                      <span>Saldo pendiente</span>
+
+                      <strong>
+                        {formatearPrecio(cuentaSeleccionada.saldo_pendiente)}
+                      </strong>
+                    </div>
+
+                    {/* VALOR */}
+
+                    <div className="abono-grupo">
+                      <label>Valor del abono *</label>
+
+                      <input
+                        type="number"
+                        name="valor"
+                        min="1"
+                        max={cuentaSeleccionada.saldo_pendiente}
+                        value={nuevoAbono.valor}
+                        onChange={manejarCambioAbono}
+                        placeholder="Ej. 500000"
+                        required
+                      />
+                    </div>
+                    {/* COMENTARIO */}
+
+                    <div className="abono-grupo">
+                      <label>Comentario</label>
+
+                      <textarea
+                        value={comentarioAbono}
+                        onChange={(e) => {
+                          setComentarioAbono(e.target.value);
+                        }}
+                        placeholder="Ej. Pago parcial, transferencia, observaciones..."
+                      />
+                    </div>
+
+                    {/* ERROR */}
+
+                    {errorAbono && (
+                      <div className="alerta-abono-error">{errorAbono}</div>
+                    )}
+
+                    <div className="abono-acciones">
+                      <button
                         type="button"
                         onClick={cerrarModalAbono}
                         className="btn-cancelar-abono"
-                    >
+                      >
                         Cancelar
-                    </button>
+                      </button>
 
-                    <button
-                        type="submit"
-                        className="btn-guardar-abono"
-                    >
+                      <button type="submit" className="btn-guardar-abono">
                         Guardar abono
-                    </button>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
+            {/* INFORMACIÓN DEL CLIENTE */}
+
+            <div className="detalle-contenido">
+              <div className="detalle-cliente">
+                <div>
+                  <span className="detalle-label">CLIENTE</span>
+
+                  <h3>{cuentaSeleccionada.cliente}</h3>
+
+                  <p>{cuentaSeleccionada.documento}</p>
                 </div>
 
-            </form>
+                <span
+                  className={`estado-cartera ${obtenerEstado(cuentaSeleccionada).clase}`}
+                >
+                  {obtenerEstado(cuentaSeleccionada).nombre}
+                </span>
+              </div>
 
-        </div>
+              {/* DATOS DE LA REMISIÓN */}
 
-    </div>
+              <div className="detalle-datos">
+                <div>
+                  <span>Remisión</span>
 
-)}
+                  <strong>{cuentaSeleccionada.numero_remision}</strong>
+                </div>
 
+                <div>
+                  <span>Fecha</span>
 
-                        {/* INFORMACIÓN DEL CLIENTE */}
+                  <strong>{cuentaSeleccionada.fechaRemision}</strong>
+                </div>
 
-                        <div className="detalle-contenido">
+                <div>
+                  <span>Comercial</span>
 
-                            <div className="detalle-cliente">
+                  <strong>{cuentaSeleccionada.comercial}</strong>
+                </div>
 
-                                <div>
+                <div>
+                  <span>Días</span>
 
-                                    <span className="detalle-label">
-                                        CLIENTE
-                                    </span>
+                  <strong>{cuentaSeleccionada.dias} días</strong>
+                </div>
+              </div>
 
-                                    <h3>
-                                        {cuentaSeleccionada.cliente}
-                                    </h3>
-
-                                    <p>
-                                        NIT {cuentaSeleccionada.documento}
-                                    </p>
-
-                                </div>
-
-                                <span
-                                    className={`estado-cartera ${obtenerEstado(cuentaSeleccionada).clase}`}
-                                >
-                                    {obtenerEstado(cuentaSeleccionada).nombre}
-                                </span>
-
-                            </div>
-
-
-                            {/* DATOS DE LA REMISIÓN */}
-
-                            <div className="detalle-datos">
-
-                                <div>
-
-                                    <span>
-                                        Remisión
-                                    </span>
-
-                                    <strong>
-    {cuentaSeleccionada.numero_remision}
-</strong>
-
-                                </div>
-
-                                <div>
-
-                                    <span>
-                                        Fecha
-                                    </span>
-
-                                    <strong>
-                                        {cuentaSeleccionada.fechaRemision}
-                                    </strong>
-
-                                </div>
-
-                                <div>
-
-                                    <span>
-                                        Comercial
-                                    </span>
-
-                                    <strong>
-                                        {cuentaSeleccionada.comercial}
-                                    </strong>
-
-                                </div>
-
-                                <div>
-
-                                    <span>
-                                        Días
-                                    </span>
-
-                                    <strong>
-                                        {cuentaSeleccionada.dias} días
-                                    </strong>
-
-                                </div>
-
-                            </div>
-
-
-{/* =========================
+              {/* =========================
     RESUMEN
 ========================= */}
 
-<div className="detalle-resumen">
-
-
-    {/* VALOR TOTAL DE LA REMISIÓN */}
-
-    <div>
-
-        <span>
-            Valor de la remisión
-        </span>
-
-        <strong>
-
-            {formatearPrecio(
-                Number(
-                    cuentaSeleccionada.valor || 0
-                )
-            )}
-
-        </strong>
-
-    </div>
-
-
- {/* TOTAL ABONADO */}
-
-<div>
-
-    <span>
-        Abonado
-    </span>
-
-    <strong>
-
-        {formatearPrecio(
-            Number(
-                cuentaSeleccionada.total_abonado || 0
-            )
-        )}
-
-    </strong>
-
-</div>
-
-
-    {/* SALDO PENDIENTE */}
-
-    <div className="saldo-pendiente">
-
-        <span>
-            Saldo pendiente
-        </span>
-
-        <strong>
-
-            {formatearPrecio(
-
-                Number(
-                    cuentaSeleccionada.valor || 0
-                )
-
-                -
-
-                (abonos[
-                    cuentaSeleccionada.id_remision
-                ] || [])
-
-                    .reduce(
-                        (total, pago) => {
-
-                            return (
-                                total +
-                                Number(
-                                    pago.valor || 0
-                                )
-                            );
-
-                        },
-                        0
-                    )
-
-            )}
-
-        </strong>
-
-    </div>
-
-
-</div>
-
-                            {/* PRODUCTOS */}
-
-                            <div className="detalle-seccion">
-
-                                <h3>
-                                    Productos de la remisión
-                                </h3>
-
-<div className="productos-detalle">
-
-    {productosRemision.length === 0 ? (
-
-        <div className="sin-productos">
-
-            No hay productos registrados para esta remisión.
-
-        </div>
-
-    ) : (
-
-        productosRemision.map((producto) => (
-
-            <div
-                className="producto-detalle"
-                key={producto.id_detalle}
-            >
-
-                <div className="producto-detalle-info">
-
-                    <div className="producto-detalle-nombre">
-
-                        <strong>
-                            {producto.nombre}
-                        </strong>
-
-                        {producto.linea && (
-
-                            <span className="producto-linea">
-
-                                {producto.linea}
-
-                            </span>
-
-                        )}
-
-                    </div>
-
-
-                    <div className="producto-detalle-datos">
-
-                        <span>
-
-                            <b>Código:</b>{" "}
-                            {producto.codigo || "-"}
-
-                        </span>
-
-
-                        {producto.placa && (
-
-                            <span>
-
-                                <b>Placa:</b>{" "}
-                                {producto.placa}
-
-                            </span>
-
-                        )}
-
-
-                        <span>
-
-                            <b>Cantidad:</b>{" "}
-                            {Number(producto.cantidad)}
-
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-                <div className="producto-detalle-precio">
-
-                    <span>
-                        Total
-                    </span>
-
-                    <strong>
-
-                        {formatearPrecio(producto.total)}
-
-                    </strong>
-
-                </div>
-
-            </div>
-
-        ))
-
-    )}
-
-</div>
-                            </div>
-
-
-                            {/* PAGOS */}
-
-                            <div className="detalle-seccion">
-
-                                <div className="detalle-seccion-header">
-
-                                    <div>
-
-                                        <h3>
-                                            Historial de pagos
-                                        </h3>
-
-                                        <span>
-                                            Abonos registrados para esta cuenta.
-                                        </span>
-
-                                    </div>
-
-                                    <button
-    className="btn-registrar-abono"
-    onClick={abrirModalAbono}
->
-    + Registrar abono
-</button>
-
-                                </div>
-
-
-                              <div className="historial-pagos">
-
-    {(abonos[cuentaSeleccionada.id_remision] || []).length === 0 ? (
-
-        <div className="sin-pagos">
-
-            Aún no hay pagos registrados.
-
-        </div>
-
-    ) : (
-
-        abonos[cuentaSeleccionada.id_remision].map((pago) => (
-
-            <div
-                className="pago-item"
-                key={pago.id_abono}
-            >
+              <div className="detalle-resumen">
+                {/* VALOR TOTAL DE LA REMISIÓN */}
 
                 <div>
+                  <span>Valor de la remisión</span>
 
-                    <strong>
-                        {formatearPrecio(pago.valor)}
-                    </strong>
-
-                    <span>
-                        {new Date(
-                            pago.fecha
-                        ).toLocaleDateString("es-CO")}
-                    </span>
-
+                  <strong>
+                    {formatearPrecio(Number(cuentaSeleccionada.valor || 0))}
+                  </strong>
                 </div>
 
+                {/* TOTAL ABONADO */}
 
-                <div className="pago-info">
+                <div>
+                  <span>Abonado</span>
 
-                    {pago.comentario && (
-
-                        <small>
-                            {pago.comentario}
-                        </small>
-
+                  <strong>
+                    {formatearPrecio(
+                      Number(cuentaSeleccionada.total_abonado || 0),
                     )}
-
+                  </strong>
                 </div>
 
-            </div>
+                {/* SALDO PENDIENTE */}
 
-        ))
+                <div className="saldo-pendiente">
+                  <span>Saldo pendiente</span>
 
-    )}
+                  <strong>
+                    {formatearPrecio(
+                      Number(cuentaSeleccionada.valor || 0) -
+                        (abonos[cuentaSeleccionada.id_remision] || []).reduce(
+                          (total, pago) => {
+                            return total + Number(pago.valor || 0);
+                          },
+                          0,
+                        ),
+                    )}
+                  </strong>
+                </div>
+              </div>
 
-</div>
+              {/* PRODUCTOS */}
 
-                            </div>
+              <div className="detalle-seccion">
+                <h3>Productos de la remisión</h3>
 
+                <div className="productos-detalle">
+                  {productosRemision.length === 0 ? (
+                    <div className="sin-productos">
+                      No hay productos registrados para esta remisión.
+                    </div>
+                  ) : (
+                    productosRemision.map((producto) => (
+                      <div
+                        className="producto-detalle"
+                        key={producto.id_detalle}
+                      >
+                        <div className="producto-detalle-info">
+                          <div className="producto-detalle-nombre">
+                            <strong>{producto.nombre}</strong>
+
+                            {producto.linea && (
+                              <span className="producto-linea">
+                                {producto.linea}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="producto-detalle-datos">
+                            <span>
+                              <b>Código:</b> {producto.codigo || "-"}
+                            </span>
+
+                            {producto.placa && (
+                              <span>
+                                <b>Placa:</b> {producto.placa}
+                              </span>
+                            )}
+
+                            <span>
+                              <b>Cantidad:</b> {Number(producto.cantidad)}
+                            </span>
+                          </div>
                         </div>
 
-                    </div>
+                        <div className="producto-detalle-precio">
+                          <span>Total</span>
 
+                          <strong>{formatearPrecio(producto.total)}</strong>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* PAGOS */}
+
+              <div className="detalle-seccion">
+                <div className="detalle-seccion-header">
+                  <div>
+                    <h3>Historial de pagos</h3>
+
+                    <span>Abonos registrados para esta cuenta.</span>
+                  </div>
+
+                  <button
+                    className="btn-registrar-abono"
+                    onClick={abrirModalAbono}
+                  >
+                    + Registrar abono
+                  </button>
                 </div>
 
-            )}
+                <div className="historial-pagos">
+                  {(abonos[cuentaSeleccionada.id_remision] || []).length ===
+                  0 ? (
+                    <div className="sin-pagos">
+                      Aún no hay pagos registrados.
+                    </div>
+                  ) : (
+                    abonos[cuentaSeleccionada.id_remision].map((pago) => (
+                      <div className="pago-item" key={pago.id_abono}>
+                        <div>
+                          <strong>{formatearPrecio(pago.valor)}</strong>
 
+                          <span>
+                            {new Date(pago.fecha).toLocaleDateString("es-CO")}
+                          </span>
+                        </div>
+
+                        <div className="pago-info">
+                          {pago.comentario && <small>{pago.comentario}</small>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-    );
-
+      )}
+    </div>
+  );
 }
 
 export default Cartera;

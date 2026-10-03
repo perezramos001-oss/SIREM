@@ -1,80 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import Layout from "./components/Layout/Layout";
 import Login from "./pages/Login";
 
-
 function App() {
+  const [paginaActiva, setPaginaActiva] = useState(() => {
+    return localStorage.getItem("sirem_pagina_activa") || "inicio";
+  });
 
+  useEffect(() => {
+    localStorage.setItem("sirem_pagina_activa", paginaActiva);
+  }, [paginaActiva]);
 
-    const [paginaActiva, setPaginaActiva] =
-        useState("inicio");
+  const [contraido, setContraido] = useState(false);
 
+  const [usuarioActual, setUsuarioActual] = useState(() => {
+    const usuarioGuardado = localStorage.getItem("usuarioSirem");
 
-    const [contraido, setContraido] =
-     useState(false);
+    return usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+  });
 
-    const [usuarioActual, setUsuarioActual] =
-        useState(() => {
+  const iniciarSesion = (usuario) => {
+    localStorage.setItem("usuarioSirem", JSON.stringify(usuario));
 
-            const usuarioGuardado =
-                localStorage.getItem("usuarioSirem");
+    setUsuarioActual(usuario);
+  };
 
-            return usuarioGuardado
-                ? JSON.parse(usuarioGuardado)
-                : null;
+  const cerrarSesion = () => {
+    localStorage.removeItem("usuarioSirem");
 
-        });
+    setUsuarioActual(null);
+  };
 
+  if (!usuarioActual) {
+    return <Login iniciarSesion={iniciarSesion} />;
+  }
 
-    const iniciarSesion = (usuario) => {
-
-        localStorage.setItem(
-            "usuarioSirem",
-            JSON.stringify(usuario)
-        );
-
-        setUsuarioActual(usuario);
-
-    };
-
-
-    const cerrarSesion = () => {
-
-        localStorage.removeItem(
-            "usuarioSirem"
-        );
-
-        setUsuarioActual(null);
-
-    };
-
-
-    if (!usuarioActual) {
-
-        return (
-            <Login
-                iniciarSesion={iniciarSesion}
-            />
-        );
-
-    }
-
-
-    return (
-
-        <Layout
-    paginaActiva={paginaActiva}
-    setPaginaActiva={setPaginaActiva}
-    usuarioActual={usuarioActual}
-    cerrarSesion={cerrarSesion}
-    contraido={contraido}
-    setContraido={setContraido}
-/>
-
-    );
-
+  return (
+    <Layout
+      paginaActiva={paginaActiva}
+      setPaginaActiva={setPaginaActiva}
+      usuarioActual={usuarioActual}
+      cerrarSesion={cerrarSesion}
+      contraido={contraido}
+      setContraido={setContraido}
+    />
+  );
 }
-
 
 export default App;
