@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { apiFetch } from "../utils/api";
+import { useTeclaEscape } from "../utils/useTeclaEscape";
+import { useAvisos } from "../components/Avisos/Avisos";
 import "./Configuracion.css";
 
 import {
@@ -15,6 +18,8 @@ import {
 } from "lucide-react";
 
 function Configuracion({ usuarioActual, cerrarSesion }) {
+  const { avisar } = useAvisos();
+
   const [seccion, setSeccion] = useState("principal");
 
   const [modalUsuarioAbierto, setModalUsuarioAbierto] = useState(false);
@@ -41,7 +46,7 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
         !usuarioEditando.usuario ||
         !usuarioEditando.rol
       ) {
-        alert("Por favor completa todos los campos.");
+        avisar.advertencia("Por favor completa todos los campos.");
 
         return;
       }
@@ -56,9 +61,8 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
         activo: usuarioEditando.estado === "Activo" ? 1 : 0,
       };
 
-      console.log("DATOS QUE SE VAN A ENVIAR:", datosUsuario);
 
-      const respuesta = await fetch(
+      const respuesta = await apiFetch(
         `/api/usuarios/${usuarioEditando.id_usuario}`,
 
         {
@@ -75,7 +79,7 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
       const datos = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(datos.mensaje || "No se pudo actualizar el usuario.");
+        avisar.error(datos.mensaje || "No se pudo actualizar el usuario.");
 
         return;
       }
@@ -86,16 +90,15 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
             ? {
                 ...usuario,
 
-                ...datos.usuario,
+                ...datosUsuario,
 
-                estado:
-                  Number(datos.usuario.activo) === 1 ? "Activo" : "Inactivo",
+                estado: datosUsuario.activo === 1 ? "Activo" : "Inactivo",
               }
             : usuario,
         ),
       );
 
-      alert("Usuario actualizado correctamente.");
+      avisar.exito("Usuario actualizado correctamente.");
 
       setModalEditarUsuarioAbierto(false);
 
@@ -103,23 +106,27 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
     } catch (error) {
       console.error("Error actualizando usuario:", error);
 
-      alert("Error de conexión con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
 
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: "",
     usuario: "",
-    rol: "ADMINISTRADOR",
+    rol: "FACTURACIÓN",
     password: "",
     estado: "Activo",
   });
   const [usuarios, setUsuarios] = useState([]);
 
   useEffect(() => {
+    if (usuarioActual?.rol !== "ADMINISTRADOR") {
+      return;
+    }
+
     const cargarUsuarios = async () => {
       try {
-        const respuesta = await fetch("/api/usuarios");
+        const respuesta = await apiFetch("/api/usuarios");
 
         if (!respuesta.ok) {
           throw new Error("No se pudieron cargar los usuarios.");
@@ -138,11 +145,13 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
         );
       } catch (error) {
         console.error("Error cargando usuarios:", error);
+
+        avisar.fallo(error, "No se pudo cargar la lista de usuarios.");
       }
     };
 
     cargarUsuarios();
-  }, []);
+  }, [usuarioActual?.rol]);
 
   const guardarUsuario = async () => {
     try {
@@ -152,7 +161,12 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
         !nuevoUsuario.password ||
         !nuevoUsuario.rol
       ) {
-        alert("Por favor completa todos los campos.");
+        avisar.advertencia("Por favor completa todos los campos.");
+        return;
+      }
+
+      if (nuevoUsuario.password.length < 6) {
+        avisar.advertencia("La contraseña debe tener al menos 6 caracteres.");
         return;
       }
 
@@ -163,11 +177,11 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
       );
 
       if (usuarioExiste) {
-        alert("Ya existe un usuario con ese nombre de usuario.");
+        avisar.advertencia("Ya existe un usuario con ese nombre de usuario.");
         return;
       }
 
-      const respuesta = await fetch("/api/usuarios", {
+      const respuesta = await apiFetch("/api/usuarios", {
         method: "POST",
 
         headers: {
@@ -190,12 +204,12 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
       const datos = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(datos.mensaje || "No se pudo crear el usuario.");
+        avisar.error(datos.mensaje || "No se pudo crear el usuario.");
 
         return;
       }
 
-      alert("Usuario creado correctamente.");
+      avisar.exito("Usuario creado correctamente.");
 
       setUsuarios([
         ...usuarios,
@@ -222,7 +236,7 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
     } catch (error) {
       console.error("Error guardando usuario:", error);
 
-      alert("Error de conexión con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
 
@@ -237,24 +251,24 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
   const cambiarPassword = async () => {
     try {
       if (!passwordActual || !passwordNueva || !confirmarPassword) {
-        alert("Por favor completa todos los campos.");
+        avisar.advertencia("Por favor completa todos los campos.");
 
         return;
       }
 
       if (passwordNueva !== confirmarPassword) {
-        alert("Las nuevas contraseñas no coinciden.");
+        avisar.advertencia("Las nuevas contraseñas no coinciden.");
 
         return;
       }
 
       if (passwordNueva.length < 6) {
-        alert("La nueva contraseña debe tener mínimo 6 caracteres.");
+        avisar.advertencia("La nueva contraseña debe tener mínimo 6 caracteres.");
 
         return;
       }
 
-      const respuesta = await fetch(
+      const respuesta = await apiFetch(
         `/api/usuarios/${usuarioActual.id_usuario}/password`,
 
         {
@@ -275,12 +289,12 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
       const datos = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(datos.mensaje || "No se pudo cambiar la contraseña.");
+        avisar.error(datos.mensaje || "No se pudo cambiar la contraseña.");
 
         return;
       }
 
-      alert("Contraseña actualizada correctamente.");
+      avisar.exito("Contraseña actualizada correctamente.");
 
       setPasswordActual("");
 
@@ -292,7 +306,7 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
     } catch (error) {
       console.error("Error cambiando contraseña:", error);
 
-      alert("Error de conexión con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
 
@@ -300,7 +314,19 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
        PÁGINA PRINCIPAL
     ========================= */
 
-  console.log("USUARIO ACTUAL:", usuarioActual);
+
+
+  useTeclaEscape(modalUsuarioAbierto, () => setModalUsuarioAbierto(false));
+
+  useTeclaEscape(modalEditarUsuarioAbierto, () =>
+    setModalEditarUsuarioAbierto(false),
+  );
+
+  useTeclaEscape(modalPasswordAbierto, () => setModalPasswordAbierto(false));
+
+  useTeclaEscape(mostrarConfirmacionCierre, () =>
+    setMostrarConfirmacionCierre(false),
+  );
 
   if (seccion === "principal") {
     return (
@@ -385,13 +411,6 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
         {/* ENCABEZADO */}
 
         <div className="configuracion-detail-header">
-          <button
-            className="configuracion-back"
-            onClick={() => setSeccion("principal")}
-          >
-            <ArrowLeft size={17} />
-            Volver a configuración
-          </button>
 
           <span className="configuracion-tag">CUENTA</span>
 
@@ -487,7 +506,6 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
           <button
             className="seguridad-option"
             onClick={() => {
-              console.log("CLICK EN CAMBIAR CONTRASEÑA");
               setModalPasswordAbierto(true);
             }}
           >
@@ -600,7 +618,10 @@ function Configuracion({ usuarioActual, cerrarSesion }) {
                   Cancelar
                 </button>
 
-                <button className="actualizar-password-btn">
+                <button
+                  className="actualizar-password-btn"
+                  onClick={cambiarPassword}
+                >
                   Actualizar contraseña
                 </button>
               </div>

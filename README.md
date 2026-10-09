@@ -1,16 +1,48 @@
-# React + Vite
+# SIREM
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de remisiones y cartera de Talabartería San Fermín.
+Frontend en React + Vite y backend en Express + MySQL.
 
-Currently, two official plugins are available:
+## Variables de entorno (`.env`)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Variable      | Descripción                                                        |
+| ------------- | ------------------------------------------------------------------ |
+| `DB_HOST`     | Host de MySQL                                                      |
+| `DB_USER`     | Usuario de MySQL                                                   |
+| `DB_PASSWORD` | Contraseña de MySQL                                                |
+| `DB_NAME`     | Base de datos                                                      |
+| `JWT_SECRET`  | Clave para firmar las sesiones. Usa un texto largo y aleatorio.    |
+| `PORT`        | Puerto del servidor (por defecto 3001)                             |
 
-## React Compiler
+Si falta `JWT_SECRET` el servidor genera una clave temporal y todas las
+sesiones se cierran cada vez que se reinicia.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Desarrollo
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm start      # backend en http://localhost:3001
+npm run dev    # frontend con Vite (redirige /api al backend)
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Producción
+
+```bash
+npm run build  # genera dist/
+npm start      # Express sirve dist/ y la API en /api
+```
+
+## Autenticación y auditoría
+
+- `POST /api/login` devuelve un token que el frontend envía en el
+  encabezado `Authorization: Bearer <token>` (ver `src/utils/api.js`).
+- Todas las demás rutas de `/api` exigen el token; el usuario se toma del
+  token, nunca del cuerpo de la petición.
+- Cada inicio de sesión y cada operación que crea o modifica datos queda
+  registrada en la tabla `auditoria` con el usuario que la hizo.
+
+## Índice de números de remisión
+
+Al arrancar, el servidor crea el índice `UNIQUE` sobre
+`remisiones.numero_remision` si no existe. Si ya hay números repetidos,
+no lo crea y los muestra en el log para corregirlos.

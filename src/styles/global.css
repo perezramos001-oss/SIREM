@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&display=swap");
 
 * {
   margin: 0;
@@ -6,29 +6,55 @@
   box-sizing: border-box;
 }
 
+/* =========================
+   SISTEMA VISUAL DE SIREM
+========================= */
+
 :root {
+  /* Tipografía: una sola familia y dos tamaños */
+  --fuente: "Inter", sans-serif;
+  --fs-titulo: 12px;
+  --fs-texto: 10px;
+
+  /* Paleta talabartería */
   --color-primary: #a56a2a;
   --color-primary-dark: #2b1b12;
-
+  --color-dorado-claro: #c8a47d;
   --color-background: #f8f5ef;
-
   --color-white: #ffffff;
-
-  --color-border: #e8dccb;
-
+  --color-border: #ece2d7;
   --color-text: #2d1c10;
+  --color-text-light: #8a7d71;
 
-  --color-text-light: #6b7280;
+  /* Superficies */
+  --radio: 14px;
+  --radio-pequeno: 10px;
+  --sombra-suave: 0 1px 2px rgba(43, 27, 18, 0.04), 0 8px 24px rgba(43, 27, 18, 0.05);
+  --sombra-hover: 0 2px 4px rgba(43, 27, 18, 0.05), 0 12px 30px rgba(43, 27, 18, 0.09);
+}
+
+html,
+body {
+  min-width: 1200px;
+  overflow-x: auto;
 }
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: var(--fuente);
+  font-size: var(--fs-texto);
+  line-height: 1.5;
 
   background: var(--color-background);
-
   color: var(--color-text);
 
   overflow-x: hidden;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* Cifras del mismo ancho: los montos quedan alineados */
+  font-variant-numeric: tabular-nums;
 }
 
 button,
@@ -36,6 +62,16 @@ input,
 select,
 textarea {
   font-family: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-size: var(--fs-titulo);
+  font-weight: 650;
+  letter-spacing: 0.15px;
+  line-height: 1.35;
 }
 
 a {
@@ -50,8 +86,221 @@ img {
   display: block;
 }
 
-html,
-body {
-  min-width: 1200px;
-  overflow-x: auto;
+/* =========================
+   ESTRUCTURA DE LAS PÁGINAS
+========================= */
+
+/* Todas las páginas comparten márgenes y ancho máximo */
+.content > [class*="-page"],
+.content > .inicio {
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+/* Encabezado de página: etiqueta dorada + título + descripción */
+.page-tag,
+.cartera-tag,
+.clientes-kicker,
+.productos-kicker,
+.reportes-tag,
+.exportaciones-tag,
+.configuracion-tag {
+  display: inline-block;
+  margin-bottom: 6px;
+
+  color: var(--color-primary);
+  font-size: var(--fs-texto);
+  font-weight: 700;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+}
+
+.content .page-header h1,
+.content .page-title,
+.cartera-header h1,
+.clientes-header h1,
+.productos-header h1,
+.reportes-header h1,
+.exportaciones-header h1,
+.configuracion-page-header h1,
+.configuracion-detail-header h1,
+.usuarios-header h1 {
+  margin: 0;
+
+  color: var(--color-primary-dark);
+  font-size: var(--fs-titulo);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.content .page-header p,
+.content .page-subtitle,
+.cartera-header p,
+.clientes-header p,
+.productos-header p,
+.reportes-header p,
+.exportaciones-header p,
+.configuracion-page-header p,
+.configuracion-detail-header p,
+.usuarios-header p {
+  margin-top: 4px;
+
+  color: var(--color-text-light);
+  font-size: var(--fs-texto);
+}
+
+.content .page-header,
+.cartera-header,
+.clientes-header,
+.productos-header,
+.reportes-header,
+.exportaciones-header,
+.configuracion-page-header,
+.usuarios-header {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* =========================
+   CAMPOS DE FORMULARIO
+========================= */
+
+input,
+select,
+textarea {
+  font-size: var(--fs-texto);
+  color: var(--color-text);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #b3a597;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #b8732a !important;
+  box-shadow: 0 0 0 3px rgba(184, 115, 42, 0.1);
+}
+
+/* =========================
+   DETALLES DE NAVEGACIÓN
+========================= */
+
+::selection {
+  background: rgba(165, 106, 42, 0.22);
+  color: var(--color-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-dorado-claro);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8c6b2 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8c6b2;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c1a585;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+button {
+  font-size: var(--fs-texto);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================
+   SUPERFICIES UNIFICADAS
+   Mismo borde, radio y sombra en todas las tarjetas
+========================= */
+
+.content .auditoria-lista,
+.content .cartera-card,
+.content .cartera-comercial-filtro,
+.content .cartera-kpi,
+.content .clientes-card,
+.content .configuracion-card,
+.content .cuenta-section,
+.content .permiso-card,
+.content .usuarios-card,
+.content .exportacion-card,
+.content .exportaciones-recientes,
+.content .dashboard-card,
+.content .kpi-card,
+.content .productos-card,
+.content .tabla-remisiones,
+.content .reporte-kpi,
+.content .reporte-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-suave);
+}
+
+.content .configuracion-card,
+.content .exportacion-card,
+.content .kpi-card,
+.content .reporte-kpi,
+.content .cartera-kpi {
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.content .configuracion-card:hover,
+.content .exportacion-card:hover,
+.content .kpi-card:hover,
+.content .reporte-kpi:hover,
+.content .cartera-kpi:hover {
+  box-shadow: var(--sombra-hover);
+  transform: translateY(-1px);
+}
+
+/* Modales */
+
+body .modal-abono,
+body .modal-detalle-cartera,
+body .cliente-modal,
+body .modal-password,
+body .modal-usuario,
+body .producto-modal,
+body .modal-editar-remision,
+body .modal-wo,
+body .modal-remision {
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(43, 27, 18, 0.24);
 }

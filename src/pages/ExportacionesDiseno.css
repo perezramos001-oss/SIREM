@@ -1,0 +1,397 @@
+/* =========================================
+   EXPORTACIONES — DISEÑO
+   Clases con prefijo exp- (Exportaciones.css se conserva
+   porque también contiene estilos de Configuración).
+========================================= */
+
+.exp-pagina {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* =========================
+   PERÍODO
+========================= */
+
+.exp-periodo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  padding: 14px 18px;
+
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-suave);
+}
+
+.exp-periodo-icono {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #f7e8d5;
+  background: var(--color-primary-dark);
+  border-radius: 11px;
+}
+
+.exp-periodo-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exp-periodo-texto span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-text-light);
+}
+
+.exp-periodo-texto strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.exp-periodo-ayuda {
+  margin: 0 0 0 auto;
+  max-width: 360px;
+
+  font-size: var(--fs-texto);
+  line-height: 1.5;
+  text-align: right;
+  color: var(--color-text-light);
+}
+
+/* =========================
+   TARJETAS
+========================= */
+
+.exp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.exp-tarjeta {
+  display: flex;
+  flex-direction: column;
+
+  padding: 20px;
+
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-suave);
+
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.exp-tarjeta:hover {
+  border-color: #e3cfb6;
+  box-shadow: var(--sombra-hover);
+  transform: translateY(-2px);
+}
+
+.exp-tarjeta-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+
+  margin-bottom: 16px;
+}
+
+.exp-icono {
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+}
+
+.exp-icono.general {
+  color: #a56a2a;
+  background: #f7ede1;
+}
+
+.exp-icono.remisiones {
+  color: #8b5e34;
+  background: #f3ebe3;
+}
+
+.exp-icono.cartera {
+  color: #b7791f;
+  background: #fbf1e2;
+}
+
+.exp-icono.remision {
+  color: #f7e8d5;
+  background: var(--color-primary-dark);
+}
+
+.exp-alcance {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  padding: 4px 9px;
+
+  font-size: 9px;
+  font-weight: 600;
+  color: #6f6359;
+  white-space: nowrap;
+
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.exp-tarjeta h3 {
+  margin: 0;
+
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.exp-descripcion {
+  margin: 5px 0 0;
+
+  font-size: var(--fs-texto);
+  line-height: 1.5;
+  color: var(--color-text-light);
+}
+
+/* Lo que incluye el archivo */
+
+.exp-contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  margin: 16px 0 0;
+  padding: 14px 0 0;
+
+  list-style: none;
+
+  border-top: 1px solid #f3ece4;
+}
+
+.exp-contenido li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  font-size: var(--fs-texto);
+  line-height: 1.45;
+  color: #5f5145;
+}
+
+.exp-contenido svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-primary);
+}
+
+/* =========================
+   BOTONES
+========================= */
+
+.exp-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.exp-boton {
+  width: 100%;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  padding: 0 14px;
+
+  font-family: var(--fuente);
+  font-size: var(--fs-titulo);
+  font-weight: 600;
+
+  border-radius: 10px;
+
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.exp-boton span {
+  flex: 1;
+  text-align: left;
+}
+
+.exp-boton small {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  opacity: 0.6;
+}
+
+.exp-boton.pdf {
+  color: var(--color-white);
+  background: var(--color-primary-dark);
+  border: 1px solid var(--color-primary-dark);
+}
+
+.exp-boton.pdf:hover:not(:disabled) {
+  background: #3d281b;
+  box-shadow: 0 6px 16px rgba(43, 27, 18, 0.22);
+}
+
+.exp-boton.excel {
+  color: var(--color-primary-dark);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+}
+
+.exp-boton.excel svg {
+  color: #2f7d57;
+}
+
+.exp-boton.excel:hover:not(:disabled) {
+  background: #f6faf7;
+  border-color: #b9d8c6;
+}
+
+.exp-boton:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.exp-girando {
+  animation: exp-girar 0.9s linear infinite;
+}
+
+@keyframes exp-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================
+   REMISIÓN INDIVIDUAL
+========================= */
+
+.exp-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  margin-top: 16px;
+  padding-top: 14px;
+
+  border-top: 1px solid #f3ece4;
+}
+
+.exp-formulario label {
+  font-size: var(--fs-texto);
+  font-weight: 600;
+  color: #5f5145;
+}
+
+.exp-campo {
+  display: flex;
+  align-items: center;
+
+  height: 40px;
+
+  overflow: hidden;
+
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.exp-campo:focus-within {
+  border-color: var(--color-dorado-claro);
+  box-shadow: 0 0 0 3px rgba(165, 106, 42, 0.12);
+}
+
+.exp-campo span {
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 12px;
+
+  font-size: var(--fs-titulo);
+  font-weight: 700;
+  color: var(--color-primary);
+
+  background: #fbf5ee;
+  border-right: 1px solid var(--color-border);
+}
+
+.exp-campo input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+
+  padding: 0 12px;
+
+  font-family: var(--fuente);
+  font-size: var(--fs-titulo);
+  color: var(--color-text);
+
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.exp-campo input::placeholder {
+  color: #b5aaa0;
+}
+
+/* =========================
+   PANTALLAS MÁS PEQUEÑAS
+========================= */
+
+
+@media (max-width: 760px) {
+
+  .exp-periodo {
+    flex-wrap: wrap;
+  }
+
+  .exp-periodo-ayuda {
+    margin: 0;
+    max-width: none;
+    text-align: left;
+  }
+}
+
+.exp-icono.anual {
+  color: #7a4b22;
+  background: #efe4d6;
+}

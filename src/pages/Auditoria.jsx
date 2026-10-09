@@ -1,8 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
+import { useAvisos } from "../components/Avisos/Avisos";
 
 import "./Auditoria.css";
 
 function Auditoria() {
+  const { avisar } = useAvisos();
+
   const [registros, setRegistros] = useState([]);
   const [usuarioFiltro, setUsuarioFiltro] = useState("todos");
   const [cargando, setCargando] = useState(true);
@@ -15,7 +19,7 @@ function Auditoria() {
     try {
       setCargando(true);
 
-      const respuesta = await fetch("/api/auditoria");
+      const respuesta = await apiFetch("/api/auditoria");
 
       if (!respuesta.ok) {
         throw new Error("No se pudieron cargar los registros de auditoría.");
@@ -26,6 +30,8 @@ function Auditoria() {
       setRegistros(datos);
     } catch (error) {
       console.error("Error cargando auditoría:", error);
+
+      avisar.fallo(error, "No se pudo cargar el registro de actividad.");
 
       setRegistros([]);
     } finally {

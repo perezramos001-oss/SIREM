@@ -27,7 +27,7 @@
 
   color: #b96f24;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 800;
 
@@ -39,7 +39,7 @@
 
   color: #241a15;
 
-  font-size: 28px;
+  font-size: var(--fs-titulo);
 
   font-weight: 700;
 }
@@ -49,7 +49,7 @@
 
   color: #91847a;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 /* PERIODO */
@@ -71,7 +71,7 @@
 
   color: #8b5e3c;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 }
@@ -149,13 +149,13 @@
 
   color: #91847a;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 }
 
 .reporte-kpi strong {
   color: #33261f;
 
-  font-size: 15px;
+  font-size: var(--fs-titulo);
 }
 
 /* =========================================
@@ -189,7 +189,7 @@
 
   color: #33261f;
 
-  font-size: 14px;
+  font-size: var(--fs-titulo);
 }
 
 .reporte-panel-header p {
@@ -197,7 +197,7 @@
 
   color: #97897e;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 .reporte-panel-header > svg {
@@ -215,7 +215,7 @@
 
   color: #a09288;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 }
 
 .panel-total strong {
@@ -225,7 +225,7 @@
 
   color: #33261f;
 
-  font-size: 14px;
+  font-size: var(--fs-titulo);
 }
 
 /* =========================================
@@ -257,7 +257,7 @@
 
   color: #a2948a;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 
   text-align: right;
 }
@@ -357,7 +357,7 @@
 .chart-column span {
   color: #9b8d83;
 
-  font-size: 8px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================================
@@ -415,7 +415,7 @@
 
   color: #8b5e3c;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -435,13 +435,13 @@
 .comercial-name strong {
   color: #514239;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 .comercial-name span {
   color: #8b5e3c;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -493,7 +493,7 @@
 
   color: #a09288;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   text-align: center;
 }
@@ -503,13 +503,13 @@
 
   color: #514239;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 .producto-ranking-row strong {
   color: #8b5e3c;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================================
@@ -543,13 +543,13 @@
 .cartera-report-item span {
   color: #6f6259;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 .cartera-report-item strong {
   color: #33261f;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .cartera-progress {
@@ -609,13 +609,13 @@
 
   color: #96887e;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 }
 
 .resumen-item strong {
   color: #514239;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================================
@@ -660,4 +660,24 @@
   .reporte-resumen {
     grid-template-columns: 1fr;
   }
+}
+
+/* =========================================
+   ESTADOS: CARGANDO / VACÍO
+========================================= */
+
+.reportes-page {
+  transition: opacity 0.2s ease;
+}
+
+.reportes-cargando {
+  opacity: 0.6;
+}
+
+.reporte-vacio {
+  padding: 24px 0;
+
+  color: #9b8d83;
+  font-size: var(--fs-texto);
+  text-align: center;
 }

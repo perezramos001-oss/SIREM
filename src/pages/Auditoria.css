@@ -15,7 +15,7 @@
   display: inline-block;
   margin-bottom: 8px;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   letter-spacing: 2px;
 
@@ -25,7 +25,7 @@
 .auditoria-page .page-header h1 {
   margin: 0 0 5px;
 
-  font-size: 28px;
+  font-size: var(--fs-titulo);
   line-height: 1.2;
   font-weight: 700;
 
@@ -35,7 +35,7 @@
 .auditoria-page .page-header p {
   margin: 0;
 
-  font-size: 15px;
+  font-size: var(--fs-texto);
   color: #85786d;
 }
 
@@ -63,7 +63,7 @@
 
   color: #302820;
 
-  font-size: 14px;
+  font-size: var(--fs-texto);
   font-weight: 500;
 
   outline: none;
@@ -183,14 +183,14 @@
 .auditoria-descripcion strong {
   color: #211a15;
 
-  font-size: 15px;
+  font-size: var(--fs-titulo);
   font-weight: 700;
 }
 
 .auditoria-descripcion span {
   color: #51473f;
 
-  font-size: 15px;
+  font-size: var(--fs-texto);
   font-weight: 400;
 }
 
@@ -217,7 +217,7 @@
 
   color: #9b6125;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   letter-spacing: 0.7px;
@@ -226,7 +226,7 @@
 .auditoria-meta span:last-child {
   color: #95887c;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================
@@ -251,7 +251,7 @@
 
   color: #91847a;
 
-  font-size: 14px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================
@@ -260,7 +260,7 @@
 
 @media (max-width: 700px) {
   .auditoria-page .page-header h1 {
-    font-size: 24px;
+    font-size: var(--fs-titulo);
   }
 
   .auditoria-toolbar select {
@@ -287,4 +287,43 @@
   .auditoria-descripcion strong {
     margin-right: 5px;
   }
+}
+
+/* =========================
+   LISTA COMPACTA DE ACTIVIDAD
+========================= */
+
+.auditoria-lista {
+  gap: 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.auditoria-lista .auditoria-item {
+  min-height: auto;
+  padding: 12px 20px;
+
+  border: none;
+  border-bottom: 1px solid #f3ece4;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.auditoria-lista .auditoria-item:last-child {
+  border-bottom: none;
+}
+
+.auditoria-lista .auditoria-item:hover {
+  background: #fcfaf7;
+}
+
+.auditoria-lista .auditoria-icono {
+  width: 30px;
+  height: 30px;
+  margin-right: 14px;
+  font-size: 13px;
+}
+
+.auditoria-lista .auditoria-vacio {
+  padding: 40px 0;
 }

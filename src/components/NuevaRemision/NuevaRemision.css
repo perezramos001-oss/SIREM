@@ -51,7 +51,7 @@
 }
 
 .modal-tag {
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -127,13 +127,13 @@
 
   color: #2b1b12;
 
-  font-size: 12px;
+  font-size: var(--fs-titulo);
 }
 
 .section-title span {
   color: #8c8378;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .form-grid {
@@ -160,7 +160,7 @@
 .form-group label {
   margin-bottom: 5px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 
@@ -177,7 +177,7 @@
 
   padding: 0 14px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   background: white;
 
@@ -199,7 +199,7 @@
 
   margin-bottom: 6px;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 
@@ -246,11 +246,11 @@
 .placeholder {
   color: #9c9185;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .cliente-input span {
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .cliente-input p {
@@ -258,7 +258,7 @@
 
   color: #8a8178;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 .form-grid {
@@ -425,7 +425,7 @@
 
   color: #2b1b12;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -439,7 +439,7 @@
 
   color: #8c8378;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   line-height: 1.4;
 }
@@ -534,7 +534,7 @@
 
   color: #2b1b12;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -548,7 +548,7 @@
 
   color: #8c8378;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   line-height: 1.4;
 }
@@ -584,13 +584,13 @@
 .cliente-seleccionado strong {
   color: #3a2a20;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .cliente-seleccionado span {
   color: #8c8378;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================================
@@ -620,7 +620,7 @@
 
   margin-top: 10px;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   line-height: 1.4;
 
   font-family: inherit;
@@ -721,7 +721,7 @@
 
   min-width: 85px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 
@@ -737,7 +737,7 @@
 
   min-width: 0;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 500;
 
@@ -777,7 +777,7 @@
   border-radius: 10px 10px 0 0;
 
   color: #5a4b3f;
-  font-size: 10px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 }
 
@@ -828,7 +828,7 @@
 
   background: white;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   outline: none;
 }
@@ -847,7 +847,7 @@
 .producto-total {
   display: block;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   color: #302820;
@@ -892,7 +892,7 @@
 }
 
 .sin-remisiones {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 400;
   color: #8f8177;
   text-align: center;
@@ -911,7 +911,7 @@
 .estado-pago-group > label {
   display: block;
   margin-bottom: 10px;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #5f534a;
 }
@@ -965,13 +965,13 @@
 }
 
 .estado-pago-card strong {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #3f342d;
 }
 
 .estado-pago-card span:not(.estado-pago-icono) {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   line-height: 1.4;
   color: #8b8179;
 }
@@ -1099,7 +1099,7 @@
 .metodo-pago-group > label {
   display: block;
   margin-bottom: 12px;
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #302820;
 }
@@ -1182,7 +1182,7 @@
 .metodo-pago-card strong {
   display: block;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   line-height: 1.2;
 
@@ -1194,7 +1194,7 @@
 .metodo-pago-card > div span {
   display: block;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   line-height: 1.25;
 
   color: #8b8178;
@@ -1232,14 +1232,14 @@
 .comprobante-header h4 {
   margin: 0;
 
-  font-size: 12px;
+  font-size: var(--fs-titulo);
   font-weight: 700;
 
   color: #302820;
 }
 
 .comprobante-header > div > span {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   color: #8b8178;
 }
 
@@ -1251,7 +1251,7 @@
   background: #f1e6da;
   color: #81562f;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   letter-spacing: 0.5px;
 }
@@ -1263,7 +1263,7 @@
 }
 
 .comprobante-campo label {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #51483f;
 }
@@ -1280,7 +1280,7 @@
 
   background: #ffffff;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
   color: #302820;
 
   outline: none;
@@ -1337,7 +1337,7 @@
   margin: 0;
   padding: 0;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
   line-height: 14px;
 
   font-weight: 700;
@@ -1354,7 +1354,7 @@
   margin: 0;
   padding: 0;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
   line-height: 13px;
 
   font-weight: 400;
@@ -1370,7 +1370,7 @@
   margin: 0;
   padding: 0;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
   line-height: 21px;
 
   font-weight: 800;
@@ -1416,14 +1416,14 @@
 .abono-header h4 {
   margin: 0;
 
-  font-size: 12px;
+  font-size: var(--fs-titulo);
   font-weight: 700;
 
   color: #2b1b12;
 }
 
 .abono-header > div > span {
-  font-size: 10px !important;
+  font-size: var(--fs-texto) !important;
   line-height: 14px !important;
   letter-spacing: 0 !important;
   font-weight: 400 !important;
@@ -1440,7 +1440,7 @@
   background: #f8f1e8;
   color: #a96f32;
 
-  font-size: 8px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   letter-spacing: 1.5px;
@@ -1479,12 +1479,12 @@
 }
 
 .abono-resumen span {
-  font-size: 9px;
+  font-size: var(--fs-texto);
   color: #8c8378;
 }
 
 .abono-resumen strong {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #302820;
 }
@@ -1510,7 +1510,7 @@
 
   margin-bottom: 5px;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
   font-weight: 600;
 
   color: #5a4b3f;
@@ -1530,7 +1530,7 @@
 
   background: white;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   color: #302820;
 
   outline: none;
@@ -1557,7 +1557,7 @@
 
   transform: translateY(-50%);
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 600;
 
   color: #a96f32;
@@ -1589,7 +1589,7 @@
   background: #a96f32;
   color: white;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   cursor: pointer;
@@ -1616,7 +1616,7 @@
 .abonos-registrados-titulo {
   margin-bottom: 7px;
 
-  font-size: 10px;
+  font-size: var(--fs-titulo);
   font-weight: 700;
 
   color: #6f6258;
@@ -1644,12 +1644,12 @@
 }
 
 .abono-item strong {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   color: #302820;
 }
 
 .abono-item span {
-  font-size: 9px;
+  font-size: var(--fs-texto);
   color: #8b8178;
 }
 
@@ -1719,7 +1719,7 @@
 
   color: #6f6258;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 600;
 
   cursor: pointer;
@@ -1746,7 +1746,7 @@
 
   color: white;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   cursor: pointer;

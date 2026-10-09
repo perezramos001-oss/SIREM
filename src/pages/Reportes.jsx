@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import { apiGetJson } from "../utils/api";
+import { obtenerPeriodo } from "../utils/fechas";
+import { useAvisos } from "../components/Avisos/Avisos";
 import "./Reportes.css";
 
 import {
@@ -9,142 +11,152 @@ import {
   WalletCards,
   Award,
   Package,
-  CalendarDays,
 } from "lucide-react";
 
-function Reportes() {
-  const [mesSeleccionado, setMesSeleccionado] = useState(
-    new Date().getMonth() + 1,
-  );
+const DETALLE_VACIO = {
+  ventas_diarias: [],
+  comerciales: [],
+  productos: [],
+  cartera: { al_dia: 0, seguimiento: 0, vencida: 0 },
+};
 
-  const [anioSeleccionado, setAnioSeleccionado] = useState(
-    new Date().getFullYear(),
-  );
+const formatearPrecio = (valor) =>
+  Number(valor || 0).toLocaleString("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  });
 
-  const [ventasMes, setVentasMes] = useState(0);
+/* $1.250.000 → "$1.3M", $450.000 → "$450K" (eje del gráfico) */
+const formatearCorto = (valor) => {
+  if (valor >= 1000000) {
+    return `$${(valor / 1000000).toLocaleString("es-CO", {
+      maximumFractionDigits: 1,
+    })}M`;
+  }
 
-  const [totalRemisiones, setTotalRemisiones] = useState(0);
+  if (valor >= 1000) {
+    return `$${Math.round(valor / 1000)}K`;
+  }
 
-  const [totalClientes, setTotalClientes] = useState(0);
+  return `$${valor}`;
+};
 
-  const [carteraGenerada, setCarteraGenerada] = useState(0);
+/* Tope "redondo" para el eje: 1, 2 o 5 × 10ⁿ por encima del máximo */
+const calcularTope = (maximo) => {
+  if (maximo <= 0) return 1000000;
 
-  const cargarKPIs = async () => {
-    try {
-      const respuesta = await axios.get("/api/reportes/kpis", {
-        params: {
-          mes: mesSeleccionado,
-          anio: anioSeleccionado,
-        },
-      });
+  const magnitud = 10 ** Math.floor(Math.log10(maximo));
 
-      const datos = respuesta.data;
-      console.log("KPIs recibidos:", mesSeleccionado, anioSeleccionado, datos);
+  return [1, 2, 5, 10].map((factor) => factor * magnitud).find((tope) => tope >= maximo);
+};
 
-      setVentasMes(Number(datos.ventas_mes) || 0);
+function Reportes({ mesSeleccionado }) {
+  const { avisar } = useAvisos();
 
-      setTotalRemisiones(Number(datos.total_remisiones) || 0);
+  const [kpis, setKpis] = useState({
+    ventas_mes: 0,
+    total_remisiones: 0,
+    clientes: 0,
+    cartera_generada: 0,
+  });
 
-      setTotalClientes(Number(datos.clientes) || 0);
+  const [detalle, setDetalle] = useState(DETALLE_VACIO);
+  const [cargando, setCargando] = useState(true);
 
-      setCarteraGenerada(Number(datos.cartera_generada) || 0);
-    } catch (error) {
-      console.error("Error cargando KPIs:", error);
-    }
-  };
+  const { mes, anio } = obtenerPeriodo(mesSeleccionado);
+  const [nombreMes] = mesSeleccionado.split(" ");
 
   useEffect(() => {
-    cargarKPIs();
-  }, [mesSeleccionado, anioSeleccionado]);
+    let cancelado = false;
 
-  const ventasDiarias = [
-    { dia: "01", ventas: 420000 },
-    { dia: "03", ventas: 650000 },
-    { dia: "05", ventas: 780000 },
-    { dia: "07", ventas: 520000 },
-    { dia: "09", ventas: 930000 },
-    { dia: "11", ventas: 710000 },
-    { dia: "13", ventas: 1150000 },
-    { dia: "15", ventas: 890000 },
-    { dia: "17", ventas: 1280000 },
-    { dia: "19", ventas: 970000 },
-    { dia: "21", ventas: 1430000 },
-    { dia: "23", ventas: 1180000 },
-    { dia: "25", ventas: 1560000 },
-    { dia: "27", ventas: 1320000 },
-    { dia: "29", ventas: 1710000 },
-    { dia: "31", ventas: 1480000 },
-  ];
+    const cargar = async () => {
+      setCargando(true);
 
-  const comerciales = [
-    {
-      nombre: "Leidy Johanna",
-      ventas: 5200000,
-    },
-    {
-      nombre: "Marisela Perea",
-      ventas: 4100000,
-    },
-    {
-      nombre: "Francid Duvallier",
-      ventas: 3250000,
-    },
-    {
-      nombre: "Luis Fernando",
-      ventas: 2180000,
-    },
-  ];
+      const consulta = `mes=${Number(mes)}&anio=${anio}`;
 
-  const productos = [
-    {
-      nombre: "Silla de montar",
-      cantidad: 28,
-    },
-    {
-      nombre: "Cabezal",
-      cantidad: 22,
-    },
-    {
-      nombre: "Riendas",
-      cantidad: 18,
-    },
-    {
-      nombre: "Freno",
-      cantidad: 14,
-    },
-    {
-      nombre: "Accesorios",
-      cantidad: 11,
-    },
-  ];
+      /* Se cargan por separado: si una falla, la otra igual se muestra */
+      const [resultadoKpis, resultadoDetalle] = await Promise.allSettled([
+        apiGetJson(`/api/reportes/kpis?${consulta}`),
+        apiGetJson(`/api/reportes/detalle?${consulta}`),
+      ]);
 
-  const formatearPrecio = (valor) => {
-    return Number(valor).toLocaleString("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    });
+      if (cancelado) return;
+
+      if (resultadoKpis.status === "fulfilled") {
+        setKpis(resultadoKpis.value);
+      } else {
+        console.error("Error cargando KPIs de reportes:", resultadoKpis.reason);
+      }
+
+      if (resultadoDetalle.status === "fulfilled") {
+        setDetalle(resultadoDetalle.value);
+      } else {
+        console.error("Error cargando detalle de reportes:", resultadoDetalle.reason);
+        setDetalle(DETALLE_VACIO);
+      }
+
+      if (resultadoKpis.status === "rejected" || resultadoDetalle.status === "rejected") {
+        avisar.error(
+          "No se pudo cargar parte de la información. Verifica que el servidor esté actualizado y en ejecución.",
+          "Reportes incompletos",
+        );
+      }
+
+      setCargando(false);
+    };
+
+    cargar();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [mes, anio]);
+
+  /* =================================
+       VENTAS POR DÍA (todos los días del mes)
+    ================================= */
+
+  const diasDelMes = new Date(Number(anio), Number(mes), 0).getDate();
+
+  const ventasPorDia = Object.fromEntries(
+    detalle.ventas_diarias.map((fila) => [Number(fila.dia), Number(fila.ventas)]),
+  );
+
+  const ventasDiarias = Array.from({ length: diasDelMes }, (_, indice) => ({
+    dia: indice + 1,
+    ventas: ventasPorDia[indice + 1] || 0,
+  }));
+
+  const ventaMaxima = Math.max(0, ...ventasDiarias.map((item) => item.ventas));
+  const tope = calcularTope(ventaMaxima);
+  const ejeY = [1, 0.75, 0.5, 0.25, 0].map((fraccion) => tope * fraccion);
+
+  const mejorDia = ventasDiarias.reduce(
+    (mejor, item) => (item.ventas > mejor.ventas ? item : mejor),
+    { dia: null, ventas: 0 },
+  );
+
+  /* =================================
+       CARTERA
+    ================================= */
+
+  const cartera = {
+    al_dia: Number(detalle.cartera.al_dia) || 0,
+    seguimiento: Number(detalle.cartera.seguimiento) || 0,
+    vencida: Number(detalle.cartera.vencida) || 0,
   };
 
-  const meses = [
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
+  const carteraMaxima = Math.max(cartera.al_dia, cartera.seguimiento, cartera.vencida);
 
-  const nombreMes = meses[mesSeleccionado - 1];
+  const porcentajeCartera = (valor) =>
+    carteraMaxima > 0 ? `${(valor / carteraMaxima) * 100}%` : "0%";
+
+  const comercialLider = detalle.comerciales[0];
+  const productoLider = detalle.productos[0];
 
   return (
-    <div className="reportes-page">
+    <div className={`reportes-page ${cargando ? "reportes-cargando" : ""}`}>
       {/* =================================
                 ENCABEZADO
             ================================= */}
@@ -156,14 +168,6 @@ function Reportes() {
           <h1>Reportes</h1>
 
           <p>Análisis mensual del comportamiento de SIREM.</p>
-        </div>
-
-        <div className="reportes-periodo">
-          <CalendarDays size={17} />
-
-          <span>
-            {nombreMes} {anioSeleccionado}
-          </span>
         </div>
       </div>
 
@@ -180,7 +184,7 @@ function Reportes() {
           <div>
             <span>Ventas del mes</span>
 
-            <strong>{formatearPrecio(ventasMes)}</strong>
+            <strong>{formatearPrecio(kpis.ventas_mes)}</strong>
           </div>
         </div>
 
@@ -192,7 +196,7 @@ function Reportes() {
           <div>
             <span>Remisiones</span>
 
-            <strong>{totalRemisiones}</strong>
+            <strong>{Number(kpis.total_remisiones) || 0}</strong>
           </div>
         </div>
 
@@ -202,9 +206,9 @@ function Reportes() {
           </div>
 
           <div>
-            <span>Clientes</span>
+            <span>Clientes atendidos</span>
 
-            <strong>{totalClientes}</strong>
+            <strong>{Number(kpis.clientes) || 0}</strong>
           </div>
         </div>
 
@@ -216,7 +220,7 @@ function Reportes() {
           <div>
             <span>Cartera generada</span>
 
-            <strong>{formatearPrecio(carteraGenerada)}</strong>
+            <strong>{formatearPrecio(kpis.cartera_generada)}</strong>
           </div>
         </div>
       </div>
@@ -236,17 +240,15 @@ function Reportes() {
           <div className="panel-total">
             <span>Total</span>
 
-            <strong>$16.840.000</strong>
+            <strong>{formatearPrecio(kpis.ventas_mes)}</strong>
           </div>
         </div>
 
         <div className="ventas-chart">
           <div className="chart-y-axis">
-            <span>$2M</span>
-            <span>$1.5M</span>
-            <span>$1M</span>
-            <span>$500K</span>
-            <span>$0</span>
+            {ejeY.map((valor) => (
+              <span key={valor}>{formatearCorto(valor)}</span>
+            ))}
           </div>
 
           <div className="chart-area">
@@ -261,13 +263,11 @@ function Reportes() {
                 <div className="chart-column" key={item.dia}>
                   <div
                     className="chart-bar"
-                    style={{
-                      height: `${(item.ventas / 2000000) * 100}%`,
-                    }}
-                    title={formatearPrecio(item.ventas)}
+                    style={{ height: `${(item.ventas / tope) * 100}%` }}
+                    title={`${item.dia} de ${nombreMes.toLowerCase()}: ${formatearPrecio(item.ventas)}`}
                   ></div>
 
-                  <span>{item.dia}</span>
+                  <span>{String(item.dia).padStart(2, "0")}</span>
                 </div>
               ))}
             </div>
@@ -280,8 +280,6 @@ function Reportes() {
             ================================= */}
 
       <div className="reportes-two-columns">
-        {/* COMERCIALES */}
-
         <div className="reporte-panel">
           <div className="reporte-panel-header">
             <div>
@@ -294,53 +292,63 @@ function Reportes() {
           </div>
 
           <div className="ranking-comerciales">
-            {comerciales.map((comercial, index) => (
-              <div className="comercial-row" key={comercial.nombre}>
-                <div className="comercial-position">{index + 1}</div>
+            {detalle.comerciales.length === 0 ? (
+              <p className="reporte-vacio">Sin ventas registradas este mes.</p>
+            ) : (
+              detalle.comerciales.map((comercial, index) => (
+                <div className="comercial-row" key={comercial.nombre}>
+                  <div className="comercial-position">{index + 1}</div>
 
-                <div className="comercial-info">
-                  <div className="comercial-name">
-                    <strong>{comercial.nombre}</strong>
+                  <div className="comercial-info">
+                    <div className="comercial-name">
+                      <strong>{comercial.nombre}</strong>
 
-                    <span>{formatearPrecio(comercial.ventas)}</span>
-                  </div>
+                      <span>{formatearPrecio(comercial.ventas)}</span>
+                    </div>
 
-                  <div className="comercial-progress">
-                    <div
-                      style={{
-                        width: `${(comercial.ventas / comerciales[0].ventas) * 100}%`,
-                      }}
-                    ></div>
+                    <div className="comercial-progress">
+                      <div
+                        style={{
+                          width: `${
+                            (Number(comercial.ventas) /
+                              Number(comercialLider.ventas || 1)) *
+                            100
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
-
-        {/* PRODUCTOS */}
 
         <div className="reporte-panel">
           <div className="reporte-panel-header">
             <div>
               <h2>Productos más vendidos</h2>
 
-              <p>Productos con mayor movimiento.</p>
+              <p>Unidades vendidas durante el mes.</p>
             </div>
 
             <Package size={20} />
           </div>
 
           <div className="productos-ranking">
-            {productos.map((producto, index) => (
-              <div className="producto-ranking-row" key={producto.nombre}>
-                <span className="producto-ranking-number">{index + 1}</span>
+            {detalle.productos.length === 0 ? (
+              <p className="reporte-vacio">Sin productos vendidos este mes.</p>
+            ) : (
+              detalle.productos.map((producto, index) => (
+                <div className="producto-ranking-row" key={producto.nombre}>
+                  <span className="producto-ranking-number">{index + 1}</span>
 
-                <span className="producto-ranking-name">{producto.nombre}</span>
+                  <span className="producto-ranking-name">{producto.nombre}</span>
 
-                <strong>{producto.cantidad}</strong>
-              </div>
-            ))}
+                  <strong>{Number(producto.cantidad)}</strong>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -354,48 +362,30 @@ function Reportes() {
           <div>
             <h2>Estado de cartera</h2>
 
-            <p>Distribución de la cartera según su antigüedad.</p>
+            <p>Saldo pendiente hoy, según la antigüedad de la remisión.</p>
           </div>
 
           <WalletCards size={20} />
         </div>
 
         <div className="cartera-report-bars">
-          <div className="cartera-report-item">
-            <div>
-              <span>0–30 días</span>
+          {[
+            { etiqueta: "0–30 días", valor: cartera.al_dia, color: "verde" },
+            { etiqueta: "31–45 días", valor: cartera.seguimiento, color: "amarillo" },
+            { etiqueta: "46+ días", valor: cartera.vencida, color: "rojo" },
+          ].map(({ etiqueta, valor, color }) => (
+            <div className="cartera-report-item" key={etiqueta}>
+              <div>
+                <span>{etiqueta}</span>
 
-              <strong>$8.250.000</strong>
+                <strong>{formatearPrecio(valor)}</strong>
+              </div>
+
+              <div className="cartera-progress">
+                <div className={color} style={{ width: porcentajeCartera(valor) }}></div>
+              </div>
             </div>
-
-            <div className="cartera-progress">
-              <div className="verde" style={{ width: "72%" }}></div>
-            </div>
-          </div>
-
-          <div className="cartera-report-item">
-            <div>
-              <span>31–45 días</span>
-
-              <strong>$2.850.000</strong>
-            </div>
-
-            <div className="cartera-progress">
-              <div className="amarillo" style={{ width: "43%" }}></div>
-            </div>
-          </div>
-
-          <div className="cartera-report-item">
-            <div>
-              <span>46+ días</span>
-
-              <strong>$1.320.000</strong>
-            </div>
-
-            <div className="cartera-progress">
-              <div className="rojo" style={{ width: "24%" }}></div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -407,25 +397,29 @@ function Reportes() {
         <div className="resumen-item">
           <span>🏆 Comercial destacado</span>
 
-          <strong>Leidy Johanna</strong>
+          <strong>{comercialLider?.nombre || "—"}</strong>
         </div>
 
         <div className="resumen-item">
           <span>📦 Producto más vendido</span>
 
-          <strong>Silla de montar</strong>
+          <strong>{productoLider?.nombre || "—"}</strong>
         </div>
 
         <div className="resumen-item">
           <span>📈 Mejor día</span>
 
-          <strong>29 de agosto</strong>
+          <strong>
+            {mejorDia.dia
+              ? `${mejorDia.dia} de ${nombreMes.toLowerCase()}`
+              : "—"}
+          </strong>
         </div>
 
         <div className="resumen-item">
           <span>👥 Clientes atendidos</span>
 
-          <strong>84</strong>
+          <strong>{Number(kpis.clientes) || 0}</strong>
         </div>
       </div>
     </div>

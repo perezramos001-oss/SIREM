@@ -94,7 +94,7 @@ function MonthSelector({ mes, setMes }) {
           {/* MESES */}
 
           <div className="months-grid">
-            {nombresMeses.map((nombreMes, index) => {
+            {nombresMeses.map((nombreMes) => {
               const mesCompleto = `${nombreMes} ${añoMostrado}`;
 
               const seleccionado = mes === mesCompleto;

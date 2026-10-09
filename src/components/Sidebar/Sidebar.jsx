@@ -1,15 +1,6 @@
-import {
-  House,
-  FileText,
-  Wallet,
-  Download,
-  History,
-  Settings,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Users,
-  Package,
-} from "lucide-react";
+import { LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+
+import { SECCIONES, puedeVer } from "../../utils/paginas";
 
 import "./Sidebar.css";
 
@@ -19,17 +10,32 @@ function Sidebar({
   usuarioActual,
   contraido,
   setContraido,
+  pedirCerrarSesion,
 }) {
+  const iniciales = usuarioActual.nombre
+    ?.split(" ")
+    .filter(Boolean)
+    .map((nombre) => nombre[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <aside className={`sidebar ${contraido ? "contraido" : ""}`}>
       <button
         className="sidebar-toggle"
         onClick={() => setContraido(!contraido)}
         title={contraido ? "Mostrar menú" : "Ocultar menú"}
+        aria-label={contraido ? "Mostrar menú" : "Ocultar menú"}
       >
         {contraido ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
       </button>
-      <div className="sidebar-logo">
+
+      <button
+        className="sidebar-logo"
+        onClick={() => setPaginaActiva("inicio")}
+        title="Ir al inicio"
+      >
         <div className="logo-icon">
           <span className="letter-s">S</span>
           <span className="letter-f">F</span>
@@ -38,106 +44,60 @@ function Sidebar({
         <div className="logo-text">
           <h2>SIREM</h2>
 
-          <span>Talabarteria San Fermín</span>
+          <span>Talabartería San Fermín</span>
         </div>
-      </div>
+      </button>
 
       <div className="sidebar-divider"></div>
 
-      <span className="menu-title">GENERAL</span>
+      <div className="sidebar-secciones">
+        {SECCIONES.map((seccion) => {
+          const paginas = seccion.paginas.filter((pagina) =>
+            puedeVer(pagina, usuarioActual),
+          );
 
-      <nav className="sidebar-menu">
-        <button
-          className={`menu-item ${paginaActiva === "inicio" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("inicio")}
-        >
-          <House size={18} />
-          <span className="menu-text">Inicio</span>
-        </button>
-        <button
-          className={`menu-item ${paginaActiva === "remisiones" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("remisiones")}
-        >
-          <FileText size={18} />
-          <span className="menu-text">Remisiones</span>
-        </button>
+          if (paginas.length === 0) return null;
 
-        <button
-          className={`menu-item ${paginaActiva === "cartera" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("cartera")}
-        >
-          <Wallet size={18} />
-          <span className="menu-text">Cartera</span>
-        </button>
+          return (
+            <div key={seccion.titulo}>
+              <span className="menu-title">{seccion.titulo}</span>
 
-        <button
-          className={`menu-item ${paginaActiva === "clientes" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("clientes")}
-        >
-          <Users size={18} />
-          <span className="menu-text">Clientes</span>
-        </button>
-
-        <button
-          className={`menu-item ${paginaActiva === "productos" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("productos")}
-        >
-          <Package size={18} />
-          <span className="menu-text">Productos</span>
-        </button>
-      </nav>
-
-      <span className="menu-title">ANÁLISIS</span>
-
-      <nav className="sidebar-menu">
-        <button
-          className={`menu-item ${paginaActiva === "exportaciones" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("exportaciones")}
-        >
-          <Download size={18} />
-          <span className="menu-text">Exportaciones</span>
-        </button>
-
-        {usuarioActual?.rol === "ADMINISTRADOR" && (
-          <button
-            className={`menu-item ${
-              paginaActiva === "auditoria" ? "active" : ""
-            }`}
-            onClick={() => setPaginaActiva("auditoria")}
-          >
-            <History size={18} />
-            <span className="menu-text">Auditoría</span>
-          </button>
-        )}
-      </nav>
-
-      <span className="menu-title">SISTEMA</span>
-
-      <nav className="sidebar-menu">
-        <button
-          className={`menu-item ${paginaActiva === "configuracion" ? "active" : ""}`}
-          onClick={() => setPaginaActiva("configuracion")}
-        >
-          <Settings size={18} />
-          <span className="menu-text">Configuración</span>
-        </button>
-      </nav>
+              <nav className="sidebar-menu" aria-label={seccion.titulo}>
+                {paginas.map(({ id, nombre, icono: Icono }) => (
+                  <button
+                    key={id}
+                    className={`menu-item ${paginaActiva === id ? "active" : ""}`}
+                    onClick={() => setPaginaActiva(id)}
+                    title={contraido ? nombre : undefined}
+                    aria-current={paginaActiva === id ? "page" : undefined}
+                  >
+                    <Icono size={18} />
+                    <span className="menu-text">{nombre}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="sidebar-user">
-        <div className="avatar">
-          {usuarioActual.nombre
-            ?.split(" ")
-            .map((nombre) => nombre[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase()}
-        </div>
+        <div className="avatar">{iniciales}</div>
 
         <div className="sidebar-user-info">
           <strong>{usuarioActual.nombre}</strong>
 
           <span>{usuarioActual.rol}</span>
         </div>
+
+        <button
+          className="sidebar-logout"
+          onClick={pedirCerrarSesion}
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut size={16} />
+        </button>
       </div>
     </aside>
   );

@@ -1,61 +1,133 @@
 import express from "express";
-import cors from "cors";
 import db from "./db.js";
 import bcrypt from "bcrypt";
-import ExcelJS from "exceljs";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const app = express();
 
+const api = express.Router();
+
 const PORT = process.env.PORT || 3001;
+
+/* =========================
+   CLAVE DE LOS TOKENS
+========================= */
+
+let JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  JWT_SECRET = crypto.randomBytes(48).toString("hex");
+
+  console.warn(
+    "JWT_SECRET no está configurado. Se generó una clave temporal: las sesiones se cerrarán cada vez que se reinicie el servidor.",
+  );
+}
+
+const DURACION_SESION = "12h";
 
 /* =========================
    MIDDLEWARES
 ========================= */
 
-app.use(cors());
-
 app.use(express.json());
 
-app.use((req, res, next) => {
-  if (req.url.startsWith("/api/")) {
-    req.url = req.url.replace(/^\/api/, "");
+app.use("/api", api);
+
+/* =========================
+   AUTENTICACIÓN
+========================= */
+
+const RUTAS_PUBLICAS = ["/login", "/prueba"];
+
+api.use(async (req, res, next) => {
+  if (RUTAS_PUBLICAS.includes(req.path)) {
+    return next();
   }
+
+  const [tipo, token] = (req.headers.authorization || "").split(" ");
+
+  if (tipo !== "Bearer" || !token) {
+    return res.status(401).json({ mensaje: "Debes iniciar sesión." });
+  }
+
+  let datosToken;
+
+  try {
+    datosToken = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({
+      mensaje: "La sesión expiró. Inicia sesión de nuevo.",
+    });
+  }
+
+  const [usuarios] = await db.query(
+    `
+      SELECT id_usuario, nombre, usuario, rol, activo
+      FROM usuarios
+      WHERE id_usuario = ?
+      LIMIT 1
+    `,
+    [datosToken.id_usuario],
+  );
+
+  if (usuarios.length === 0 || usuarios[0].activo !== 1) {
+    return res.status(401).json({
+      mensaje: "El usuario no existe o se encuentra inactivo.",
+    });
+  }
+
+  req.usuario = usuarios[0];
 
   next();
 });
+
+const soloAdministrador = (req, res, next) => {
+  if (req.usuario.rol !== "ADMINISTRADOR") {
+    return res.status(403).json({
+      mensaje: "Esta acción solo está permitida para administradores.",
+    });
+  }
+
+  next();
+};
+
+/* =========================
+   AUDITORÍA
+========================= */
+
+const registrarAuditoria = (
+  ejecutor,
+  idUsuario,
+  accion,
+  modulo,
+  idReferencia,
+  descripcion,
+) =>
+  ejecutor.query(
+    `
+      INSERT INTO auditoria (
+          id_usuario,
+          accion,
+          modulo,
+          id_referencia,
+          descripcion
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `,
+    [idUsuario, accion, modulo, idReferencia, descripcion],
+  );
 
 /* =========================
    PRUEBA DEL SERVIDOR
 ========================= */
 
-app.get("/prueba", (req, res) => {
+api.get("/prueba", (req, res) => {
   res.json({
     mensaje: "Servidor SIREM funcionando correctamente",
   });
-});
-
-/* =========================
-   PRUEBA DE MYSQL
-========================= */
-
-app.get("/prueba-db", async (req, res) => {
-  try {
-    const [resultado] = await db.query("SELECT 1 AS conectado");
-
-    res.json({
-      mensaje: "Conexión con MySQL exitosa",
-      resultado,
-    });
-  } catch (error) {
-    console.error("Error de conexión:", error);
-
-    res.status(500).json({
-      mensaje: "Error conectando con MySQL",
-      error: error.message,
-    });
-  }
 });
 
 /* =========================
@@ -63,12 +135,17 @@ app.get("/prueba-db", async (req, res) => {
    SIGUIENTE NÚMERO REMISIÓN
 ========================= */
 
-const obtenerSiguienteNumeroRemision = async (connection) => {
-  const [remisiones] = await connection.query(`
+/*
+Con bloquear = true (dentro de una transacción) la consulta
+bloquea la tabla hasta el commit, así dos remisiones creadas
+al mismo tiempo no pueden recibir el mismo número.
+*/
 
+const obtenerSiguienteNumeroRemision = async (connection, bloquear = false) => {
+  const [remisiones] = await connection.query(`
         SELECT numero_remision
         FROM remisiones
-
+        ${bloquear ? "FOR UPDATE" : ""}
     `);
 
   let numeroMayor = 1032;
@@ -94,7 +171,7 @@ const obtenerSiguienteNumeroRemision = async (connection) => {
    NÚMERO DE REMISIÓN
 ========================= */
 
-app.get("/remisiones/siguiente-numero", async (req, res) => {
+api.get("/remisiones/siguiente-numero", async (req, res) => {
   let connection;
 
   try {
@@ -121,7 +198,7 @@ app.get("/remisiones/siguiente-numero", async (req, res) => {
 /* =========================
    REMISIONES
 ========================= */
-app.get("/remisiones", async (req, res) => {
+api.get("/remisiones", async (req, res) => {
   const { mes, anio } = req.query;
 
   if (!mes || !anio) {
@@ -220,7 +297,7 @@ ORDER BY
    PARA IMPRIMIR
 ========================= */
 
-app.get("/remisiones/buscar", async (req, res) => {
+api.get("/remisiones/buscar", async (req, res) => {
   const connection = await db.getConnection();
 
   try {
@@ -234,7 +311,6 @@ app.get("/remisiones/buscar", async (req, res) => {
 
     const numeroNormalizado = String(numero).replace(/\D/g, "");
 
-    console.log("🔎 BUSCANDO REMISIÓN:", numero, "→", numeroNormalizado);
 
     /* =========================
            DATOS DE LA REMISIÓN
@@ -367,7 +443,7 @@ app.get("/remisiones/buscar", async (req, res) => {
    PARA EDITAR
 ========================= */
 
-app.get("/remisiones/:id", async (req, res) => {
+api.get("/remisiones/:id", async (req, res) => {
   const connection = await db.getConnection();
 
   try {
@@ -532,7 +608,7 @@ app.get("/remisiones/:id", async (req, res) => {
    ACTUALIZAR REMISIÓN
 ========================= */
 
-app.put("/remisiones/:id", async (req, res) => {
+api.put("/remisiones/:id", soloAdministrador, async (req, res) => {
   const connection = await db.getConnection();
 
   try {
@@ -542,6 +618,24 @@ app.put("/remisiones/:id", async (req, res) => {
 
     const fechaFormateada = fecha ? String(fecha).substring(0, 10) : null;
 
+    if (!fechaFormateada) {
+      return res.status(400).json({
+        mensaje: "La fecha de la remisión es obligatoria.",
+      });
+    }
+
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({
+        mensaje: "La remisión debe tener al menos un producto.",
+      });
+    }
+
+    if (productos.some((producto) => !producto.id_producto)) {
+      return res.status(400).json({
+        mensaje: "Uno de los productos no tiene un producto válido seleccionado.",
+      });
+    }
+
     /* =========================
            VALIDAR REMISIÓN
         ========================= */
@@ -549,7 +643,8 @@ app.put("/remisiones/:id", async (req, res) => {
     const [remisionExiste] = await connection.query(
       `
             SELECT
-                id_remision
+                id_remision,
+                numero_remision
             FROM remisiones
             WHERE id_remision = ?
             LIMIT 1
@@ -599,7 +694,7 @@ app.put("/remisiones/:id", async (req, res) => {
 
     if (estado === "PAGADA") {
       saldoPendiente = 0;
-    } else if (estado === "ABONO") {
+    } else {
       const [abonos] = await connection.query(
         `
                 SELECT
@@ -613,6 +708,12 @@ app.put("/remisiones/:id", async (req, res) => {
       const totalAbonos = Number(abonos[0].total_abonos) || 0;
 
       saldoPendiente = Math.max(total - totalAbonos, 0);
+
+      if (saldoPendiente <= 0) {
+        estado = "PAGADA";
+      } else if (totalAbonos > 0) {
+        estado = "ABONO";
+      }
     }
 
     /* =========================
@@ -694,16 +795,18 @@ app.put("/remisiones/:id", async (req, res) => {
                 id_remision,
                 id_producto,
                 placa,
+                precio_lista,
                 cantidad,
                 precio_venta,
                 total
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             `,
           [
             id,
             producto.id_producto,
             producto.placa || null,
+            Number(producto.precio_lista) || 0,
             cantidad,
             precio,
             totalProducto,
@@ -737,6 +840,16 @@ app.put("/remisiones/:id", async (req, res) => {
         );
       }
     }
+
+    await registrarAuditoria(
+      connection,
+      req.usuario.id_usuario,
+      "EDITAR",
+      "REMISIONES",
+      id,
+      `Editó la remisión ${remisionExiste[0].numero_remision}`,
+    );
+
     await connection.commit();
 
     res.json({
@@ -761,7 +874,7 @@ app.put("/remisiones/:id", async (req, res) => {
    CREAR REMISIÓN
 ========================= */
 
-app.post("/remisiones", async (req, res) => {
+api.post("/remisiones", async (req, res) => {
   const connection = await db.getConnection();
 
   try {
@@ -773,12 +886,8 @@ app.post("/remisiones", async (req, res) => {
       fecha,
       id_cliente,
       id_comercial,
-      id_usuario,
       estado_pago,
       medio_pago,
-      total,
-      total_abonado,
-      saldo_pendiente,
       abonos,
       comentarios,
       productos,
@@ -836,16 +945,6 @@ app.post("/remisiones", async (req, res) => {
     }
 
     /* =========================
-           GENERAR NÚMERO DE REMISIÓN
-        ========================= */
-
-    const numero_remision = await obtenerSiguienteNumeroRemision(connection);
-
-    /* =========================
-           DEFINIR ESTADO Y SALDO
-        ========================= */
-
-    /* =========================
    DEFINIR ESTADO Y SALDO
 ========================= */
 
@@ -853,7 +952,14 @@ app.post("/remisiones", async (req, res) => {
     let saldoPendiente;
     let totalAbonado = 0;
 
-    const totalRemision = Number(total) || 0;
+    /* El total se calcula aquí con los productos, igual que el detalle,
+       en lugar de confiar en el que envía el navegador. */
+    const totalRemision = productos.reduce(
+      (suma, producto) =>
+        suma +
+        (Number(producto.cantidad) || 0) * (Number(producto.precio_venta) || 0),
+      0,
+    );
 
     /* =========================
    PAGADA
@@ -875,7 +981,17 @@ app.post("/remisiones", async (req, res) => {
         ? abonos.reduce((suma, abono) => suma + (Number(abono.valor) || 0), 0)
         : 0;
 
+      if (totalAbonado > totalRemision) {
+        return res.status(400).json({
+          mensaje: "Los abonos no pueden superar el total de la remisión.",
+        });
+      }
+
       saldoPendiente = Math.max(totalRemision - totalAbonado, 0);
+
+      if (saldoPendiente <= 0) {
+        estado = "PAGADA";
+      }
     } else {
       /* =========================
    PENDIENTE
@@ -892,6 +1008,11 @@ app.post("/remisiones", async (req, res) => {
         ========================= */
 
     await connection.beginTransaction();
+
+    const numero_remision = await obtenerSiguienteNumeroRemision(
+      connection,
+      true,
+    );
 
     /* =========================
            INSERTAR REMISIÓN
@@ -1020,7 +1141,7 @@ app.post("/remisiones", async (req, res) => {
             abono.medioPago,
             abono.comprobante || null,
             abono.fecha || new Date(),
-            null,
+            req.usuario.id_usuario,
             null,
           ],
         );
@@ -1031,35 +1152,13 @@ app.post("/remisiones", async (req, res) => {
    REGISTRAR AUDITORÍA
 ========================= */
 
-    console.log("🔎 AUDITORÍA:", {
-      id_usuario,
+    await registrarAuditoria(
+      connection,
+      req.usuario.id_usuario,
+      "CREAR",
+      "REMISIONES",
       idRemision,
-      numero_remision,
-    });
-
-    await connection.query(
-      `
-
-    
-
-    INSERT INTO auditoria (
-        id_usuario,
-        accion,
-        modulo,
-        id_referencia,
-        descripcion
-    )
-
-    VALUES (?, ?, ?, ?, ?)
-
-`,
-      [
-        id_usuario || null,
-        "CREAR",
-        "REMISIONES",
-        idRemision,
-        `Registró la remisión ${numero_remision}`,
-      ],
+      `Registró la remisión ${numero_remision}`,
     );
 
     /* =========================
@@ -1092,6 +1191,13 @@ app.post("/remisiones", async (req, res) => {
 
     console.error("Error creando remisión:", error);
 
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        mensaje:
+          "Ese número de remisión ya fue usado. Intenta guardar de nuevo.",
+      });
+    }
+
     res.status(500).json({
       mensaje: error.message || "Error creando la remisión.",
     });
@@ -1104,7 +1210,7 @@ app.post("/remisiones", async (req, res) => {
    DATOS PARA EXPORTAR REMISIONES
 ========================= */
 
-app.get("/exportaciones/remisiones", async (req, res) => {
+api.get("/exportaciones/remisiones", async (req, res) => {
   try {
     const { periodo } = req.query;
 
@@ -1277,7 +1383,6 @@ app.get("/exportaciones/remisiones", async (req, res) => {
       [mes, anio],
     );
 
-    console.log("REMISIONES PARA EXPORTACIÓN:", remisiones);
 
     res.json({
       periodo,
@@ -1303,7 +1408,58 @@ app.get("/exportaciones/remisiones", async (req, res) => {
    LOGIN
 ========================= */
 
-app.post("/login", async (req, res) => {
+/*
+Límite de intentos: después de 3 contraseñas incorrectas seguidas
+el usuario queda bloqueado 15 minutos. Se guarda en memoria, así
+que reiniciar el servidor limpia los bloqueos.
+*/
+
+const MAX_INTENTOS_LOGIN = 3;
+
+const MINUTOS_BLOQUEO_LOGIN = 15;
+
+const intentosLogin = new Map();
+
+const minutosBloqueoRestantes = (clave) => {
+  const registro = intentosLogin.get(clave);
+
+  if (!registro?.bloqueadoHasta) {
+    return 0;
+  }
+
+  const restante = registro.bloqueadoHasta - Date.now();
+
+  if (restante <= 0) {
+    intentosLogin.delete(clave);
+
+    return 0;
+  }
+
+  return Math.ceil(restante / 60000);
+};
+
+/* Devuelve cuántos intentos le quedan (0 = quedó bloqueado) */
+
+const registrarIntentoFallido = (clave) => {
+  const registro = intentosLogin.get(clave) || { fallidos: 0 };
+
+  registro.fallidos += 1;
+
+  if (registro.fallidos >= MAX_INTENTOS_LOGIN) {
+    registro.bloqueadoHasta = Date.now() + MINUTOS_BLOQUEO_LOGIN * 60000;
+  }
+
+  intentosLogin.set(clave, registro);
+
+  return Math.max(MAX_INTENTOS_LOGIN - registro.fallidos, 0);
+};
+
+const mensajeBloqueo = (minutos) =>
+  `Demasiados intentos fallidos. Intenta de nuevo en ${minutos} ${
+    minutos === 1 ? "minuto" : "minutos"
+  }.`;
+
+api.post("/login", async (req, res) => {
   try {
     const { usuario, password } = req.body;
 
@@ -1316,6 +1472,34 @@ app.post("/login", async (req, res) => {
         mensaje: "Usuario y contraseña son obligatorios.",
       });
     }
+
+    const claveIntentos = String(usuario).trim().toLowerCase();
+
+    const minutosBloqueo = minutosBloqueoRestantes(claveIntentos);
+
+    if (minutosBloqueo > 0) {
+      return res.status(429).json({
+        mensaje: mensajeBloqueo(minutosBloqueo),
+      });
+    }
+
+    /* Respuesta para usuario inexistente o contraseña incorrecta */
+
+    const responderCredencialesIncorrectas = () => {
+      const restantes = registrarIntentoFallido(claveIntentos);
+
+      if (restantes === 0) {
+        return res.status(429).json({
+          mensaje: mensajeBloqueo(MINUTOS_BLOQUEO_LOGIN),
+        });
+      }
+
+      return res.status(401).json({
+        mensaje: `Usuario o contraseña incorrectos. Te ${
+          restantes === 1 ? "queda 1 intento" : `quedan ${restantes} intentos`
+        }.`,
+      });
+    };
 
     /* =========================
            BUSCAR USUARIO
@@ -1343,9 +1527,7 @@ app.post("/login", async (req, res) => {
     );
 
     if (usuarios.length === 0) {
-      return res.status(401).json({
-        mensaje: "Usuario o contraseña incorrectos.",
-      });
+      return responderCredencialesIncorrectas();
     }
 
     const usuarioBD = usuarios[0];
@@ -1367,10 +1549,27 @@ app.post("/login", async (req, res) => {
     const passwordCorrecta = await bcrypt.compare(password, usuarioBD.password);
 
     if (!passwordCorrecta) {
-      return res.status(401).json({
-        mensaje: "Usuario o contraseña incorrectos.",
-      });
+      return responderCredencialesIncorrectas();
     }
+
+    intentosLogin.delete(claveIntentos);
+
+    /* =========================
+           GENERAR TOKEN
+        ========================= */
+
+    const token = jwt.sign({ id_usuario: usuarioBD.id_usuario }, JWT_SECRET, {
+      expiresIn: DURACION_SESION,
+    });
+
+    await registrarAuditoria(
+      db,
+      usuarioBD.id_usuario,
+      "INICIAR_SESION",
+      "SESION",
+      usuarioBD.id_usuario,
+      "Inició sesión",
+    );
 
     /* =========================
            RESPUESTA
@@ -1378,6 +1577,8 @@ app.post("/login", async (req, res) => {
 
     res.json({
       mensaje: "Inicio de sesión correcto.",
+
+      token,
 
       usuario: {
         id_usuario: usuarioBD.id_usuario,
@@ -1394,8 +1595,6 @@ app.post("/login", async (req, res) => {
 
     res.status(500).json({
       mensaje: "Error interno del servidor.",
-
-      error: error.message,
     });
   }
 });
@@ -1404,11 +1603,13 @@ app.post("/login", async (req, res) => {
    WORLD OFFICE
 ========================= */
 
-app.post("/remisiones/world-office", async (req, res) => {
+api.post("/remisiones/world-office", async (req, res) => {
   const connection = await db.getConnection();
 
   try {
-    const { id_remisiones, codigo_world_office, id_usuario } = req.body;
+    const { id_remisiones, codigo_world_office, password } = req.body;
+
+    const usuario = req.usuario;
 
     /* =========================
            VALIDACIONES
@@ -1426,43 +1627,6 @@ app.post("/remisiones/world-office", async (req, res) => {
       });
     }
 
-    if (!id_usuario) {
-      return res.status(400).json({
-        mensaje: "No se recibió el usuario.",
-      });
-    }
-
-    /* =========================
-           VERIFICAR USUARIO
-        ========================= */
-
-    const [usuarios] = await connection.query(
-      `
-
-            SELECT
-                id_usuario,
-                nombre,
-                rol,
-                activo
-
-            FROM usuarios
-
-            WHERE id_usuario = ?
-
-            LIMIT 1
-
-        `,
-      [id_usuario],
-    );
-
-    if (usuarios.length === 0) {
-      return res.status(401).json({
-        mensaje: "Usuario no encontrado.",
-      });
-    }
-
-    const usuario = usuarios[0];
-
     /* =========================
            VALIDAR ROL
         ========================= */
@@ -1474,9 +1638,18 @@ app.post("/remisiones/world-office", async (req, res) => {
       });
     }
 
-    if (usuario.activo !== 1) {
+    /* =========================
+           CONFIRMAR CONTRASEÑA
+        ========================= */
+
+    const [[credenciales]] = await connection.query(
+      "SELECT password FROM usuarios WHERE id_usuario = ?",
+      [usuario.id_usuario],
+    );
+
+    if (!password || !(await bcrypt.compare(password, credenciales.password))) {
       return res.status(403).json({
-        mensaje: "El usuario se encuentra inactivo.",
+        mensaje: "La contraseña es incorrecta.",
       });
     }
 
@@ -1557,9 +1730,18 @@ app.post("/remisiones/world-office", async (req, res) => {
                 VALUES (?, ?, ?)
 
             `,
-        [idRemision, codigo_world_office.trim(), id_usuario],
+        [idRemision, codigo_world_office.trim(), usuario.id_usuario],
       );
     }
+
+    await registrarAuditoria(
+      connection,
+      usuario.id_usuario,
+      "WORLD_OFFICE",
+      "REMISIONES",
+      null,
+      `Pasó ${id_remisiones.length} remisión(es) a World Office con el código ${codigo_world_office.trim()}`,
+    );
 
     /* =========================
            CONFIRMAR
@@ -1594,7 +1776,7 @@ app.post("/remisiones/world-office", async (req, res) => {
    INICIO - KPIS
 ========================= */
 
-app.get("/inicio", async (req, res) => {
+api.get("/inicio", async (req, res) => {
   try {
     const { mes, anio } = req.query;
 
@@ -1798,33 +1980,33 @@ está pendiente de pago.
 
 `);
 
-    const [carteraMesAnterior] = await db.query(
-      `
+    /*
+    Cartera generada en un mes: lo que sigue pendiente de las
+    remisiones de ese mes. Se compara el mes seleccionado con
+    el anterior usando la misma medida.
+    */
 
-    SELECT
+    const consultarCarteraGenerada = async (mesConsulta, anioConsulta) => {
+      const [[fila]] = await db.query(
+        `
+          SELECT COALESCE(SUM(r.saldo_pendiente), 0) AS cartera_generada
+          FROM remisiones r
+          WHERE r.saldo_pendiente > 0
+            AND r.estado <> 'ANULADA'
+            AND MONTH(r.fecha) = ?
+            AND YEAR(r.fecha) = ?
+        `,
+        [mesConsulta, anioConsulta],
+      );
 
-        COALESCE(
-            SUM(r.saldo_pendiente),
-            0
-        ) AS cartera_mes_anterior
+      return Number(fila.cartera_generada || 0);
+    };
 
-    FROM remisiones r
+    const carteraActual = await consultarCarteraGenerada(mes, anio);
 
-    WHERE r.saldo_pendiente > 0
-
-      AND r.estado = 'PENDIENTE'
-
-      AND MONTH(r.fecha) = ?
-      AND YEAR(r.fecha) = ?
-
-`,
-      [mesAnterior, anioAnterior],
-    );
-
-    const carteraActual = Number(cartera[0].cartera_total || 0);
-
-    const carteraAnterior = Number(
-      carteraMesAnterior[0].cartera_mes_anterior || 0,
+    const carteraAnterior = await consultarCarteraGenerada(
+      mesAnterior,
+      anioAnterior,
     );
 
     let variacionCartera = null;
@@ -1848,6 +2030,8 @@ está pendiente de pago.
       total_clientes: clientesActual,
 
       cartera_total: Number(cartera[0].cartera_total || 0),
+
+      cartera_mes: carteraActual,
 
       cuentas_pendientes: Number(cartera[0].cuentas_pendientes || 0),
 
@@ -1874,7 +2058,7 @@ está pendiente de pago.
    INICIO - ÚLTIMAS REMISIONES
 ========================= */
 
-app.get("/inicio/ultimas-remisiones", async (req, res) => {
+api.get("/inicio/ultimas-remisiones", async (req, res) => {
   try {
     const { mes, anio } = req.query;
 
@@ -1911,7 +2095,7 @@ app.get("/inicio/ultimas-remisiones", async (req, res) => {
         AS UNSIGNED
     ) DESC
 
-            LIMIT 3
+            LIMIT 5
 
         `,
       [mes, anio],
@@ -1930,86 +2114,10 @@ app.get("/inicio/ultimas-remisiones", async (req, res) => {
 });
 
 /* =========================
-   INICIO - CARTERA POR VENCER
-========================= */
-
-app.get("/inicio/cartera-por-vencer", async (req, res) => {
-  try {
-    const [cartera] = await db.query(`
-
-            SELECT
-
-                r.id_remision,
-
-                r.numero_remision,
-
-                r.fecha,
-
-                r.saldo_pendiente,
-
-                c.nombre AS cliente,
-
-                DATEDIFF(
-                    CURDATE(),
-                    r.fecha
-                ) AS dias_transcurridos,
-
-                45 - DATEDIFF(
-                    CURDATE(),
-                    r.fecha
-                ) AS dias_para_vencer
-
-
-            FROM remisiones r
-
-
-            INNER JOIN clientes c
-                ON r.id_cliente = c.id_cliente
-
-
-            WHERE
-
-                COALESCE(
-                    r.saldo_pendiente,
-                    0
-                ) > 0
-
-
-                AND r.estado <> 'ANULADA'
-
-
-                AND DATEDIFF(
-                    CURDATE(),
-                    r.fecha
-                ) BETWEEN 31 AND 45
-
-
-            ORDER BY
-
-                r.fecha ASC
-
-
-            LIMIT 3
-
-        `);
-
-    res.json(cartera);
-  } catch (error) {
-    console.error("Error obteniendo cartera por vencer:", error);
-
-    res.status(500).json({
-      mensaje: "Error obteniendo cartera por vencer.",
-
-      error: error.message,
-    });
-  }
-});
-
-/* =========================
    INICIO - CARTERA VENCIDA
 ========================= */
 
-app.get("/inicio/cartera-vencida", async (req, res) => {
+api.get("/inicio/cartera-vencida", async (req, res) => {
   try {
     const [cartera] = await db.query(`
 
@@ -2061,7 +2169,7 @@ app.get("/inicio/cartera-vencida", async (req, res) => {
                 r.fecha ASC
 
 
-            LIMIT 3
+            LIMIT 5
 
         `);
 
@@ -2077,9 +2185,9 @@ app.get("/inicio/cartera-vencida", async (req, res) => {
   }
 });
 
-app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
+api.get("/notificaciones/cartera-vencida", async (req, res) => {
   try {
-    const { id_usuario } = req.params;
+    const { id_usuario } = req.usuario;
 
     /* =========================================
            BUSCAR REMISIONES CON MÁS DE 30 DÍAS
@@ -2261,7 +2369,7 @@ app.get("/notificaciones/cartera-vencida/:id_usuario", async (req, res) => {
   }
 });
 
-app.put("/notificaciones/:id_notificacion/leida", async (req, res) => {
+api.put("/notificaciones/:id_notificacion/leida", async (req, res) => {
   try {
     const { id_notificacion } = req.params;
 
@@ -2273,9 +2381,10 @@ app.put("/notificaciones/:id_notificacion/leida", async (req, res) => {
                 SET leida = 1
 
                 WHERE id_notificacion = ?
+                AND id_usuario = ?
 
             `,
-      [id_notificacion],
+      [id_notificacion, req.usuario.id_usuario],
     );
 
     res.json({
@@ -2293,7 +2402,7 @@ app.put("/notificaciones/:id_notificacion/leida", async (req, res) => {
    INICIO - RENDIMIENTO COMERCIALES
 ========================= */
 
-app.get("/inicio/rendimiento-comerciales", async (req, res) => {
+api.get("/inicio/rendimiento-comerciales", async (req, res) => {
   try {
     const { mes, anio } = req.query;
 
@@ -2363,7 +2472,7 @@ app.get("/inicio/rendimiento-comerciales", async (req, res) => {
 // CLIENTES
 // ================================
 
-app.get("/clientes/buscar/:texto", async (req, res) => {
+api.get("/clientes/buscar/:texto", async (req, res) => {
   try {
     const texto = `%${req.params.texto}%`;
 
@@ -2407,10 +2516,17 @@ app.get("/clientes/buscar/:texto", async (req, res) => {
 // CREAR CLIENTE
 // ================================
 
-app.post("/clientes", async (req, res) => {
+api.post("/clientes", async (req, res) => {
   try {
-    const { nombre, tipo_documento, documento, telefono, correo, direccion } =
-      req.body;
+    const {
+      nombre,
+      tipo_documento,
+      documento,
+      ciudad,
+      telefono,
+      correo,
+      direccion,
+    } = req.body;
 
     if (!nombre || !tipo_documento || !documento) {
       return res.status(400).json({
@@ -2424,20 +2540,31 @@ app.post("/clientes", async (req, res) => {
                 nombre,
                 tipo_documento,
                 documento,
+                ciudad,
                 telefono,
                 correo,
                 direccion
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             `,
       [
         nombre.trim(),
         tipo_documento,
         documento.trim(),
+        ciudad?.trim() || null,
         telefono?.trim() || null,
         correo?.trim() || null,
         direccion?.trim() || null,
       ],
+    );
+
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "CREAR",
+      "CLIENTES",
+      resultado.insertId,
+      `Creó el cliente ${nombre.trim()}`,
     );
 
     res.status(201).json({
@@ -2464,7 +2591,7 @@ app.post("/clientes", async (req, res) => {
    COMERCIALES
 ========================= */
 
-app.get("/comerciales", async (req, res) => {
+api.get("/comerciales", async (req, res) => {
   try {
     const [comerciales] = await db.query(`
 
@@ -2495,7 +2622,7 @@ app.get("/comerciales", async (req, res) => {
 // LISTAR Y BUSCAR CLIENTES
 // ================================
 
-app.get("/clientes", async (req, res) => {
+api.get("/clientes", async (req, res) => {
   try {
     const pagina = Math.max(Number(req.query.page) || 1, 1);
 
@@ -2594,7 +2721,7 @@ app.get("/clientes", async (req, res) => {
 // ACTUALIZAR CLIENTE
 // ================================
 
-app.put("/clientes/:id", async (req, res) => {
+api.put("/clientes/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -2645,6 +2772,15 @@ app.put("/clientes/:id", async (req, res) => {
       });
     }
 
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "EDITAR",
+      "CLIENTES",
+      id,
+      `Editó el cliente ${nombre.trim()}`,
+    );
+
     res.json({
       mensaje: "Cliente actualizado correctamente.",
     });
@@ -2668,7 +2804,7 @@ app.put("/clientes/:id", async (req, res) => {
 // DESACTIVAR CLIENTE
 // ================================
 
-app.delete("/clientes/:id", async (req, res) => {
+api.delete("/clientes/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -2687,6 +2823,20 @@ app.delete("/clientes/:id", async (req, res) => {
       });
     }
 
+    const [[registro]] = await db.query(
+      "SELECT nombre FROM clientes WHERE id_cliente = ?",
+      [id],
+    );
+
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "DESACTIVAR",
+      "CLIENTES",
+      id,
+      `Desactivó el cliente ${registro.nombre}`,
+    );
+
     res.json({
       mensaje: "Cliente desactivado correctamente.",
     });
@@ -2704,7 +2854,7 @@ app.delete("/clientes/:id", async (req, res) => {
    AUDITORÍA
 ========================= */
 
-app.get("/auditoria", async (req, res) => {
+api.get("/auditoria", soloAdministrador, async (req, res) => {
   try {
     const [registros] = await db.query(`
             SELECT
@@ -2746,7 +2896,7 @@ app.get("/auditoria", async (req, res) => {
    CON PAGINACIÓN Y BÚSQUEDA
 ========================= */
 
-app.get("/productos", async (req, res) => {
+api.get("/productos", async (req, res) => {
   try {
     const pagina = Math.max(parseInt(req.query.page) || 1, 1);
 
@@ -2834,7 +2984,7 @@ app.get("/productos", async (req, res) => {
    CREAR PRODUCTO
 ========================= */
 
-app.post("/productos", async (req, res) => {
+api.post("/productos", async (req, res) => {
   try {
     const { codigo, nombre, linea, precio_lista } = req.body;
 
@@ -2863,6 +3013,15 @@ app.post("/productos", async (req, res) => {
       ],
     );
 
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "CREAR",
+      "PRODUCTOS",
+      resultado.insertId,
+      `Creó el producto ${codigo.trim()} - ${nombre.trim()}`,
+    );
+
     res.status(201).json({
       mensaje: "Producto creado correctamente.",
       id_producto: resultado.insertId,
@@ -2887,7 +3046,7 @@ app.post("/productos", async (req, res) => {
    ACTUALIZAR PRODUCTO
 ========================= */
 
-app.put("/productos/:id", async (req, res) => {
+api.put("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -2924,6 +3083,15 @@ app.put("/productos/:id", async (req, res) => {
       });
     }
 
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "EDITAR",
+      "PRODUCTOS",
+      id,
+      `Editó el producto ${codigo.trim()} - ${nombre.trim()}`,
+    );
+
     res.json({
       mensaje: "Producto actualizado correctamente.",
     });
@@ -2947,7 +3115,7 @@ app.put("/productos/:id", async (req, res) => {
    DESACTIVAR PRODUCTO
 ========================= */
 
-app.delete("/productos/:id", async (req, res) => {
+api.delete("/productos/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -2966,6 +3134,20 @@ app.delete("/productos/:id", async (req, res) => {
       });
     }
 
+    const [[registro]] = await db.query(
+      "SELECT nombre FROM productos WHERE id_producto = ?",
+      [id],
+    );
+
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "DESACTIVAR",
+      "PRODUCTOS",
+      id,
+      `Desactivó el producto ${registro.nombre}`,
+    );
+
     res.json({
       mensaje: "Producto desactivado correctamente.",
     });
@@ -2983,7 +3165,7 @@ app.delete("/productos/:id", async (req, res) => {
    PRODUCTO POR CÓDIGO
 ========================= */
 
-app.get("/productos/codigo/:codigo", async (req, res) => {
+api.get("/productos/codigo/:codigo", async (req, res) => {
   try {
     const { codigo } = req.params;
 
@@ -3031,7 +3213,7 @@ app.get("/productos/codigo/:codigo", async (req, res) => {
    BUSCAR PRODUCTOS POR CÓDIGO
 ========================= */
 
-app.get("/productos/buscar-codigo/:texto", async (req, res) => {
+api.get("/productos/buscar-codigo/:texto", async (req, res) => {
   try {
     const { texto } = req.params;
 
@@ -3078,7 +3260,7 @@ app.get("/productos/buscar-codigo/:texto", async (req, res) => {
    BUSCAR PRODUCTOS POR PRODUCTO
 ========================= */
 
-app.get("/productos/buscar-nombre/:texto", async (req, res) => {
+api.get("/productos/buscar-nombre/:texto", async (req, res) => {
   try {
     const { texto } = req.params;
 
@@ -3114,7 +3296,7 @@ app.get("/productos/buscar-nombre/:texto", async (req, res) => {
    LÍNEAS DE PRODUCTOS
 ========================= */
 
-app.get("/productos/lineas", async (req, res) => {
+api.get("/productos/lineas", async (req, res) => {
   try {
     const [lineas] = await db.query(`
 
@@ -3145,7 +3327,7 @@ app.get("/productos/lineas", async (req, res) => {
    CARTERA
 ========================= */
 
-app.get("/cartera", async (req, res) => {
+api.get("/cartera", async (req, res) => {
   try {
     const { comercial, estado, busqueda } = req.query;
 
@@ -3387,7 +3569,6 @@ AND COALESCE(
 
     const [cartera] = await db.query(sql, parametros);
 
-    console.log("CARTERA CON ABONOS:", cartera);
 
     res.json(cartera);
   } catch (error) {
@@ -3404,7 +3585,7 @@ AND COALESCE(
    DATOS PARA EXPORTAR CARTERA
 ========================= */
 
-app.get("/exportaciones/cartera", async (req, res) => {
+api.get("/exportaciones/cartera", async (req, res) => {
   try {
     const [cartera] = await db.query(
       `
@@ -3541,7 +3722,6 @@ app.get("/exportaciones/cartera", async (req, res) => {
                     `,
     );
 
-    console.log("CARTERA ACTUAL PARA EXPORTACIÓN:", cartera);
 
     res.json(cartera);
   } catch (error) {
@@ -3559,7 +3739,7 @@ app.get("/exportaciones/cartera", async (req, res) => {
    DATOS PARA REPORTE GENERAL
 ========================= */
 
-app.get("/exportaciones/general", async (req, res) => {
+api.get("/exportaciones/general", async (req, res) => {
   try {
     const { periodo } = req.query;
 
@@ -3671,7 +3851,6 @@ app.get("/exportaciones/general", async (req, res) => {
       [mes, anio],
     );
 
-    console.log(`REPORTE GENERAL ${periodo}:`, remisiones);
 
     res.json({
       periodo,
@@ -3694,7 +3873,7 @@ app.get("/exportaciones/general", async (req, res) => {
    KPIs DE CARTERA
 ========================= */
 
-app.get("/cartera/kpis", async (req, res) => {
+api.get("/cartera/kpis", async (req, res) => {
   try {
     const { comercial } = req.query;
 
@@ -3862,7 +4041,7 @@ app.get("/cartera/kpis", async (req, res) => {
 
 /* OBTENER USUARIOS */
 
-app.get("/usuarios", async (req, res) => {
+api.get("/usuarios", soloAdministrador, async (req, res) => {
   try {
     const [usuarios] = await db.query(`
 
@@ -3891,17 +4070,22 @@ app.get("/usuarios", async (req, res) => {
 });
 /* CREAR USUARIO */
 
-app.post("/usuarios", async (req, res) => {
+api.post("/usuarios", soloAdministrador, async (req, res) => {
   try {
     const { nombre, usuario, password, rol, activo } = req.body;
 
-    console.log("DATOS RECIBIDOS PARA CREAR USUARIO:", req.body);
 
     /* VALIDAR DATOS */
 
     if (!nombre || !usuario || !password || !rol) {
       return res.status(400).json({
         mensaje: "Todos los campos son obligatorios.",
+      });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({
+        mensaje: "La contraseña debe tener al menos 6 caracteres.",
       });
     }
 
@@ -3939,7 +4123,16 @@ app.post("/usuarios", async (req, res) => {
                 )
                 VALUES (?, ?, ?, ?, ?)
                 `,
-      [nombre, usuario, passwordHash, rol, activo],
+      [nombre, usuario, passwordHash, rol, activo === undefined ? 1 : activo ? 1 : 0],
+    );
+
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "CREAR",
+      "USUARIOS",
+      resultado.insertId,
+      `Creó el usuario ${usuario}`,
     );
 
     res.status(201).json({
@@ -3971,17 +4164,27 @@ app.post("/usuarios", async (req, res) => {
    CAMBIAR CONTRASEÑA
 ========================= */
 
-/* CAMBIAR CONTRASEÑA */
-
-app.put("/usuarios/:id/password", async (req, res) => {
+api.put("/usuarios/:id/password", async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (Number(id) !== req.usuario.id_usuario) {
+      return res.status(403).json({
+        mensaje: "Solo puedes cambiar tu propia contraseña.",
+      });
+    }
 
     const { passwordActual, passwordNueva } = req.body;
 
     if (!passwordActual || !passwordNueva) {
       return res.status(400).json({
         mensaje: "Todos los campos son obligatorios.",
+      });
+    }
+
+    if (String(passwordNueva).length < 6) {
+      return res.status(400).json({
+        mensaje: "La contraseña nueva debe tener al menos 6 caracteres.",
       });
     }
 
@@ -4041,6 +4244,15 @@ app.put("/usuarios/:id/password", async (req, res) => {
       [passwordHash, id],
     );
 
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "CAMBIAR_PASSWORD",
+      "USUARIOS",
+      id,
+      "Cambió su contraseña",
+    );
+
     res.json({
       mensaje: "Contraseña actualizada correctamente.",
     });
@@ -4053,13 +4265,12 @@ app.put("/usuarios/:id/password", async (req, res) => {
   }
 });
 
-app.put("/usuarios/:id", async (req, res) => {
+api.put("/usuarios/:id", soloAdministrador, async (req, res) => {
   try {
     const { id } = req.params;
 
     const { nombre, usuario, rol, activo } = req.body;
 
-    console.log("DATOS RECIBIDOS PARA ACTUALIZAR:", req.body);
 
     if (!nombre || !usuario || !rol) {
       return res.status(400).json({
@@ -4067,7 +4278,32 @@ app.put("/usuarios/:id", async (req, res) => {
       });
     }
 
-    await db.query(
+    const activoNormalizado = activo === undefined ? 1 : activo ? 1 : 0;
+
+    /* Evita que el administrador se bloquee a sí mismo */
+
+    if (
+      Number(id) === req.usuario.id_usuario &&
+      (activoNormalizado === 0 || rol !== "ADMINISTRADOR")
+    ) {
+      return res.status(400).json({
+        mensaje:
+          "No puedes desactivar tu propio usuario ni quitarte el rol de administrador.",
+      });
+    }
+
+    const [usuarioDuplicado] = await db.query(
+      "SELECT id_usuario FROM usuarios WHERE usuario = ? AND id_usuario <> ?",
+      [usuario, id],
+    );
+
+    if (usuarioDuplicado.length > 0) {
+      return res.status(409).json({
+        mensaje: "Ya existe un usuario con este nombre de usuario.",
+      });
+    }
+
+    const [resultadoUsuario] = await db.query(
       `
 
             UPDATE usuarios
@@ -4086,7 +4322,22 @@ app.put("/usuarios/:id", async (req, res) => {
 
             `,
 
-      [nombre, usuario, rol, activo, id],
+      [nombre, usuario, rol, activoNormalizado, id],
+    );
+
+    if (resultadoUsuario.affectedRows === 0) {
+      return res.status(404).json({
+        mensaje: "Usuario no encontrado.",
+      });
+    }
+
+    await registrarAuditoria(
+      db,
+      req.usuario.id_usuario,
+      "EDITAR",
+      "USUARIOS",
+      id,
+      `Editó el usuario ${usuario}`,
     );
 
     res.json({
@@ -4107,11 +4358,13 @@ app.put("/usuarios/:id", async (req, res) => {
    REGISTRAR ABONO
 ========================= */
 
-app.post("/cartera/abono", async (req, res) => {
+api.post("/cartera/abono", async (req, res) => {
   const connection = await db.getConnection();
 
   try {
-    const { id_remision, valor, comentario, id_usuario } = req.body;
+    const { id_remision, valor, comentario } = req.body;
+
+    const { id_usuario } = req.usuario;
 
     /* =========================
            VALIDACIONES
@@ -4129,12 +4382,6 @@ app.post("/cartera/abono", async (req, res) => {
       });
     }
 
-    if (!id_usuario) {
-      return res.status(400).json({
-        mensaje: "No se recibió el usuario.",
-      });
-    }
-
     await connection.beginTransaction();
 
     /* =========================
@@ -4147,6 +4394,7 @@ app.post("/cartera/abono", async (req, res) => {
             SELECT
 
                 id_remision,
+                numero_remision,
                 total,
                 saldo_pendiente,
                 estado
@@ -4234,7 +4482,16 @@ app.post("/cartera/abono", async (req, res) => {
             WHERE id_remision = ?
 
         `,
-      [nuevoSaldo, nuevoSaldo <= 0 ? "PAGADA" : "PENDIENTE", id_remision],
+      [nuevoSaldo, nuevoSaldo <= 0 ? "PAGADA" : "ABONO", id_remision],
+    );
+
+    await registrarAuditoria(
+      connection,
+      id_usuario,
+      "ABONO",
+      "CARTERA",
+      id_remision,
+      `Registró un abono de $${valorAbono.toLocaleString("es-CO")} a la remisión ${remision.numero_remision}`,
     );
 
     await connection.commit();
@@ -4268,7 +4525,7 @@ app.post("/cartera/abono", async (req, res) => {
    DETALLE DE PRODUCTOS
 ========================= */
 
-app.get("/cartera/:id_remision/productos", async (req, res) => {
+api.get("/cartera/:id_remision/productos", async (req, res) => {
   try {
     const { id_remision } = req.params;
 
@@ -4324,7 +4581,7 @@ app.get("/cartera/:id_remision/productos", async (req, res) => {
    OBTENER ABONOS REMISIÓN
 ========================= */
 
-app.get("/cartera/:id_remision/abonos", async (req, res) => {
+api.get("/cartera/:id_remision/abonos", async (req, res) => {
   try {
     const { id_remision } = req.params;
 
@@ -4370,7 +4627,7 @@ app.get("/cartera/:id_remision/abonos", async (req, res) => {
    KPIs DE REPORTES
 ========================= */
 
-app.get("/reportes/kpis", async (req, res) => {
+api.get("/reportes/kpis", async (req, res) => {
   try {
     const { mes, anio } = req.query;
 
@@ -4467,119 +4724,105 @@ app.get("/reportes/kpis", async (req, res) => {
 });
 
 /* =========================
-   REPORTES - RESUMEN
+   REPORTES - DETALLE DEL MES
 ========================= */
 
-app.get("/reportes/resumen", async (req, res) => {
+api.get("/reportes/detalle", async (req, res) => {
   try {
-    const [resultado] = await db.query(`
+    const mes = Number(req.query.mes);
+    const anio = Number(req.query.anio);
 
-            SELECT
+    if (!mes || !anio) {
+      return res.status(400).json({
+        mensaje: "Debe enviar el mes y el año.",
+      });
+    }
 
-                /* =========================
-                   VENTAS DEL MES
-                ========================= */
+    const [ventasDiarias] = await db.query(
+      `
+        SELECT
+            DAY(r.fecha) AS dia,
+            COALESCE(SUM(r.total), 0) AS ventas
+        FROM remisiones r
+        WHERE r.estado <> 'ANULADA'
+          AND MONTH(r.fecha) = ?
+          AND YEAR(r.fecha) = ?
+        GROUP BY DAY(r.fecha)
+        ORDER BY dia
+      `,
+      [mes, anio],
+    );
 
-                COALESCE(
-                    SUM(
-                        CASE
+    const [comerciales] = await db.query(
+      `
+        SELECT
+            c.nombre,
+            COALESCE(SUM(r.total), 0) AS ventas
+        FROM comerciales c
+        INNER JOIN remisiones r
+            ON r.id_comercial = c.id_comercial
+        WHERE r.estado <> 'ANULADA'
+          AND MONTH(r.fecha) = ?
+          AND YEAR(r.fecha) = ?
+        GROUP BY c.id_comercial, c.nombre
+        ORDER BY ventas DESC
+        LIMIT 5
+      `,
+      [mes, anio],
+    );
 
-                            WHEN MONTH(fecha) = MONTH(CURDATE())
+    const [productos] = await db.query(
+      `
+        SELECT
+            p.nombre,
+            COALESCE(SUM(d.cantidad), 0) AS cantidad
+        FROM detalle_remision d
+        INNER JOIN remisiones r
+            ON r.id_remision = d.id_remision
+        INNER JOIN productos p
+            ON p.id_producto = d.id_producto
+        WHERE r.estado <> 'ANULADA'
+          AND MONTH(r.fecha) = ?
+          AND YEAR(r.fecha) = ?
+        GROUP BY p.id_producto, p.nombre
+        ORDER BY cantidad DESC
+        LIMIT 5
+      `,
+      [mes, anio],
+    );
 
-                            AND YEAR(fecha) = YEAR(CURDATE())
+    /* La cartera es la pendiente hoy, sin importar el mes */
 
-                            AND estado <> 'ANULADA'
+    const [[cartera]] = await db.query(`
+        SELECT
+            COALESCE(SUM(CASE WHEN DATEDIFF(CURDATE(), r.fecha) <= 30
+                THEN r.saldo_pendiente END), 0) AS al_dia,
+            COALESCE(SUM(CASE WHEN DATEDIFF(CURDATE(), r.fecha) BETWEEN 31 AND 45
+                THEN r.saldo_pendiente END), 0) AS seguimiento,
+            COALESCE(SUM(CASE WHEN DATEDIFF(CURDATE(), r.fecha) > 45
+                THEN r.saldo_pendiente END), 0) AS vencida
+        FROM remisiones r
+        WHERE r.saldo_pendiente > 0
+          AND r.estado <> 'ANULADA'
+    `);
 
-                            THEN total
-
-                            ELSE 0
-
-                        END
-                    ),
-                    0
-                ) AS ventas_mes,
-
-
-                /* =========================
-                   TOTAL REMISIONES DEL MES
-                ========================= */
-
-                COUNT(
-                    CASE
-
-                        WHEN MONTH(fecha) = MONTH(CURDATE())
-
-                        AND YEAR(fecha) = YEAR(CURDATE())
-
-                        AND estado <> 'ANULADA'
-
-                        THEN 1
-
-                        ELSE NULL
-
-                    END
-                ) AS total_remisiones,
-
-
-                /* =========================
-                   CLIENTES DEL MES
-                ========================= */
-
-                COUNT(
-                    DISTINCT CASE
-
-                        WHEN MONTH(fecha) = MONTH(CURDATE())
-
-                        AND YEAR(fecha) = YEAR(CURDATE())
-
-                        AND estado <> 'ANULADA'
-
-                        THEN id_cliente
-
-                        ELSE NULL
-
-                    END
-                ) AS clientes,
-
-
-                /* =========================
-                   CARTERA GENERADA
-                ========================= */
-
-                COALESCE(
-                    SUM(
-                        CASE
-
-                            WHEN MONTH(fecha) = MONTH(CURDATE())
-
-                            AND YEAR(fecha) = YEAR(CURDATE())
-
-                            AND estado <> 'ANULADA'
-
-                            THEN saldo_pendiente
-
-                            ELSE 0
-
-                        END
-                    ),
-                    0
-                ) AS cartera_generada
-
-
-            FROM remisiones
-
-        `);
-
-    res.json(resultado[0]);
+    res.json({
+      ventas_diarias: ventasDiarias,
+      comerciales,
+      productos,
+      cartera,
+    });
   } catch (error) {
-    console.error("Error cargando resumen de reportes:", error);
+    console.error("Error cargando detalle de reportes:", error);
 
     res.status(500).json({
-      mensaje: "No se pudo cargar el resumen de reportes.",
-
-      error: error.message,
+      mensaje: "No se pudo cargar el detalle de reportes.",
     });
   }
+});
+
+api.use((req, res) => {
+  res.status(404).json({ mensaje: "Ruta no encontrada." });
 });
 
 /* =========================
@@ -4599,9 +4842,70 @@ app.get("/{*splat}", (req, res) => {
 });
 
 /* =========================
+   ÍNDICE ÚNICO DE REMISIONES
+========================= */
+
+const asegurarNumeroRemisionUnico = async () => {
+  const [indices] = await db.query(`
+    SELECT 1
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'remisiones'
+      AND column_name = 'numero_remision'
+      AND non_unique = 0
+    LIMIT 1
+  `);
+
+  if (indices.length > 0) {
+    return;
+  }
+
+  const [duplicados] = await db.query(`
+    SELECT numero_remision, COUNT(*) AS cantidad
+    FROM remisiones
+    GROUP BY numero_remision
+    HAVING cantidad > 1
+  `);
+
+  if (duplicados.length > 0) {
+    console.error(
+      "No se pudo crear el índice UNIQUE de numero_remision porque hay números repetidos. Corrígelos y reinicia el servidor:",
+      duplicados.map((fila) => `${fila.numero_remision} (${fila.cantidad})`),
+    );
+
+    return;
+  }
+
+  await db.query(`
+    ALTER TABLE remisiones
+    ADD UNIQUE INDEX uq_remisiones_numero_remision (numero_remision)
+  `);
+
+  console.log("Índice UNIQUE creado en remisiones.numero_remision.");
+};
+
+/* =========================
    INICIAR SERVIDOR
 ========================= */
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", (error) => {
+  /* En Express 5 los errores al abrir el puerto llegan aquí. Sin esto,
+     con el puerto ocupado el servidor decía que estaba funcionando y
+     seguía abierto sin recibir peticiones. */
+  if (error) {
+    console.error(
+      error.code === "EADDRINUSE"
+        ? `El puerto ${PORT} ya está en uso: hay otro servidor SIREM abierto. Ciérralo y vuelve a intentarlo.`
+        : "No se pudo iniciar el servidor:",
+      error.code === "EADDRINUSE" ? "" : error,
+    );
+
+    process.exit(1);
+  }
+
   console.log(`Servidor SIREM ejecutándose en el puerto ${PORT}`);
+
+  asegurarNumeroRemisionUnico().catch((error) => {
+    console.error("Error verificando el índice de numero_remision:", error);
+  });
 });

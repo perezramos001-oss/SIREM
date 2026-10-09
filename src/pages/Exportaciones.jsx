@@ -1,11 +1,30 @@
-import React from "react";
-import * as XLSX from "xlsx-js-style";
+import { apiFetch } from "../utils/api";
+import { etiquetaMedioPago } from "../utils/mediosPago";
+import { fechaDeRemision } from "../utils/fechas";
+import { useAvisos } from "../components/Avisos/Avisos";
+import {
+  crearDocumento,
+  tituloSeccion,
+  indicadores,
+  datosEnColumnas,
+  tabla,
+  pesos,
+  numero,
+  etiquetaEstado,
+  colorEstado,
+  COLORES,
+} from "../utils/reportes/pdfEmpresarial";
+import {
+  crearHoja,
+  descargarLibro,
+  COLOR_PELIGRO,
+} from "../utils/reportes/excelEmpresarial";
 
+import { useState } from "react";
+
+// Exportaciones.css se conserva: también tiene estilos de Configuración
 import "./Exportaciones.css";
-
-import jsPDF from "jspdf";
-
-import autoTable from "jspdf-autotable";
+import "./ExportacionesDiseno.css";
 
 import {
   FileSpreadsheet,
@@ -13,2334 +32,1193 @@ import {
   BarChart3,
   Receipt,
   WalletCards,
-  UsersRound,
-  UserRound,
-  Package,
+  Printer,
   CalendarDays,
-  Download,
+  CalendarRange,
   Clock3,
+  Check,
+  LoaderCircle,
 } from "lucide-react";
 
 function Exportaciones({ mesSeleccionado }) {
+  const { avisar } = useAvisos();
+
   const periodo = mesSeleccionado || "";
+
+  /* Archivo que se está generando ("remisiones-PDF", "remision"...) */
+  const [generando, setGenerando] = useState(null);
+
+  const [numeroImprimir, setNumeroImprimir] = useState("");
+
+  const avisarDescarga = (nombreArchivo) =>
+    avisar.exito(`Se descargó «${nombreArchivo}».`, "Archivo generado");
 
   const exportaciones = [
     {
-      id: 1,
-
       tipo: "general",
-
       titulo: "Reporte general",
-
-      descripcion: "Resumen completo de la actividad de SIREM.",
-
+      descripcion: "Resumen ejecutivo de la actividad del mes.",
       icono: BarChart3,
-
-      clase: "general",
-
       usaPeriodo: true,
+      contenido: [
+        "Indicadores de ventas, saldo, clientes y comerciales",
+        "Detalle de cada remisión del período",
+        "Totales del mes",
+      ],
+      formatos: ["PDF"],
     },
-
     {
-      id: 2,
-
       tipo: "remisiones",
-
       titulo: "Remisiones",
-
-      descripcion: "Listado detallado de las remisiones registradas.",
-
+      descripcion: "Listado detallado, producto por producto.",
       icono: Receipt,
-
-      clase: "remisiones",
-
       usaPeriodo: true,
+      contenido: [
+        "Cliente, comercial, productos y placas",
+        "Pagos, saldos y estado de cada remisión",
+        "Código de World Office y comentarios",
+      ],
+      formatos: ["PDF", "Excel"],
     },
-
     {
-      id: 3,
-
+      tipo: "anual",
+      titulo: "Remisiones anuales",
+      descripcion: "Consolidado de todo el año del período seleccionado.",
+      icono: CalendarRange,
+      alcance: `Año ${periodo.split(" ")[1] || ""}`,
+      contenido: [
+        "Todas las remisiones de enero a diciembre",
+        "Resumen mes a mes de ventas, abonos y cartera",
+        "Total de remisiones y cartera del año",
+      ],
+      formatos: ["PDF", "Excel"],
+    },
+    {
       tipo: "cartera",
-
       titulo: "Cartera",
-
-      descripcion: "Estado y antigüedad de la cartera.",
-
+      descripcion: "Cuentas pendientes y su antigüedad.",
       icono: WalletCards,
-
-      clase: "cartera",
-
       usaPeriodo: false,
+      contenido: [
+        "Saldo por rangos: 0–30, 31–45 y más de 45 días",
+        "Abonos y saldo de cada cuenta",
+        "Cuentas vencidas resaltadas",
+      ],
+      formatos: ["PDF", "Excel"],
     },
   ];
+
+  /* =================================
+   APOYOS
+================================= */
+
+  const obtenerJson = async (url, mensajeError) => {
+    const respuesta = await apiFetch(url);
+
+    if (!respuesta.ok) {
+      let errorBackend = {};
+
+      try {
+        errorBackend = await respuesta.json();
+      } catch {
+        errorBackend = {};
+      }
+
+      throw new Error(errorBackend.mensaje || mensajeError);
+    }
+
+    return respuesta.json();
+  };
+
+  /* Formato dd/mm/aaaa (siempre con dos dígitos en día y mes) */
+  const fechaCorta = (fecha) =>
+    fecha
+      ? fechaDeRemision(fecha).toLocaleDateString("es-CO", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+      : "";
+
+  const sumar = (lista, campo) =>
+    lista.reduce((total, item) => total + (Number(item[campo]) || 0), 0);
+
+  /* Pinta el texto del estado con su color en las tablas PDF */
+
+  const colorearEstado = (indiceColumna, obtenerEstado) => (data) => {
+    if (data.section === "body" && data.column.index === indiceColumna) {
+      const estado = obtenerEstado(data.row.index);
+
+      if (estado) {
+        data.cell.styles.textColor = colorEstado(estado);
+        data.cell.styles.fontStyle = "bold";
+      }
+    }
+  };
 
   /* =================================
    IMPRIMIR UNA REMISIÓN
 ================================= */
 
-  const imprimirRemision = async () => {
+  const imprimirRemision = async (numeroIngresado) => {
     try {
-      const numeroIngresado = window.prompt(
-        "Escribe el número de la remisión:\n\nEjemplo: REM 1033",
-      );
+      if (!numeroIngresado.trim()) {
+        avisar.advertencia("Escribe el número de la remisión que quieres imprimir.");
 
-      if (!numeroIngresado) {
         return;
       }
 
-      /* =========================
-           NORMALIZAR
-        ========================= */
+      /* Permite escribir "REM 1033", "REM1033" o "1033" */
 
-      let numero = numeroIngresado.trim().toUpperCase();
+      let numeroBuscado = numeroIngresado.trim().toUpperCase();
 
-      /*
-       * Permitir que escriban:
-       *
-       * REM 1033
-       * REM1033
-       * 1033
-       */
-
-      if (!numero.startsWith("REM ")) {
-        numero = numero.replace(/^REM\s*/i, "");
-
-        numero = `REM ${numero}`;
+      if (!numeroBuscado.startsWith("REM ")) {
+        numeroBuscado = `REM ${numeroBuscado.replace(/^REM\s*/i, "")}`;
       }
 
-      /* =========================
-           BUSCAR DIRECTAMENTE
-        ========================= */
-
-      const respuesta = await fetch(
-        `/api/remisiones/buscar?numero=${encodeURIComponent(numero)}`,
+      const datos = await obtenerJson(
+        `/api/remisiones/buscar?numero=${encodeURIComponent(numeroBuscado)}`,
+        `No se encontró la remisión ${numeroBuscado}.`,
       );
-
-      if (!respuesta.ok) {
-        let errorBackend = {};
-
-        try {
-          errorBackend = await respuesta.json();
-        } catch {
-          errorBackend = {};
-        }
-
-        throw new Error(
-          errorBackend.mensaje || `No se encontró la remisión ${numero}.`,
-        );
-      }
-
-      const datos = await respuesta.json();
 
       const remision = datos.remision;
 
       if (!remision) {
-        throw new Error(
-          "El servidor no devolvió la información de la remisión.",
-        );
+        throw new Error("El servidor no devolvió la información de la remisión.");
       }
-
-      /* =========================
-           CREAR PDF
-        ========================= */
-
-      const pdf = new jsPDF("p", "mm", "a4");
-
-      /* =========================
-           ENCABEZADO
-        ========================= */
-
-      pdf.setFillColor(139, 94, 52);
-
-      pdf.roundedRect(15, 12, 180, 35, 4, 4, "F");
-
-      pdf.setTextColor(255, 255, 255);
-
-      pdf.setFont("helvetica", "bold");
-
-      pdf.setFontSize(20);
-
-      pdf.text("REMISIÓN", 25, 27);
-
-      pdf.setFont("helvetica", "normal");
-
-      pdf.setFontSize(10);
-
-      pdf.text("SISTEMA DE INFORMACIÓN SIREM", 25, 36);
-
-      /* =========================
-           NÚMERO
-        ========================= */
-
-      pdf.setFont("helvetica", "bold");
-
-      pdf.setFontSize(13);
-
-      pdf.text(remision.numero_remision || "", 185, 25, {
-        align: "right",
-      });
-
-      /* =========================
-           FECHA
-        ========================= */
-
-      pdf.setFont("helvetica", "normal");
-
-      pdf.setFontSize(9);
-
-      const fecha = remision.fecha
-        ? new Date(remision.fecha).toLocaleDateString("es-CO")
-        : "";
-
-      pdf.text(fecha, 185, 34, {
-        align: "right",
-      });
-
-      /* =========================
-           DATOS
-        ========================= */
-
-      pdf.setTextColor(60, 60, 60);
-
-      pdf.setFont("helvetica", "bold");
-
-      pdf.setFontSize(10);
-
-      pdf.text("DATOS DE LA REMISIÓN", 15, 60);
-
-      pdf.setFont("helvetica", "normal");
-
-      pdf.setFontSize(9);
-
-      pdf.text(`Cliente: ${remision.cliente || ""}`, 15, 69);
-
-      pdf.text(`Ciudad: ${remision.ciudad || ""}`, 15, 76);
-
-      pdf.text(`Comercial: ${remision.comercial || ""}`, 15, 83);
-
-      pdf.text(`Estado: ${remision.estado || ""}`, 110, 69);
-
-      pdf.text(`Medio de pago: ${remision.medio_pago || ""}`, 110, 76);
-
-      /* =========================
-           PRODUCTOS
-        ========================= */
 
       const productos = remision.productos || [];
 
       if (productos.length === 0) {
-        alert("La remisión no tiene productos registrados.");
+        avisar.advertencia("La remisión no tiene productos registrados.");
 
         return;
       }
 
-      const filas = productos.map((producto) => [
-        producto.codigo_producto || "",
+      const doc = await crearDocumento({
+        titulo: "Remisión",
+        subtitulo: remision.numero_remision,
+        detalle: `Fecha: ${fechaCorta(remision.fecha)}`,
+      });
 
-        producto.nombre_producto || "",
+      const { pdf, ancho, alto, margen } = doc;
 
-        producto.placa || "",
+      /* DATOS GENERALES */
 
-        Number(producto.cantidad || 0),
+      let y = tituloSeccion(doc, "Datos de la remisión", doc.inicioY + 4);
 
-        `$ ${Number(producto.precio_venta || 0).toLocaleString("es-CO")}`,
+      y = datosEnColumnas(
+        doc,
+        [
+          { etiqueta: "Cliente", valor: remision.cliente },
+          { etiqueta: "Ciudad", valor: remision.ciudad },
+          { etiqueta: "Comercial", valor: remision.comercial },
+          { etiqueta: "Fecha", valor: fechaCorta(remision.fecha) },
+          { etiqueta: "Estado", valor: etiquetaEstado(remision.estado) },
+          {
+            etiqueta: "Medio de pago",
+            valor: etiquetaMedioPago(remision.medio_pago),
+          },
+        ],
+        y + 2,
+      );
 
-        `$ ${Number(producto.total_producto || 0).toLocaleString("es-CO")}`,
-      ]);
+      /* PRODUCTOS */
 
-      /* =========================
-           TABLA
-        ========================= */
+      y = tituloSeccion(doc, "Productos", y + 2);
 
-      autoTable(pdf, {
-        startY: 92,
-
+      y = tabla(doc, {
+        startY: y,
         head: [["Código", "Producto", "Placa", "Cant.", "Precio", "Total"]],
-
-        body: filas,
-
-        theme: "grid",
-
-        styles: {
-          fontSize: 8,
-
-          cellPadding: 3,
-
-          valign: "middle",
-        },
-
-        headStyles: {
-          fillColor: [91, 70, 54],
-
-          textColor: [255, 255, 255],
-
-          fontStyle: "bold",
-
-          halign: "center",
-        },
-
-        alternateRowStyles: {
-          fillColor: [248, 244, 240],
-        },
-
+        body: productos.map((producto) => [
+          producto.codigo_producto || "",
+          producto.nombre_producto || "",
+          producto.placa || "—",
+          numero(producto.cantidad),
+          pesos(producto.precio_venta),
+          pesos(producto.total_producto),
+        ]),
         columnStyles: {
-          0: {
-            cellWidth: 25,
-          },
-
-          1: {
-            cellWidth: 70,
-          },
-
-          2: {
-            cellWidth: 25,
-          },
-
-          3: {
-            cellWidth: 15,
-            halign: "center",
-          },
-
-          4: {
-            cellWidth: 25,
-            halign: "right",
-          },
-
-          5: {
-            cellWidth: 25,
-            halign: "right",
-          },
+          0: { cellWidth: 26 },
+          2: { cellWidth: 24 },
+          3: { cellWidth: 14, halign: "center" },
+          4: { cellWidth: 28, halign: "right" },
+          5: { cellWidth: 30, halign: "right" },
         },
       });
 
-      /* =========================
-           TOTAL
-        ========================= */
+      /* TOTALES (alineados a la derecha) */
 
-      let posicionY = pdf.lastAutoTable.finalY + 10;
+      const totalAbonado = Math.max(
+        Number(remision.total || 0) - Number(remision.saldo_pendiente || 0),
+        0,
+      );
 
-      if (posicionY > 230) {
+      if (y > alto - 85) {
         pdf.addPage();
-
-        posicionY = 25;
+        y = doc.inicioY;
       }
 
-      pdf.setFont("helvetica", "bold");
+      const anchoTotales = 80;
+      const xTotales = ancho - margen - anchoTotales;
 
-      pdf.setFontSize(11);
+      y += 6;
 
-      pdf.text("TOTAL REMISIÓN:", 125, posicionY);
+      [
+        ["Total remisión", pesos(remision.total), false],
+        ["Abonado", pesos(totalAbonado), false],
+        ["Saldo pendiente", pesos(remision.saldo_pendiente), true],
+      ].forEach(([etiqueta, valor, destacado]) => {
+        if (destacado) {
+          pdf.setFillColor(...COLORES.fondoTotal);
+          pdf.rect(xTotales, y - 4.5, anchoTotales, 7.5, "F");
+        }
 
-      pdf.text(
-        `$ ${Number(remision.total || 0).toLocaleString("es-CO")}`,
-        195,
-        posicionY,
-        {
-          align: "right",
-        },
-      );
+        pdf.setFont("helvetica", destacado ? "bold" : "normal");
+        pdf.setFontSize(destacado ? 9.5 : 8.5);
+        pdf.setTextColor(...(destacado ? COLORES.oscuro : COLORES.gris));
+        pdf.text(etiqueta, xTotales + 3, y);
 
-      /* =========================
-           SALDO
-        ========================= */
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(...COLORES.oscuro);
+        pdf.text(valor, ancho - margen - 3, y, { align: "right" });
 
-      posicionY += 8;
+        y += 7.5;
+      });
 
-      pdf.text("SALDO PENDIENTE:", 125, posicionY);
-
-      pdf.text(
-        `$ ${Number(remision.saldo_pendiente || 0).toLocaleString("es-CO")}`,
-        195,
-        posicionY,
-        {
-          align: "right",
-        },
-      );
-
-      /* =========================
-           COMENTARIOS
-        ========================= */
+      /* COMENTARIOS */
 
       if (remision.comentarios) {
-        posicionY += 12;
+        y = tituloSeccion(doc, "Comentarios", y + 6);
 
-        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(...COLORES.texto);
 
-        pdf.text("Comentarios:", 15, posicionY);
+        const lineas = pdf.splitTextToSize(remision.comentarios, ancho - margen * 2);
 
-        posicionY += 6;
+        pdf.text(lineas, margen, y);
 
-        const comentarios = pdf.splitTextToSize(remision.comentarios, 180);
-
-        pdf.text(comentarios, 15, posicionY);
+        y += lineas.length * 4.5;
       }
 
-      /* =========================
-           FIRMAS
-        ========================= */
+      /* FIRMAS (al final de la última página) */
 
-      const posicionFirmas = 260;
+      const yFirmas = alto - 34;
+
+      if (y > yFirmas - 12) {
+        pdf.addPage();
+      }
+
+      pdf.setDrawColor(...COLORES.gris);
+      pdf.setLineWidth(0.3);
+      pdf.line(margen + 6, yFirmas, margen + 76, yFirmas);
+      pdf.line(ancho - margen - 76, yFirmas, ancho - margen - 6, yFirmas);
 
       pdf.setFont("helvetica", "normal");
-
-      pdf.setFontSize(9);
-
-      pdf.setTextColor(60, 60, 60);
-
-      pdf.line(20, posicionFirmas, 85, posicionFirmas);
-
-      pdf.line(125, posicionFirmas, 190, posicionFirmas);
-
-      pdf.text("Firma quien realiza la remisión", 52.5, posicionFirmas + 6, {
-        align: "center",
-      });
-
-      pdf.text("Firma jefe", 157.5, posicionFirmas + 6, {
-        align: "center",
-      });
-
-      /* =========================
-           PIE
-        ========================= */
-
       pdf.setFontSize(8);
-
-      pdf.setTextColor(130, 130, 130);
-
-      pdf.text("SIREM", 105, 290, {
+      pdf.setTextColor(...COLORES.gris);
+      pdf.text("Quien realiza la remisión", margen + 41, yFirmas + 5, {
         align: "center",
       });
+      pdf.text("Jefe", ancho - margen - 41, yFirmas + 5, { align: "center" });
 
-      /* =========================
-           GUARDAR
-        ========================= */
+      const nombreArchivo = `Remisión ${remision.numero_remision}.pdf`;
 
-      pdf.save(`Remisión ${remision.numero_remision}.pdf`);
+      doc.finalizar(nombreArchivo);
+
+      avisarDescarga(nombreArchivo);
     } catch (error) {
-      console.error("ERROR IMPRIMIENDO REMISIÓN:", error);
+      console.error("Error imprimiendo remisión:", error);
 
-      alert(error.message || "No se pudo imprimir la remisión.");
+      avisar.fallo(error, error.message || "No se pudo imprimir la remisión.");
     }
   };
 
-  const exportar = async (tipo, formato) => {
-    try {
-      /* =================================
-   EXPORTAR REPORTE GENERAL A EXCEL
+  /* =================================
+   REPORTE GENERAL (PDF)
 ================================= */
 
-      if (tipo === "general" && formato === "PDF") {
-        const respuesta = await fetch(
-          `/api/exportaciones/general?periodo=${encodeURIComponent(periodo)}`,
-        );
-
-        console.log(
-          "RESPUESTA REPORTE GENERAL:",
-          respuesta.status,
-          respuesta.statusText,
-        );
-
-        if (!respuesta.ok) {
-          const errorBackend = await respuesta.json();
-
-          console.error("ERROR DEL BACKEND:", errorBackend);
-
-          throw new Error(
-            errorBackend.mensaje || "No se pudo obtener el reporte general.",
-          );
-        }
-
-        const datos = await respuesta.json();
-
-        console.log("DATOS RECIBIDOS PARA REPORTE GENERAL:", datos);
-
-        /* =================================
-   CREAR PDF
-================================= */
-
-        const pdf = new jsPDF("p", "mm", "a4");
-
-        /* =================================
-   DATOS DEL REPORTE
-================================= */
-
-        const remisiones = datos.remisiones || [];
-
-        const totalFacturado = remisiones.reduce(
-          (total, remision) => total + Number(remision.total || 0),
-          0,
-        );
-
-        const saldoPendiente = remisiones.reduce(
-          (total, remision) => total + Number(remision.saldo_pendiente || 0),
-          0,
-        );
-
-        /* =================================
-   CLIENTES ÚNICOS
-================================= */
-
-        const clientesUnicos = new Set(
-          remisiones.map((remision) => remision.cliente),
-        );
-
-        /* =================================
-   COMERCIALES ÚNICOS
-================================= */
-
-        const comercialesUnicos = new Set(
-          remisiones.map((remision) => remision.comercial),
-        );
-
-        /* =================================
-   FORMATO MONEDA
-================================= */
-
-        const formatoMoneda = (valor) => {
-          return "$ " + Number(valor).toLocaleString("es-CO");
-        };
-
-        /* =================================
-   ENCABEZADO PRINCIPAL
-================================= */
-
-        pdf.setFillColor(139, 94, 52);
-
-        pdf.roundedRect(15, 15, 180, 38, 4, 4, "F");
-
-        /* TÍTULO */
-
-        pdf.setTextColor(255, 255, 255);
-
-        pdf.setFont("helvetica", "bold");
-
-        pdf.setFontSize(20);
-
-        pdf.text("REPORTE GENERAL", 25, 31);
-
-        /* SUBTÍTULO */
-
-        pdf.setFont("helvetica", "normal");
-
-        pdf.setFontSize(11);
-
-        pdf.text("SISTEMA DE INFORMACIÓN SIREM", 25, 41);
-
-        /* PERÍODO */
-
-        pdf.setFont("helvetica", "bold");
-
-        pdf.setFontSize(12);
-
-        pdf.text(periodo.toUpperCase(), 185, 30, {
-          align: "right",
-        });
-
-        /* =================================
-   RESUMEN DEL PERÍODO
-================================= */
-
-        pdf.setTextColor(60, 60, 60);
-
-        pdf.setFont("helvetica", "bold");
-
-        pdf.setFontSize(15);
-
-        pdf.text("Resumen del período", 15, 68);
-
-        /* =================================
-   TARJETAS
-================================= */
-
-        const tarjetas = [
-          {
-            titulo: "Remisiones",
-            valor: remisiones.length,
-            color: [139, 94, 52],
-          },
-
-          {
-            titulo: "Total facturado",
-            valor: formatoMoneda(totalFacturado),
-            color: [166, 116, 74],
-          },
-
-          {
-            titulo: "Saldo pendiente",
-            valor: formatoMoneda(saldoPendiente),
-            color: [181, 111, 74],
-          },
-
-          {
-            titulo: "Clientes",
-            valor: clientesUnicos.size,
-            color: [112, 91, 72],
-          },
-
-          {
-            titulo: "Comerciales",
-            valor: comercialesUnicos.size,
-            color: [91, 70, 54],
-          },
-        ];
-
-        const margenIzquierdo = 15;
-
-        const margenDerecho = 15;
-
-        const espacioEntreTarjetas = 3;
-
-        const anchoPagina = 210;
-
-        const espacioDisponible =
-          anchoPagina -
-          margenIzquierdo -
-          margenDerecho -
-          espacioEntreTarjetas * (tarjetas.length - 1);
-
-        const anchoTarjeta = espacioDisponible / tarjetas.length;
-
-        let x = margenIzquierdo;
-
-        let y = 75;
-
-        tarjetas.forEach((tarjeta) => {
-          /* =================================
-           SOMBRA DECORATIVA
-        ================================= */
-
-          pdf.setFillColor(225, 220, 214);
-
-          pdf.roundedRect(x + 1, y + 1.5, anchoTarjeta, 30, 3, 3, "F");
-
-          /* =================================
-           CUERPO DE LA TARJETA
-        ================================= */
-
-          pdf.setFillColor(255, 255, 255);
-
-          pdf.roundedRect(x, y, anchoTarjeta, 30, 3, 3, "F");
-
-          /* =================================
-           FRANJA SUPERIOR
-        ================================= */
-
-          pdf.setFillColor(...tarjeta.color);
-
-          pdf.roundedRect(x, y, anchoTarjeta, 5, 3, 3, "F");
-
-          /* =================================
-           CÍRCULO DECORATIVO
-        ================================= */
-
-          pdf.setFillColor(...tarjeta.color);
-
-          pdf.circle(x + anchoTarjeta - 6, y + 10, 3, "F");
-
-          /* =================================
-           TÍTULO
-        ================================= */
-
-          pdf.setTextColor(125, 125, 125);
-
-          pdf.setFont("helvetica", "normal");
-
-          pdf.setFontSize(7.5);
-
-          pdf.text(tarjeta.titulo, x + 4, y + 12);
-
-          /* =================================
-           VALOR
-        ================================= */
-
-          pdf.setTextColor(55, 55, 55);
-
-          pdf.setFont("helvetica", "bold");
-
-          /*
-        Reducimos un poco el tamaño
-        para valores monetarios largos
-        */
-
-          const valor = String(tarjeta.valor);
-
-          const tamañoValor = valor.length > 13 ? 8 : valor.length > 8 ? 9 : 13;
-
-          pdf.setFontSize(tamañoValor);
-
-          pdf.text(valor, x + 4, y + 23);
-
-          /* =================================
-           AVANZAR A LA SIGUIENTE TARJETA
-        ================================= */
-
-          x += anchoTarjeta + espacioEntreTarjetas;
-        });
-
-        /* =================================
-   TABLA DE REMISIONES
-================================= */
-
-        const filas = remisiones.map((remision) => [
+  const exportarGeneralPdf = async () => {
+    const datos = await obtenerJson(
+      `/api/exportaciones/general?periodo=${encodeURIComponent(periodo)}`,
+      "No se pudo obtener el reporte general.",
+    );
+
+    const remisiones = datos.remisiones || [];
+
+    const totalFacturado = sumar(remisiones, "total");
+    const saldoPendiente = sumar(remisiones, "saldo_pendiente");
+
+    const doc = await crearDocumento({
+      titulo: "Reporte general",
+      subtitulo: periodo,
+      detalle: `${remisiones.length} ${remisiones.length === 1 ? "remisión" : "remisiones"}`,
+    });
+
+    let y = tituloSeccion(doc, "Resumen del período", doc.inicioY + 4);
+
+    y = indicadores(
+      doc,
+      [
+        { etiqueta: "Remisiones", valor: remisiones.length },
+        { etiqueta: "Total facturado", valor: pesos(totalFacturado) },
+        {
+          etiqueta: "Saldo pendiente",
+          valor: pesos(saldoPendiente),
+          color: COLORES.peligro,
+        },
+        {
+          etiqueta: "Clientes",
+          valor: new Set(remisiones.map((r) => r.cliente)).size,
+          color: COLORES.oscuro,
+        },
+        {
+          etiqueta: "Comerciales",
+          valor: new Set(remisiones.map((r) => r.comercial)).size,
+          color: COLORES.oscuro,
+        },
+      ],
+      y,
+    );
+
+    y = tituloSeccion(doc, "Detalle de remisiones", y);
+
+    if (remisiones.length === 0) {
+      doc.pdf.setFont("helvetica", "normal");
+      doc.pdf.setFontSize(9);
+      doc.pdf.setTextColor(...COLORES.gris);
+      doc.pdf.text(`No hay remisiones registradas en ${periodo}.`, doc.margen, y + 4);
+    } else {
+      tabla(doc, {
+        startY: y,
+        head: [["Remisión", "Fecha", "Cliente", "Comercial", "Total", "Saldo"]],
+        body: remisiones.map((remision) => [
           remision.numero_remision,
-
-          new Date(remision.fecha).toLocaleDateString("es-CO"),
-
+          fechaCorta(remision.fecha),
           remision.cliente,
-
           remision.comercial,
+          pesos(remision.total),
+          pesos(remision.saldo_pendiente),
+        ]),
+        foot: [["Total", "", "", "", pesos(totalFacturado), pesos(saldoPendiente)]],
+        columnStyles: {
+          0: { cellWidth: 20, fontStyle: "bold" },
+          1: { cellWidth: 19 },
+          4: { cellWidth: 26, halign: "right" },
+          5: { cellWidth: 24, halign: "right" },
+        },
+      });
+    }
 
-          formatoMoneda(remision.total),
+    const nombreArchivo = `Reporte General - ${periodo}.pdf`;
 
-          formatoMoneda(remision.saldo_pendiente),
-        ]);
+    doc.finalizar(nombreArchivo);
 
-        autoTable(pdf, {
-          startY: 112,
+    avisarDescarga(nombreArchivo);
+  };
 
-          head: [
-            ["Remisión", "Fecha", "Cliente", "Comercial", "Total", "Saldo"],
-          ],
-
-          body: filas,
-
-          theme: "striped",
-
-          headStyles: {
-            fillColor: [139, 94, 52],
-
-            textColor: [255, 255, 255],
-
-            fontStyle: "bold",
-          },
-
-          styles: {
-            fontSize: 8,
-
-            cellPadding: 3,
-
-            textColor: [80, 80, 80],
-          },
-
-          columnStyles: {
-            0: {
-              cellWidth: 23,
-            },
-
-            1: {
-              cellWidth: 22,
-            },
-
-            2: {
-              cellWidth: 43,
-            },
-
-            3: {
-              cellWidth: 43,
-            },
-
-            4: {
-              cellWidth: 28,
-              halign: "right",
-            },
-
-            5: {
-              cellWidth: 28,
-              halign: "right",
-            },
-          },
-        });
-
-        /* =================================
-   PIE DE PÁGINA
+  /* =================================
+   REMISIONES: CONSTRUCCIÓN COMÚN
+   (mensual y anual usan las mismas funciones)
 ================================= */
 
-        const paginas = pdf.getNumberOfPages();
-
-        for (let pagina = 1; pagina <= paginas; pagina++) {
-          pdf.setPage(pagina);
-
-          pdf.setFontSize(8);
-
-          pdf.setTextColor(130, 130, 130);
-
-          pdf.text(
-            `SIREM • Reporte General • Página ${pagina} de ${paginas}`,
-            105,
-            287,
-            {
-              align: "center",
-            },
-          );
-        }
-
-        /* =================================
-   DESCARGAR PDF
-================================= */
-
-        pdf.save(`Reporte General - ${periodo}.pdf`);
-
-        return;
-      }
-
-      /* =================================
-   OBTENER REMISIONES PARA EXPORTAR
-================================= */
-
-      if (tipo === "remisiones" && formato === "Excel") {
-        const respuesta = await fetch(
-          `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`,
-        );
-
-        if (!respuesta.ok) {
-          const errorBackend = await respuesta.json();
-
-          throw new Error(
-            errorBackend.mensaje || "No se pudieron obtener las remisiones.",
-          );
-        }
-
-        const datos = await respuesta.json();
-
-        console.log("REMISIONES RECIBIDAS:", datos);
-
-        /* =================================
-       PREPARAR DATOS
-    ================================= */
-
-        const datosExcel = datos.remisiones.map((remision) => ({
-          Remisión: remision.numero_remision,
-
-          Fecha: (() => {
-            const fecha = new Date(remision.fecha);
-
-            const dia = String(fecha.getDate()).padStart(2, "0");
-            const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-            const año = fecha.getFullYear();
-
-            return `${dia}/${mes}/${año}`;
-          })(),
-
-          Cliente: remision.cliente,
-
-          Ciudad: remision.ciudad,
-
-          Comercial: remision.comercial,
-
-          Producto: remision.nombre_producto,
-
-          "Código producto": remision.codigo_producto,
-
-          Línea: remision.linea_producto,
-
-          Placa: remision.placa,
-
-          Cantidad: Number(remision.cantidad),
-
-          "Precio lista": Number(remision.precio_lista),
-
-          "Precio venta": Number(remision.precio_venta),
-
-          "Total producto": Number(remision.total_producto),
-
-          "Total remisión": Number(remision.total),
-
-          "Total abonado": Math.max(
-            Number(remision.total || 0) - Number(remision.saldo_pendiente || 0),
-            0,
-          ),
-
-          "Saldo pendiente": Number(remision.saldo_pendiente),
-
-          "Medio de pago": remision.medio_pago,
-
-          Estado: remision.estado,
-
-          Comentarios: remision.comentarios || "",
-
-          "Código WO": remision.codigo_world_office || "",
-
-          Comentarios: remision.comentarios || "",
-
-          "Código WO": remision.codigo_world_office || "",
-        }));
-
-        const totalFilas = datosExcel.length;
-
-        /* =================================
-   CREAR EXCEL
-================================= */
-
-        const libro = XLSX.utils.book_new();
-
-        const hoja = XLSX.utils.json_to_sheet(datosExcel, {
-          origin: "A5",
-        });
-
-        /* =================================
-   ENCABEZADO DEL REPORTE
-================================= */
-
-        XLSX.utils.sheet_add_aoa(
-          hoja,
-          [
-            ["REMISIONES SIREM"],
-            ["Listado detallado de remisiones"],
-            [`Período: ${periodo}`],
-          ],
-          {
-            origin: "A1",
-          },
-        );
-
-        /* =================================
-   UNIR ENCABEZADOS
-================================= */
-
-        hoja["!merges"] = [
-          {
-            s: { r: 0, c: 0 },
-            e: { r: 0, c: 18 },
-          },
-
-          {
-            s: { r: 1, c: 0 },
-            e: { r: 1, c: 18 },
-          },
-
-          {
-            s: { r: 2, c: 0 },
-            e: { r: 2, c: 18 },
-          },
-        ];
-
-        /* =================================
-   ESTILO TÍTULO
-================================= */
-
-        hoja["A1"].s = {
-          font: {
-            bold: true,
-
-            sz: 20,
-
-            color: {
-              rgb: "FFFFFF",
-            },
-          },
-
-          fill: {
-            fgColor: {
-              rgb: "8B5E34",
-            },
-          },
-
-          alignment: {
-            horizontal: "center",
-
-            vertical: "center",
-          },
-        };
-
-        /* =================================
-   ALTURA DEL TÍTULO
-================================= */
-
-        hoja["!rows"] = [
-          { hpt: 30 },
-
-          { hpt: 22 },
-
-          { hpt: 18 },
-
-          { hpt: 8 },
-
-          { hpt: 24 },
-        ];
-
-        /* =================================
-   ESTILO SUBTÍTULO
-================================= */
-
-        hoja["A2"].s = {
-          font: {
-            bold: true,
-
-            sz: 12,
-
-            color: {
-              rgb: "6B4A2D",
-            },
-          },
-
-          fill: {
-            fgColor: {
-              rgb: "F3EADF",
-            },
-          },
-
-          alignment: {
-            horizontal: "center",
-
-            vertical: "center",
-          },
-        };
-
-        /* =================================
-   ESTILO PERÍODO
-================================= */
-
-        hoja["A3"].s = {
-          font: {
-            italic: true,
-            sz: 10,
-            color: {
-              rgb: "777777",
-            },
-          },
-
-          alignment: {
-            horizontal: "center",
-          },
-        };
-
-        /* =================================
-   ESTILO ENCABEZADOS DE COLUMNAS
-================================= */
-
-        for (let columna = 0; columna < 18; columna++) {
-          const celda = XLSX.utils.encode_cell({
-            r: 4,
-            c: columna,
-          });
-
-          if (!hoja[celda]) continue;
-
-          hoja[celda].s = {
-            font: {
-              bold: true,
-              color: {
-                rgb: "FFFFFF",
-              },
-              sz: 10,
-            },
-
-            fill: {
-              fgColor: {
-                rgb: "8B5E34",
-              },
-            },
-
-            alignment: {
-              horizontal: "center",
-              vertical: "center",
-              wrapText: true,
-            },
-          };
-        }
-
-        /* =================================
-   FORMATOS NUMÉRICOS
-================================= */
-
-        for (let fila = 5; fila < totalFilas + 5; fila++) {
-          /* CANTIDAD */
-
-          const cantidad = XLSX.utils.encode_cell({
-            r: fila,
-            c: 9,
-          });
-
-          if (hoja[cantidad]) {
-            hoja[cantidad].z = "#,##0";
-          }
-
-          /* PRECIO LISTA */
-
-          const precioLista = XLSX.utils.encode_cell({
-            r: fila,
-            c: 10,
-          });
-
-          if (hoja[precioLista]) {
-            hoja[precioLista].z = "$ #,##0";
-          }
-
-          /* PRECIO VENTA */
-
-          const precioVenta = XLSX.utils.encode_cell({
-            r: fila,
-            c: 11,
-          });
-
-          if (hoja[precioVenta]) {
-            hoja[precioVenta].z = "$ #,##0";
-          }
-
-          /* TOTAL PRODUCTO */
-
-          const totalProducto = XLSX.utils.encode_cell({
-            r: fila,
-            c: 12,
-          });
-
-          if (hoja[totalProducto]) {
-            hoja[totalProducto].z = "$ #,##0";
-          }
-
-          /* TOTAL REMISIÓN */
-
-          const totalRemision = XLSX.utils.encode_cell({
-            r: fila,
-            c: 13,
-          });
-
-          if (hoja[totalRemision]) {
-            hoja[totalRemision].z = "$ #,##0";
-          }
-
-          /* SALDO PENDIENTE */
-
-          const saldo = XLSX.utils.encode_cell({
-            r: fila,
-            c: 14,
-          });
-
-          if (hoja[saldo]) {
-            hoja[saldo].z = "$ #,##0";
-          }
-        }
-
-        /* =================================
-   DIFERENCIAR GRUPOS DE REMISIONES
-================================= */
-
-        let remisionAnterior = null;
-
-        for (let fila = 5; fila < totalFilas + 5; fila++) {
-          const remision = datosExcel[fila - 5]["Remisión"];
-
-          const esNuevaRemision = remision !== remisionAnterior;
-
-          /*
-       Color de fondo alternado
-       para cada grupo de remisión
-    */
-
-          const colorFondo = esNuevaRemision ? "F3E9DD" : "FFFFFF";
-
-          /*
-       Aplicar color a toda la fila
-    */
-
-          /* =================================
-   APLICAR COLOR A TODA LA FILA
-================================= */
-
-          for (let columna = 0; columna < 19; columna++) {
-            const celda = XLSX.utils.encode_cell({
-              r: fila,
-              c: columna,
-            });
-
-            /* =================================
-       CREAR LA CELDA SI ESTÁ VACÍA
-    ================================= */
-
-            if (!hoja[celda]) {
-              hoja[celda] = {
-                t: "s",
-                v: "",
-              };
-            }
-
-            hoja[celda].s = {
-              fill: {
-                fgColor: {
-                  rgb: colorFondo,
-                },
-              },
-
-              alignment: {
-                vertical: "center",
-              },
-
-              border: {
-                bottom: {
-                  style: "thin",
-
-                  color: {
-                    rgb: "DDCDBD",
-                  },
-                },
-              },
-            };
-          }
-
-          /*
-       DESTACAR NÚMERO DE REMISIÓN
-    */
-
-          const celdaNumeroRemision = XLSX.utils.encode_cell({
-            r: fila,
-            c: 0,
-          });
-
-          if (hoja[celdaNumeroRemision]) {
-            hoja[celdaNumeroRemision].s = {
-              font: {
-                bold: true,
-                color: {
-                  rgb: "8B5E34",
-                },
-              },
-
-              fill: {
-                fgColor: {
-                  rgb: esNuevaRemision ? "E8D5BE" : "F8F1E8",
-                },
-              },
-
-              alignment: {
-                horizontal: "center",
-                vertical: "center",
-              },
-
-              border: {
-                top: {
-                  style: esNuevaRemision ? "medium" : "thin",
-
-                  color: {
-                    rgb: "B98A5D",
-                  },
-                },
-
-                bottom: {
-                  style: "thin",
-
-                  color: {
-                    rgb: "D9C4AC",
-                  },
-                },
-              },
-            };
-          }
-
-          remisionAnterior = remision;
-        }
-        /* =================================
-   AJUSTAR COLUMNAS
-================================= */
-
-        hoja["!cols"] = [
-          { wch: 14 }, // Remisión
-          { wch: 14 }, // Fecha
-          { wch: 28 }, // Cliente
-          { wch: 18 }, // Ciudad
-          { wch: 24 }, // Comercial
-          { wch: 32 }, // Producto
-          { wch: 18 }, // Código producto
-          { wch: 22 }, // Línea
-          { wch: 14 }, // Placa
-          { wch: 10 }, // Cantidad
-          { wch: 16 }, // Precio lista
-          { wch: 16 }, // Precio venta
-          { wch: 18 }, // Total producto
-          { wch: 18 }, // Total remisión
-          { wch: 18 }, // Saldo pendiente
-          { wch: 18 }, // Medio de pago
-          { wch: 14 }, // Estado
-          { wch: 40 }, // Comentarios
-          { wch: 18 }, // Código WO
-        ];
-
-        /* =================================
-   FILTROS
-================================= */
-
-        hoja["!autofilter"] = {
-          ref: `A5:S${totalFilas + 5}`,
-        };
-
-        /* =================================
-   CONGELAR ENCABEZADOS
-================================= */
-
-        hoja["!freeze"] = {
-          xSplit: 0,
-
-          ySplit: 5,
-        };
-
-        /* =================================
-   COLOR DE LA PESTAÑA
-================================= */
-
-        hoja["!tabColor"] = {
-          rgb: "8B5E34",
-        };
-        XLSX.utils.book_append_sheet(libro, hoja, "Remisiones");
-
-        /* =================================
-       DESCARGAR
-    ================================= */
-
-        XLSX.writeFile(libro, `Remisiones ${periodo}.xlsx`);
-
-        return;
-      }
-
-      /* =================================
-   EXPORTAR REMISIONES A PDF
-================================= */
-
-      if (tipo === "remisiones" && formato === "PDF") {
-        const respuesta = await fetch(
-          `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`,
-        );
-
-        if (!respuesta.ok) {
-          const errorBackend = await respuesta.json();
-
-          throw new Error(
-            errorBackend.mensaje || "No se pudieron obtener las remisiones.",
-          );
-        }
-
-        const datos = await respuesta.json();
-
-        console.log("REMISIONES PARA PDF:", datos);
-
-        /* =================================
-       VALIDAR REMISIONES
-    ================================= */
-
-        if (!datos.remisiones || datos.remisiones.length === 0) {
-          alert("No hay remisiones para exportar.");
-
-          return;
-        }
-
-        /* =================================
-       CREAR PDF
-    ================================= */
-
-        const pdf = new jsPDF("l", "mm", "a4");
-
-        /* =================================
-       TÍTULO
-    ================================= */
-
-        pdf.setFillColor(139, 94, 52);
-
-        pdf.rect(0, 0, 297, 25, "F");
-
-        pdf.setTextColor(255, 255, 255);
-
-        pdf.setFontSize(18);
-
-        pdf.setFont("helvetica", "bold");
-
-        pdf.text("REMISIONES SIREM", 148.5, 12, {
-          align: "center",
-        });
-
-        pdf.setFontSize(10);
-
-        pdf.setFont("helvetica", "normal");
-
-        pdf.text(
-          `Listado detallado de remisiones - ${datos.periodo}`,
-          148.5,
-          19,
-          {
-            align: "center",
-          },
-        );
-
-        /* =================================
-       PREPARAR TABLA
-    ================================= */
-
-        const filas = datos.remisiones.map((remision) => [
-          remision.numero_remision || "",
-
-          new Date(remision.fecha).toLocaleDateString("es-CO"),
-
-          remision.cliente || "",
-
-          remision.comercial || "",
-
-          remision.nombre_producto || "",
-
-          remision.codigo_producto || "",
-
-          remision.placa || "",
-
-          Number(remision.cantidad || 0),
-
-          Number(remision.precio_venta || 0).toLocaleString("es-CO"),
-
-          Number(remision.total_producto || 0).toLocaleString("es-CO"),
-
-          remision.estado || "",
-
-          remision.codigo_world_office || "",
-
-          remision.comentarios || "",
-        ]);
-
-        /* =================================
-       CREAR TABLA
-    ================================= */
-
-        autoTable(pdf, {
-          startY: 32,
-
-          head: [
-            [
-              "Remisión",
-
-              "Fecha",
-
-              "Cliente",
-
-              "Comercial",
-
-              "Producto",
-
-              "Código",
-
-              "Placa",
-
-              "Cant.",
-
-              "Precio venta",
-
-              "Total",
-
-              "Estado",
-
-              "Código WO",
-
-              "Comentarios",
-            ],
-          ],
-
-          body: filas,
-
-          theme: "grid",
-
-          styles: {
-            fontSize: 7,
-
-            cellPadding: 2,
-
-            valign: "middle",
-          },
-
-          headStyles: {
-            fillColor: [91, 70, 54],
-
-            textColor: [255, 255, 255],
-
-            fontStyle: "bold",
-
-            halign: "center",
-          },
-
-          alternateRowStyles: {
-            fillColor: [248, 244, 240],
-          },
-
-          columnStyles: {
-            0: {
-              halign: "center",
-            },
-
-            1: {
-              halign: "center",
-            },
-
-            7: {
-              halign: "center",
-            },
-
-            8: {
-              halign: "right",
-            },
-
-            9: {
-              halign: "right",
-            },
-
-            10: {
-              halign: "center",
-            },
-
-            11: {
-              halign: "center",
-            },
-          },
-
-          margin: {
-            top: 32,
-
-            right: 5,
-
-            bottom: 15,
-
-            left: 5,
-          },
-        });
-
-        /* =================================
-       PIE DE PÁGINA
-    ================================= */
-
-        const totalPaginas = pdf.getNumberOfPages();
-
-        for (let pagina = 1; pagina <= totalPaginas; pagina++) {
-          pdf.setPage(pagina);
-
-          pdf.setFontSize(8);
-
-          pdf.setTextColor(120, 120, 120);
-
-          pdf.text(`Página ${pagina} de ${totalPaginas}`, 292, 205, {
-            align: "right",
-          });
-        }
-
-        /* =================================
-       DESCARGAR PDF
-    ================================= */
-
-        pdf.save(`Remisiones ${datos.periodo}.pdf`);
-
-        return;
-      }
-
-      /* =================================
-           EXPORTAR CARTERA A EXCEL
-        ================================= */
-
-      if (tipo === "cartera" && formato === "Excel") {
-        const respuesta = await fetch("/api/exportaciones/cartera");
-
-        console.log(
-          "RESPUESTA EXPORTACIÓN:",
-          respuesta.status,
-          respuesta.statusText,
-        );
-
-        if (!respuesta.ok) {
-          const errorBackend = await respuesta.json();
-
-          console.error("ERROR DEL BACKEND:", errorBackend);
-
-          throw new Error(
-            errorBackend.mensaje ||
-              "No se pudieron obtener los datos de cartera.",
-          );
-        }
-
-        const datos = await respuesta.json();
-
-        console.log("DATOS RECIBIDOS PARA EXPORTACIÓN:", datos);
-
-        /* =================================
-               PREPARAR DATOS PARA EXCEL
-            ================================= */
-
-        const datosExcel = datos.map((cuenta) => ({
-          Remisión: cuenta.numero_remision,
-
-          Fecha: (() => {
-            const fecha = new Date(remision.fecha);
-
-            const dia = String(fecha.getDate()).padStart(2, "0");
-            const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-            const año = fecha.getFullYear();
-
-            return `${dia}/${mes}/${año}`;
-          })(),
-
-          Cliente: cuenta.cliente,
-
-          Documento: cuenta.documento,
-
-          Comercial: cuenta.comercial,
-
-          Total: Number(cuenta.total),
-
-          "Total abonado": Number(cuenta.total_abonado),
-
-          "Saldo pendiente": Number(cuenta.saldo_pendiente),
-
-          "Cantidad de abonos": Number(cuenta.cantidad_abonos),
-
-          Días: Number(cuenta.dias),
-
-          Estado: cuenta.estado,
-        }));
-
-        /* =================================
-               CREAR LIBRO EXCEL
-            ================================= */
-
-        const libro = XLSX.utils.book_new();
-
-        const hoja = XLSX.utils.json_to_sheet(datosExcel, {
-          origin: "A5",
-        });
-
-        XLSX.utils.sheet_add_aoa(
-          hoja,
-          [
-            ["CARTERA SIREM"],
-            ["Estado actual de la cartera"],
-            [`Generado: ${new Date().toLocaleDateString("es-CO")}`],
-          ],
-          {
-            origin: "A1",
-          },
-        );
-
-        XLSX.utils.book_append_sheet(libro, hoja, "Cartera");
-
-        /* =================================
-   COMBINAR ENCABEZADOS
-================================= */
-
-        hoja["!merges"] = [
-          {
-            s: { r: 0, c: 0 },
-            e: { r: 0, c: 10 },
-          },
-
-          {
-            s: { r: 1, c: 0 },
-            e: { r: 1, c: 10 },
-          },
-
-          {
-            s: { r: 2, c: 0 },
-            e: { r: 2, c: 10 },
-          },
-        ];
-
-        /* =================================
-   ESTILO TÍTULO PRINCIPAL
-================================= */
-
-        hoja["A1"].s = {
-          font: {
-            bold: true,
-            sz: 20,
-            color: {
-              rgb: "FFFFFF",
-            },
-          },
-
-          fill: {
-            fgColor: {
-              rgb: "8B5E34",
-            },
-          },
-
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-          },
-        };
-
-        /* =================================
-   ESTILO SUBTÍTULO
-================================= */
-
-        hoja["A2"].s = {
-          font: {
-            bold: true,
-            sz: 13,
-            color: {
-              rgb: "5B4636",
-            },
-          },
-
-          fill: {
-            fgColor: {
-              rgb: "F3EDE7",
-            },
-          },
-
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-          },
-        };
-
-        /* =================================
-   ESTILO FECHA
-================================= */
-
-        hoja["A3"].s = {
-          font: {
-            italic: true,
-            sz: 10,
-            color: {
-              rgb: "777777",
-            },
-          },
-
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-          },
-        };
-
-        /* =================================
-   ALTURA DE FILAS SUPERIORES
-================================= */
-
-        hoja["!rows"] = [
-          { hpt: 32 },
-
-          { hpt: 24 },
-
-          { hpt: 20 },
-
-          { hpt: 10 },
-
-          { hpt: 24 },
-        ];
-
-        /* =================================
-   ESTILO ENCABEZADOS TABLA
-================================= */
-
-        const encabezados = [
-          "A5",
-          "B5",
-          "C5",
-          "D5",
-          "E5",
-          "F5",
-          "G5",
-          "H5",
-          "I5",
-          "J5",
-          "K5",
-        ];
-
-        encabezados.forEach((celda) => {
-          hoja[celda].s = {
-            font: {
-              bold: true,
-
-              color: {
-                rgb: "FFFFFF",
-              },
-            },
-
-            fill: {
-              fgColor: {
-                rgb: "5B4636",
-              },
-            },
-
-            alignment: {
-              horizontal: "center",
-
-              vertical: "center",
-
-              wrapText: true,
-            },
-
-            border: {
-              top: {
-                style: "thin",
-                color: {
-                  rgb: "8B5E34",
-                },
-              },
-
-              bottom: {
-                style: "thin",
-                color: {
-                  rgb: "8B5E34",
-                },
-              },
-
-              left: {
-                style: "thin",
-                color: {
-                  rgb: "8B5E34",
-                },
-              },
-
-              right: {
-                style: "thin",
-                color: {
-                  rgb: "8B5E34",
-                },
-              },
-            },
-          };
-        });
-
-        /* =================================
-   ESTILO FILAS DE DATOS
-================================= */
-
-        datos.forEach((cuenta, index) => {
-          const fila = index + 6;
-
-          const colorFondo = index % 2 === 0 ? "FFFFFF" : "F7F3F0";
-
-          for (let columna = 0; columna <= 10; columna++) {
-            const letra = XLSX.utils.encode_col(columna);
-
-            const celda = hoja[`${letra}${fila}`];
-
-            if (celda) {
-              celda.s = {
-                fill: {
-                  fgColor: {
-                    rgb: colorFondo,
-                  },
-                },
-
-                alignment: {
-                  vertical: "center",
-                },
-
-                border: {
-                  bottom: {
-                    style: "thin",
-
-                    color: {
-                      rgb: "E6DDD5",
-                    },
-                  },
-                },
-              };
-            }
-          }
-
-          /* MONEDA */
-
-          ["F", "G", "H"].forEach((columna) => {
-            const celda = hoja[`${columna}${fila}`];
-
-            if (celda) {
-              celda.z = "$#,##0";
-            }
-          });
-
-          /* CENTRAR COLUMNAS */
-
-          ["A", "B", "I", "J", "K"].forEach((columna) => {
-            const celda = hoja[`${columna}${fila}`];
-
-            if (celda) {
-              celda.s = {
-                ...celda.s,
-
-                alignment: {
-                  horizontal: "center",
-
-                  vertical: "center",
-                },
-              };
-            }
-          });
-
-          /* COLOR SEGÚN ESTADO */
-
-          const celdaEstado = hoja[`K${fila}`];
-
-          if (celdaEstado) {
-            let colorEstado = "777777";
-
-            if (cuenta.estado === "VENCIDA") {
-              colorEstado = "B42318";
-            }
-
-            if (cuenta.estado === "SEGUIMIENTO") {
-              colorEstado = "B54708";
-            }
-
-            if (cuenta.estado === "AL_DIA") {
-              colorEstado = "027A48";
-            }
-
-            celdaEstado.s = {
-              ...celdaEstado.s,
-
-              font: {
-                bold: true,
-
-                color: {
-                  rgb: colorEstado,
-                },
-              },
-            };
-          }
-        });
-        /* =================================
-   ESTILO GENERAL DE LAS FILAS
-================================= */
-
-        const totalFilas = datosExcel.length;
-
-        /* BORDES SUAVES */
-
-        const bordes = {
-          top: {
-            style: "thin",
-            color: {
-              rgb: "E8E1DA",
-            },
-          },
-
-          bottom: {
-            style: "thin",
-            color: {
-              rgb: "E8E1DA",
-            },
-          },
-
-          left: {
-            style: "thin",
-            color: {
-              rgb: "F3EEE9",
-            },
-          },
-
-          right: {
-            style: "thin",
-            color: {
-              rgb: "F3EEE9",
-            },
-          },
-        };
-
-        /* RECORRER TODAS LAS FILAS */
-
-        for (let fila = 5; fila < totalFilas + 5; fila++) {
-          const esFilaAlterna = (fila - 5) % 2 === 0;
-
-          for (let columna = 0; columna < 18; columna++) {
-            const celda = XLSX.utils.encode_cell({
-              r: fila,
-              c: columna,
-            });
-
-            if (!hoja[celda]) continue;
-
-            hoja[celda].s = {
-              font: {
-                sz: 9,
-
-                color: {
-                  rgb: "4F4F4F",
-                },
-              },
-
-              fill: {
-                fgColor: {
-                  rgb: esFilaAlterna ? "F8F4F0" : "FFFFFF",
-                },
-              },
-
-              border: bordes,
-
-              alignment: {
-                vertical: "center",
-
-                horizontal: columna >= 9 ? "right" : "left",
-              },
-            };
-          }
-        }
-
-        /* =================================
-   AJUSTAR ANCHO DE COLUMNAS
-================================= */
-
-        hoja["!cols"] = [
-          { wch: 14 }, // Remisión
-          { wch: 14 }, // Fecha
-          { wch: 28 }, // Cliente
-          { wch: 18 }, // Ciudad
-          { wch: 24 }, // Comercial
-          { wch: 32 }, // Producto
-          { wch: 18 }, // Código producto
-          { wch: 24 }, // Línea
-          { wch: 14 }, // Placa
-          { wch: 10 }, // Cantidad
-          { wch: 16 }, // Precio lista
-          { wch: 16 }, // Precio venta
-          { wch: 18 }, // Total producto
-          { wch: 18 }, // Total remisión
-          { wch: 18 }, // Saldo pendiente
-          { wch: 18 }, // Medio pago
-          { wch: 14 }, // Estado
-          { wch: 16 }, // Código WO
-        ];
-
-        /* =================================
-   RESALTAR DÍAS MAYORES A 45
-================================= */
-
-        datos.forEach((cuenta, index) => {
-          const fila = index + 6;
-
-          if (Number(cuenta.dias) > 45) {
-            const celda = hoja[`J${fila}`];
-
-            if (celda) {
-              celda.s = {
-                ...celda.s,
-
-                font: {
-                  ...(celda.s?.font || {}),
-                  bold: true,
-                  color: {
-                    rgb: "C00000",
-                  },
-                },
-
-                alignment: {
-                  horizontal: "center",
-                  vertical: "center",
-                },
-              };
-            }
-          }
-        });
-
-        /* =================================
-               DESCARGAR ARCHIVO
-            ================================= */
-
-        XLSX.writeFile(
-          libro,
-
-          "Cartera SIREM.xlsx",
-        );
-
-        return;
-      }
-      /* =================================
-   EXPORTAR CARTERA A PDF
-================================= */
-
-      if (tipo === "cartera" && formato === "PDF") {
-        const respuesta = await fetch("/api/exportaciones/cartera");
-
-        console.log("RESPUESTA PDF:", respuesta.status, respuesta.statusText);
-
-        if (!respuesta.ok) {
-          const errorBackend = await respuesta.json();
-
-          throw new Error(
-            errorBackend.mensaje ||
-              "No se pudieron obtener los datos de cartera.",
-          );
-        }
-
-        const datos = await respuesta.json();
-
-        /* =================================
-       CREAR DOCUMENTO PDF
-    ================================= */
-
-        const pdf = new jsPDF("l", "mm", "a4");
-
-        /* =================================
-   ENCABEZADO DEL PDF
-================================= */
-
-        /* Fondo del encabezado */
-
-        pdf.setFillColor(139, 94, 52);
-
-        pdf.roundedRect(14, 12, 269, 32, 3, 3, "F");
-
-        /* Línea decorativa */
-
-        pdf.setFillColor(198, 155, 109);
-
-        pdf.roundedRect(14, 12, 7, 32, 3, 3, "F");
-
-        /* Título */
-
-        pdf.setTextColor(255, 255, 255);
-
-        pdf.setFont("helvetica", "bold");
-
-        pdf.setFontSize(23);
-
-        pdf.text("CARTERA", 30, 27);
-
-        /* Nombre del sistema */
-
-        pdf.setFontSize(10);
-
-        pdf.setFont("helvetica", "normal");
-
-        pdf.text("SISTEMA DE INFORMACIÓN SIREM", 30, 35);
-
-        /* Información derecha */
-
-        pdf.setFontSize(9);
-
-        pdf.text("ESTADO ACTUAL DE LA CARTERA", 265, 23, {
-          align: "right",
-        });
-
-        pdf.setFontSize(8);
-
-        pdf.text(
-          `Generado el ${new Date().toLocaleDateString("es-CO")}`,
-          265,
-          31,
-          {
-            align: "right",
-          },
-        );
-
-        /* Restaurar color */
-
-        pdf.setTextColor(0, 0, 0);
-        /* =================================
-       TABLA
-    ================================= */
-
-        autoTable(pdf, {
-          startY: 40,
-
-          head: [
-            [
-              "Remisión",
-
-              "Fecha",
-
-              "Cliente",
-
-              "Comercial",
-
-              "Total",
-
-              "Abonado",
-
-              "Saldo",
-
-              "Abonos",
-
-              "Días",
-
-              "Estado",
-            ],
-          ],
-
-          body: datos.map((cuenta) => [
-            cuenta.numero_remision,
-
-            new Date(cuenta.fecha).toLocaleDateString("es-CO"),
-
-            cuenta.cliente,
-
-            cuenta.comercial,
-
-            `$ ${Number(cuenta.total).toLocaleString("es-CO")}`,
-
-            `$ ${Number(cuenta.total_abonado).toLocaleString("es-CO")}`,
-
-            `$ ${Number(cuenta.saldo_pendiente).toLocaleString("es-CO")}`,
-
-            cuenta.cantidad_abonos,
-
-            cuenta.dias,
-
-            cuenta.estado,
-          ]),
-
-          styles: {
-            fontSize: 7,
-
-            cellPadding: 2,
-
-            valign: "middle",
-          },
-
-          headStyles: {
-            fillColor: [139, 94, 52],
-
-            textColor: 255,
-
-            fontStyle: "bold",
-
-            halign: "center",
-          },
-
-          alternateRowStyles: {
-            fillColor: [248, 245, 241],
-          },
-
-          columnStyles: {
-            0: {
-              halign: "center",
-            },
-
-            1: {
-              halign: "center",
-            },
-
-            4: {
-              halign: "right",
-            },
-
-            5: {
-              halign: "right",
-            },
-
-            6: {
-              halign: "right",
-            },
-
-            7: {
-              halign: "center",
-            },
-
-            8: {
-              halign: "center",
-            },
-
-            9: {
-              halign: "center",
-            },
-          },
-        });
-
-        /* =================================
-       DESCARGAR PDF
-    ================================= */
-
-        pdf.save("Cartera SIREM.pdf");
-
-        return;
-      }
-
-      /* =================================
-           DEMÁS EXPORTACIONES
-        ================================= */
-
-      alert(
-        `${tipo} - ${formato}\n` +
-          `Periodo: ${periodo}\n\n` +
-          `Esta exportación aún está en desarrollo.`,
+  const MESES = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ];
+
+  /* Una remisión por cada id (sus filas traen un producto cada una) */
+
+  const remisionesUnicasDe = (filas) => [
+    ...new Map(filas.map((fila) => [fila.id_remision, fila])).values(),
+  ];
+
+  const abonadoDe = (remision) =>
+    Math.max(Number(remision.total || 0) - Number(remision.saldo_pendiente || 0), 0);
+
+  /* Resumen por mes: [{ mes, remisiones, vendido, abonado, cartera }] */
+
+  const resumenPorMes = (filas) => {
+    const unicas = remisionesUnicasDe(filas);
+
+    return MESES.map((mes, indice) => {
+      const delMes = unicas.filter(
+        (remision) => fechaDeRemision(remision.fecha).getMonth() === indice,
       );
+
+      return {
+        mes,
+        remisiones: delMes.length,
+        vendido: sumar(delMes, "total"),
+        abonado: delMes.reduce((total, remision) => total + abonadoDe(remision), 0),
+        cartera: sumar(delMes, "saldo_pendiente"),
+      };
+    });
+  };
+
+  const totalesResumen = (resumen) => ({
+    remisiones: resumen.reduce((t, mes) => t + mes.remisiones, 0),
+    vendido: resumen.reduce((t, mes) => t + mes.vendido, 0),
+    abonado: resumen.reduce((t, mes) => t + mes.abonado, 0),
+    cartera: resumen.reduce((t, mes) => t + mes.cartera, 0),
+  });
+
+  const construirExcelRemisiones = ({ filas, titulo, subtitulo, nombreArchivo, resumen }) => {
+    /* Cada remisión es un grupo de filas: se marca el inicio de cada una */
+
+    let remisionAnterior = null;
+    let grupo = -1;
+
+    const grupos = filas.map((fila) => {
+      if (fila.id_remision !== remisionAnterior) {
+        grupo += 1;
+        remisionAnterior = fila.id_remision;
+
+        return { indice: grupo, inicio: true };
+      }
+
+      return { indice: grupo, inicio: false };
+    });
+
+    const primerasFilas = new Set(filas.filter((_, indice) => grupos[indice].inicio));
+
+    const columnas = [
+      { titulo: "Remisión", valor: (r) => r.numero_remision, ancho: 12 },
+      { titulo: "Fecha", valor: (r) => fechaCorta(r.fecha), ancho: 11, alinear: "center" },
+      { titulo: "Cliente", valor: (r) => r.cliente, ancho: 30 },
+      { titulo: "Ciudad", valor: (r) => r.ciudad || "", ancho: 15 },
+      { titulo: "Comercial", valor: (r) => r.comercial, ancho: 24 },
+      { titulo: "Producto", valor: (r) => r.nombre_producto || "", ancho: 32 },
+      { titulo: "Código producto", valor: (r) => r.codigo_producto || "", ancho: 15 },
+      { titulo: "Línea", valor: (r) => r.linea_producto || "", ancho: 18 },
+      { titulo: "Placa", valor: (r) => r.placa || "", ancho: 12 },
+      { titulo: "Cantidad", valor: (r) => Number(r.cantidad), ancho: 10, formato: "numero" },
+      { titulo: "Precio lista", valor: (r) => Number(r.precio_lista), ancho: 14, formato: "moneda" },
+      { titulo: "Precio venta", valor: (r) => Number(r.precio_venta), ancho: 14, formato: "moneda" },
+      { titulo: "Total producto", valor: (r) => Number(r.total_producto), ancho: 15, formato: "moneda" },
+      // Los valores de la remisión van solo en su primera fila,
+      // para que no parezcan repetidos ni se sumen varias veces
+      {
+        titulo: "Total remisión",
+        valor: (r) => (primerasFilas.has(r) ? Number(r.total) : ""),
+        ancho: 15,
+        formato: "moneda",
+      },
+      {
+        titulo: "Total abonado",
+        valor: (r) => (primerasFilas.has(r) ? abonadoDe(r) : ""),
+        ancho: 15,
+        formato: "moneda",
+      },
+      {
+        titulo: "Saldo pendiente",
+        valor: (r) => (primerasFilas.has(r) ? Number(r.saldo_pendiente) : ""),
+        ancho: 15,
+        formato: "moneda",
+      },
+      { titulo: "Medio de pago", valor: (r) => etiquetaMedioPago(r.medio_pago), ancho: 15 },
+      { titulo: "Estado", valor: (r) => etiquetaEstado(r.estado), ancho: 12 },
+      { titulo: "Comentarios", valor: (r) => r.comentarios || "", ancho: 40, ajustar: true },
+      { titulo: "Código WO", valor: (r) => r.codigo_world_office || "", ancho: 16 },
+    ];
+
+    let bloqueResumen = null;
+
+    if (resumen) {
+      const total = totalesResumen(resumen);
+
+      bloqueResumen = {
+        titulo: "Resumen anual",
+        columnas: [
+          { titulo: "Mes" },
+          { titulo: "Remisiones", formato: "entero" },
+          { titulo: "Total vendido", formato: "moneda" },
+          { titulo: "Abonado", formato: "moneda" },
+          { titulo: "Cartera", formato: "moneda" },
+        ],
+        filas: resumen.map((mes) => [mes.mes, mes.remisiones, mes.vendido, mes.abonado, mes.cartera]),
+        total: ["TOTAL DEL AÑO", total.remisiones, total.vendido, total.abonado, total.cartera],
+      };
+    }
+
+    const hoja = crearHoja({
+      titulo,
+      subtitulo,
+      columnas,
+      filas,
+      resumen: bloqueResumen,
+      estiloFila: (_, indice) => ({
+        // El fondo alterna por remisión, no por fila
+        fondo: grupos[indice].indice % 2 === 1 ? "FAF7F2" : "FFFFFF",
+        separador: grupos[indice].inicio && indice > 0,
+      }),
+    });
+
+    descargarLibro(hoja, "Remisiones", nombreArchivo);
+
+    avisarDescarga(nombreArchivo);
+  };
+
+  const construirPdfRemisiones = async ({ filas, titulo, subtitulo, nombreArchivo, resumen }) => {
+    const remisionesUnicas = remisionesUnicasDe(filas);
+
+    const totalVendido = sumar(remisionesUnicas, "total");
+    const saldoPendiente = sumar(remisionesUnicas, "saldo_pendiente");
+
+    const doc = await crearDocumento({
+      orientacion: "l",
+      titulo,
+      subtitulo,
+      detalle: `${remisionesUnicas.length} remisiones · ${filas.length} líneas de producto`,
+    });
+
+    let y = indicadores(
+      doc,
+      [
+        { etiqueta: "Remisiones", valor: remisionesUnicas.length },
+        { etiqueta: "Unidades vendidas", valor: numero(sumar(filas, "cantidad")), color: COLORES.oscuro },
+        { etiqueta: "Total vendido", valor: pesos(totalVendido) },
+        {
+          etiqueta: resumen ? "Cartera anual" : "Saldo pendiente",
+          valor: pesos(saldoPendiente),
+          color: COLORES.peligro,
+        },
+      ],
+      doc.inicioY + 2,
+    );
+
+    /* Los datos de la remisión solo se muestran en su primera fila */
+
+    const esPrimera = filas.map(
+      (fila, indice) => indice === 0 || fila.id_remision !== filas[indice - 1].id_remision,
+    );
+
+    y = tabla(doc, {
+      startY: y,
+      head: [
+        [
+          "Remisión",
+          "Fecha",
+          "Cliente",
+          "Comercial",
+          "Producto",
+          "Código",
+          "Placa",
+          "Cant.",
+          "Precio venta",
+          "Total",
+          "Estado",
+          "Código WO",
+          "Comentarios",
+        ],
+      ],
+      body: filas.map((fila, indice) => {
+        const primera = esPrimera[indice];
+
+        return [
+          primera ? fila.numero_remision : "",
+          primera ? fechaCorta(fila.fecha) : "",
+          primera ? fila.cliente : "",
+          primera ? fila.comercial : "",
+          fila.nombre_producto || "",
+          fila.codigo_producto || "",
+          fila.placa || "",
+          numero(fila.cantidad),
+          pesos(fila.precio_venta),
+          pesos(fila.total_producto),
+          primera ? etiquetaEstado(fila.estado) : "",
+          primera ? fila.codigo_world_office || "" : "",
+          primera ? fila.comentarios || "" : "",
+        ];
+      }),
+      foot: [
+        ["Total", "", "", "", "", "", "", numero(sumar(filas, "cantidad")), "", pesos(sumar(filas, "total_producto")), "", "", ""],
+      ],
+      // Sin filas alternas: cada remisión se separa con una línea
+      alternateRowStyles: {},
+      styles: {
+        fontSize: 7,
+        cellPadding: { top: 1.8, bottom: 1.8, left: 1.8, right: 1.8 },
+        textColor: COLORES.texto,
+        lineWidth: 0,
+        valign: "middle",
+        overflow: "linebreak",
+      },
+      columnStyles: {
+        0: { cellWidth: 17, fontStyle: "bold" },
+        1: { cellWidth: 16 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 26 },
+        5: { cellWidth: 16 },
+        6: { cellWidth: 14 },
+        7: { cellWidth: 10, halign: "center" },
+        8: { cellWidth: 19, halign: "right" },
+        9: { cellWidth: 21, halign: "right" },
+        10: { cellWidth: 16 },
+        11: { cellWidth: 17 },
+        12: { cellWidth: 30, fontSize: 6.5, textColor: COLORES.gris },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && esPrimera[data.row.index] && data.row.index > 0) {
+          data.cell.styles.lineWidth = { top: 0.3 };
+          data.cell.styles.lineColor = COLORES.linea;
+        }
+
+        if (data.section === "body" && data.column.index === 10) {
+          data.cell.styles.textColor = colorEstado(filas[data.row.index].estado);
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+
+    /* RESUMEN ANUAL (al final del documento) */
+
+    if (resumen) {
+      const total = totalesResumen(resumen);
+
+      // El resumen (título + 12 meses + total) necesita unos 95 mm
+      if (y > doc.alto - 110) {
+        doc.pdf.addPage();
+        y = doc.inicioY;
+      }
+
+      y = tituloSeccion(doc, "Resumen anual", y + 12);
+
+      tabla(doc, {
+        startY: y,
+        head: [["Mes", "Remisiones", "Total vendido", "Abonado", "Cartera"]],
+        body: resumen.map((mes) => [
+          mes.mes,
+          mes.remisiones,
+          pesos(mes.vendido),
+          pesos(mes.abonado),
+          pesos(mes.cartera),
+        ]),
+        foot: [
+          [
+            "Total del año",
+            total.remisiones,
+            pesos(total.vendido),
+            pesos(total.abonado),
+            pesos(total.cartera),
+          ],
+        ],
+        columnStyles: {
+          0: { cellWidth: 60, fontStyle: "bold" },
+          1: { halign: "center" },
+          2: { halign: "right" },
+          3: { halign: "right" },
+          4: { halign: "right", fontStyle: "bold" },
+        },
+        didParseCell: (data) => {
+          // Los meses sin movimiento se ven más tenues
+          if (data.section === "body" && resumen[data.row.index].remisiones === 0) {
+            data.cell.styles.textColor = COLORES.gris;
+            data.cell.styles.fontStyle = "normal";
+          }
+        },
+      });
+    }
+
+    doc.finalizar(nombreArchivo);
+
+    avisarDescarga(nombreArchivo);
+  };
+
+  /* =================================
+   REMISIONES DEL MES (EXCEL Y PDF)
+================================= */
+
+  const obtenerRemisionesDelMes = async () => {
+    const datos = await obtenerJson(
+      `/api/exportaciones/remisiones?periodo=${encodeURIComponent(periodo)}`,
+      "No se pudieron obtener las remisiones.",
+    );
+
+    const filas = datos.remisiones || [];
+
+    if (filas.length === 0) {
+      avisar.info(`No hay remisiones registradas en ${periodo}.`, "Nada para exportar");
+    }
+
+    return filas;
+  };
+
+  const exportarRemisionesExcel = async () => {
+    const filas = await obtenerRemisionesDelMes();
+
+    if (filas.length === 0) return;
+
+    construirExcelRemisiones({
+      filas,
+      titulo: "Remisiones",
+      subtitulo: `Listado detallado · ${periodo} · ${remisionesUnicasDe(filas).length} remisiones`,
+      nombreArchivo: `Remisiones ${periodo}.xlsx`,
+    });
+  };
+
+  const exportarRemisionesPdf = async () => {
+    const filas = await obtenerRemisionesDelMes();
+
+    if (filas.length === 0) return;
+
+    await construirPdfRemisiones({
+      filas,
+      titulo: "Remisiones",
+      subtitulo: `Listado detallado · ${periodo}`,
+      nombreArchivo: `Remisiones ${periodo}.pdf`,
+    });
+  };
+
+  /* =================================
+   REMISIONES DEL AÑO (EXCEL Y PDF)
+================================= */
+
+  const anio = periodo.split(" ")[1] || String(new Date().getFullYear());
+
+  /* Se piden los 12 meses con la misma consulta del reporte mensual */
+
+  const obtenerRemisionesDelAnio = async () => {
+    const meses = await Promise.all(
+      MESES.map((mes) =>
+        obtenerJson(
+          `/api/exportaciones/remisiones?periodo=${encodeURIComponent(`${mes} ${anio}`)}`,
+          `No se pudieron obtener las remisiones de ${mes}.`,
+        ),
+      ),
+    );
+
+    // Orden cronológico: por fecha y número de remisión
+    const numeroDe = (fila) => Number(String(fila.numero_remision).replace(/\D/g, "")) || 0;
+
+    const filas = meses
+      .flatMap((datos) => datos.remisiones || [])
+      .sort(
+        (a, b) =>
+          String(a.fecha).slice(0, 10).localeCompare(String(b.fecha).slice(0, 10)) ||
+          numeroDe(a) - numeroDe(b),
+      );
+
+    if (filas.length === 0) {
+      avisar.info(`No hay remisiones registradas en ${anio}.`, "Nada para exportar");
+    }
+
+    return filas;
+  };
+
+  const exportarAnualExcel = async () => {
+    const filas = await obtenerRemisionesDelAnio();
+
+    if (filas.length === 0) return;
+
+    construirExcelRemisiones({
+      filas,
+      titulo: `Remisiones ${anio}`,
+      subtitulo: `Consolidado anual · ${remisionesUnicasDe(filas).length} remisiones`,
+      nombreArchivo: `Remisiones anuales ${anio}.xlsx`,
+      resumen: resumenPorMes(filas),
+    });
+  };
+
+  const exportarAnualPdf = async () => {
+    const filas = await obtenerRemisionesDelAnio();
+
+    if (filas.length === 0) return;
+
+    await construirPdfRemisiones({
+      filas,
+      titulo: `Remisiones ${anio}`,
+      subtitulo: `Consolidado anual · Enero a Diciembre ${anio}`,
+      nombreArchivo: `Remisiones anuales ${anio}.pdf`,
+      resumen: resumenPorMes(filas),
+    });
+  };
+
+  /* =================================
+   CARTERA (EXCEL)
+================================= */
+
+  const exportarCarteraExcel = async () => {
+    const cuentas = await obtenerJson(
+      "/api/exportaciones/cartera",
+      "No se pudieron obtener los datos de cartera.",
+    );
+
+    if (cuentas.length === 0) {
+      avisar.info("No hay cartera pendiente.", "Nada para exportar");
+
+      return;
+    }
+
+    const columnas = [
+      { titulo: "Remisión", valor: (c) => c.numero_remision, ancho: 12 },
+      { titulo: "Fecha", valor: (c) => fechaCorta(c.fecha), ancho: 11, alinear: "center" },
+      { titulo: "Cliente", valor: (c) => c.cliente, ancho: 32 },
+      { titulo: "Documento", valor: (c) => c.documento || "", ancho: 15 },
+      { titulo: "Comercial", valor: (c) => c.comercial, ancho: 24 },
+      { titulo: "Total", valor: (c) => Number(c.total), ancho: 15, formato: "moneda" },
+      { titulo: "Total abonado", valor: (c) => Number(c.total_abonado), ancho: 15, formato: "moneda" },
+      { titulo: "Saldo pendiente", valor: (c) => Number(c.saldo_pendiente), ancho: 16, formato: "moneda" },
+      { titulo: "Cantidad de abonos", valor: (c) => Number(c.cantidad_abonos), ancho: 11, formato: "entero", alinear: "center" },
+      { titulo: "Días", valor: (c) => Number(c.dias), ancho: 8, formato: "entero", alinear: "center" },
+      { titulo: "Estado", valor: (c) => etiquetaEstado(c.estado), ancho: 13 },
+    ];
+
+    const hoja = crearHoja({
+      titulo: "Cartera",
+      subtitulo: `Estado actual · ${cuentas.length} cuentas pendientes`,
+      columnas,
+      filas: cuentas,
+      totales: {
+        Total: sumar(cuentas, "total"),
+        "Total abonado": sumar(cuentas, "total_abonado"),
+        "Saldo pendiente": sumar(cuentas, "saldo_pendiente"),
+      },
+      // Las cuentas vencidas (más de 45 días) se resaltan
+      estiloCelda: (cuenta, columna) =>
+        Number(cuenta.dias) > 45 && ["Días", "Estado"].includes(columna.titulo)
+          ? { bold: true, color: { rgb: COLOR_PELIGRO } }
+          : null,
+    });
+
+    descargarLibro(hoja, "Cartera", "Cartera SIREM.xlsx");
+
+    avisarDescarga("Cartera SIREM.xlsx");
+  };
+
+  /* =================================
+   CARTERA (PDF)
+================================= */
+
+  const exportarCarteraPdf = async () => {
+    const cuentas = await obtenerJson(
+      "/api/exportaciones/cartera",
+      "No se pudieron obtener los datos de cartera.",
+    );
+
+    if (cuentas.length === 0) {
+      avisar.info("No hay cartera pendiente.", "Nada para exportar");
+
+      return;
+    }
+
+    const saldoPorRango = (desde, hasta) =>
+      cuentas
+        .filter((cuenta) => Number(cuenta.dias) >= desde && Number(cuenta.dias) <= hasta)
+        .reduce((total, cuenta) => total + Number(cuenta.saldo_pendiente || 0), 0);
+
+    const doc = await crearDocumento({
+      orientacion: "l",
+      titulo: "Cartera",
+      subtitulo: "Estado actual de la cartera",
+      detalle: `${cuentas.length} cuentas pendientes`,
+    });
+
+    const y = indicadores(
+      doc,
+      [
+        { etiqueta: "Cartera total", valor: pesos(sumar(cuentas, "saldo_pendiente")), color: COLORES.oscuro },
+        { etiqueta: "0 – 30 días", valor: pesos(saldoPorRango(0, 30)), color: COLORES.exito },
+        { etiqueta: "31 – 45 días", valor: pesos(saldoPorRango(31, 45)), color: COLORES.alerta },
+        { etiqueta: "Más de 45 días", valor: pesos(saldoPorRango(46, Infinity)), color: COLORES.peligro },
+      ],
+      doc.inicioY + 2,
+    );
+
+    tabla(doc, {
+      startY: y,
+      head: [
+        ["Remisión", "Fecha", "Cliente", "Documento", "Comercial", "Total", "Abonado", "Saldo", "Abonos", "Días", "Estado"],
+      ],
+      body: cuentas.map((cuenta) => [
+        cuenta.numero_remision,
+        fechaCorta(cuenta.fecha),
+        cuenta.cliente,
+        cuenta.documento || "",
+        cuenta.comercial,
+        pesos(cuenta.total),
+        pesos(cuenta.total_abonado),
+        pesos(cuenta.saldo_pendiente),
+        cuenta.cantidad_abonos,
+        cuenta.dias,
+        etiquetaEstado(cuenta.estado),
+      ]),
+      foot: [
+        [
+          "Total",
+          "",
+          "",
+          "",
+          "",
+          pesos(sumar(cuentas, "total")),
+          pesos(sumar(cuentas, "total_abonado")),
+          pesos(sumar(cuentas, "saldo_pendiente")),
+          "",
+          "",
+          "",
+        ],
+      ],
+      columnStyles: {
+        0: { cellWidth: 20, fontStyle: "bold" },
+        1: { cellWidth: 20 },
+        3: { cellWidth: 24 },
+        5: { cellWidth: 26, halign: "right" },
+        6: { cellWidth: 26, halign: "right" },
+        7: { cellWidth: 26, halign: "right", fontStyle: "bold" },
+        8: { cellWidth: 15, halign: "center" },
+        9: { cellWidth: 13, halign: "center" },
+        10: { cellWidth: 24 },
+      },
+      didParseCell: (data) => {
+        colorearEstado(10, (fila) => cuentas[fila].estado)(data);
+
+        if (data.section === "body" && data.column.index === 9 && Number(cuentas[data.row.index].dias) > 45) {
+          data.cell.styles.textColor = COLORES.peligro;
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+
+    doc.finalizar("Cartera SIREM.pdf");
+
+    avisarDescarga("Cartera SIREM.pdf");
+  };
+
+  /* =================================
+   ELEGIR EXPORTACIÓN
+================================= */
+
+  const exportar = async (tipo, formato) => {
+    const acciones = {
+      "general-PDF": exportarGeneralPdf,
+      "remisiones-Excel": exportarRemisionesExcel,
+      "remisiones-PDF": exportarRemisionesPdf,
+      "anual-Excel": exportarAnualExcel,
+      "anual-PDF": exportarAnualPdf,
+      "cartera-Excel": exportarCarteraExcel,
+      "cartera-PDF": exportarCarteraPdf,
+    };
+
+    const accion = acciones[`${tipo}-${formato}`];
+
+    if (!accion || generando) {
+      return;
+    }
+
+    setGenerando(`${tipo}-${formato}`);
+
+    try {
+      await accion();
     } catch (error) {
       console.error("Error exportando:", error);
 
-      alert(
-        error.message ||
-          "Ocurrió un error al obtener los datos para la exportación.",
+      avisar.fallo(
+        error,
+        error.message || "Ocurrió un error al obtener los datos para la exportación.",
       );
+    } finally {
+      setGenerando(null);
     }
   };
 
-  return (
-    <div className="exportaciones-page">
-      {/* =================================
-                ENCABEZADO
-            ================================= */}
+  const generarRemision = async (e) => {
+    e.preventDefault();
 
-      <div className="exportaciones-header">
+    if (generando) return;
+
+    setGenerando("remision");
+
+    try {
+      await imprimirRemision(numeroImprimir);
+    } finally {
+      setGenerando(null);
+    }
+  };
+
+  /* =================================
+   VISTA
+================================= */
+
+  const ICONO_FORMATO = { PDF: FileText, Excel: FileSpreadsheet };
+
+  const botonFormato = (tipo, formato) => {
+    const clave = `${tipo}-${formato}`;
+    const Icono = generando === clave ? LoaderCircle : ICONO_FORMATO[formato];
+
+    return (
+      <button
+        type="button"
+        key={formato}
+        className={`exp-boton ${formato === "PDF" ? "pdf" : "excel"}`}
+        onClick={() => exportar(tipo, formato)}
+        disabled={Boolean(generando)}
+      >
+        <Icono size={16} className={generando === clave ? "exp-girando" : ""} />
+
+        <span>
+          {generando === clave ? "Generando…" : `Descargar ${formato}`}
+        </span>
+
+        <small>{formato === "PDF" ? ".pdf" : ".xlsx"}</small>
+      </button>
+    );
+  };
+
+  return (
+    <div className="exp-pagina">
+      {/* ENCABEZADO */}
+
+      <div className="page-header">
         <div>
-          <span className="exportaciones-tag">ARCHIVOS</span>
+          <span className="page-tag">ARCHIVOS</span>
 
           <h1>Exportaciones</h1>
 
-          <p>Genera y descarga información de SIREM.</p>
+          <p>Descarga reportes de SIREM listos para compartir o imprimir.</p>
         </div>
       </div>
 
-      {/* =================================
-                INFORMACIÓN
-            ================================= */}
+      {/* PERÍODO */}
 
-      <div className="exportaciones-nota">
-        <div className="exportaciones-nota-icon">
-          <Download size={19} />
+      <div className="exp-periodo">
+        <div className="exp-periodo-icono">
+          <CalendarDays size={18} />
         </div>
 
-        <div>
-          <strong>Selecciona el formato de exportación</strong>
-
-          <p>
-            Puedes generar la información del periodo seleccionado en formato
-            PDF o Excel.
-          </p>
+        <div className="exp-periodo-texto">
+          <span>Período de los reportes</span>
+          <strong>{periodo || "Sin período seleccionado"}</strong>
         </div>
+
+        <p className="exp-periodo-ayuda">
+          Cámbialo con el selector de mes de la parte superior. La cartera
+          siempre muestra el estado actual.
+        </p>
       </div>
 
-      {/* =================================
-                REPORTES
-            ================================= */}
+      {/* REPORTES */}
 
-      <div className="exportaciones-grid">
+      <div className="exp-grid">
         {exportaciones.map((reporte) => {
           const Icono = reporte.icono;
 
           return (
-            <div className="exportacion-card" key={reporte.id}>
-              <div className="exportacion-card-top">
-                <div className={`exportacion-icon ${reporte.clase}`}>
-                  <Icono size={22} />
+            <article className="exp-tarjeta" key={reporte.tipo}>
+              <header className="exp-tarjeta-encabezado">
+                <div className={`exp-icono ${reporte.tipo}`}>
+                  <Icono size={20} />
                 </div>
-              </div>
 
-              <div className="exportacion-content">
-                <h3>{reporte.titulo}</h3>
+                <span className="exp-alcance">
+                  {reporte.alcance ? (
+                    <>
+                      <CalendarRange size={12} /> {reporte.alcance}
+                    </>
+                  ) : reporte.usaPeriodo ? (
+                    <>
+                      <CalendarDays size={12} /> {periodo}
+                    </>
+                  ) : (
+                    <>
+                      <Clock3 size={12} /> Estado actual
+                    </>
+                  )}
+                </span>
+              </header>
 
-                <p>{reporte.descripcion}</p>
-              </div>
+              <h3>{reporte.titulo}</h3>
 
-              <div className="exportacion-actions">
-                <button
-                  className="btn-exportar pdf"
-                  onClick={() => exportar(reporte.tipo, "PDF")}
-                >
-                  <FileText size={15} />
-                  PDF
-                </button>
+              <p className="exp-descripcion">{reporte.descripcion}</p>
 
-                {reporte.tipo === "remisiones" && (
-                  <button
-                    className="btn-exportar pdf"
-                    onClick={imprimirRemision}
-                  >
-                    <Receipt size={15} />1 Remisión
-                  </button>
+              <ul className="exp-contenido">
+                {reporte.contenido.map((item) => (
+                  <li key={item}>
+                    <Check size={13} />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="exp-acciones">
+                {reporte.formatos.map((formato) =>
+                  botonFormato(reporte.tipo, formato),
                 )}
               </div>
-
-              {reporte.tipo !== "general" && (
-                <button
-                  className="btn-exportar excel"
-                  onClick={() => exportar(reporte.tipo, "Excel")}
-                >
-                  <FileSpreadsheet size={15} />
-                  Excel
-                </button>
-              )}
-            </div>
+            </article>
           );
         })}
+
+        {/* REMISIÓN INDIVIDUAL */}
+
+        <article className="exp-tarjeta">
+          <header className="exp-tarjeta-encabezado">
+            <div className="exp-icono remision">
+              <Printer size={20} />
+            </div>
+
+            <span className="exp-alcance">
+              <FileText size={12} /> Documento
+            </span>
+          </header>
+
+          <h3>Remisión individual</h3>
+
+          <p className="exp-descripcion">
+            Imprime una remisión con sus productos, totales y espacio para
+            firmas.
+          </p>
+
+          <form className="exp-formulario" onSubmit={generarRemision}>
+            <label htmlFor="exp-numero-remision">Número de remisión</label>
+
+            <div className="exp-campo">
+              <span>REM</span>
+
+              <input
+                id="exp-numero-remision"
+                type="text"
+                inputMode="numeric"
+                placeholder="1033"
+                value={numeroImprimir}
+                onChange={(e) =>
+                  setNumeroImprimir(e.target.value.replace(/^REM\s*/i, ""))
+                }
+              />
+            </div>
+          </form>
+
+          <div className="exp-acciones">
+            <button
+              type="button"
+              className="exp-boton pdf"
+              onClick={generarRemision}
+              disabled={Boolean(generando)}
+            >
+              {generando === "remision" ? (
+                <LoaderCircle size={16} className="exp-girando" />
+              ) : (
+                <Printer size={16} />
+              )}
+
+              <span>
+                {generando === "remision" ? "Generando…" : "Generar PDF"}
+              </span>
+
+              <small>.pdf</small>
+            </button>
+          </div>
+        </article>
       </div>
     </div>
   );

@@ -1,35 +1,76 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import Layout from "./components/Layout/Layout";
 import Login from "./pages/Login";
+import { CLAVE_SESION } from "./utils/api";
+import { PAGINA_INICIAL, buscarPagina, puedeVer } from "./utils/paginas";
+import { useAvisos } from "./components/Avisos/Avisos";
+
+/*
+La página activa vive en la URL (#/cartera, #/clientes...), así
+funcionan los botones Atrás/Adelante del navegador y al recargar
+se vuelve a la misma sección.
+*/
+
+const leerPaginaDeUrl = () =>
+  window.location.hash.replace(/^#\/?/, "") || PAGINA_INICIAL;
 
 function App() {
-  const [paginaActiva, setPaginaActiva] = useState(() => {
-    return localStorage.getItem("sirem_pagina_activa") || "inicio";
+  const { avisar } = useAvisos();
+
+  const [paginaUrl, setPaginaUrl] = useState(leerPaginaDeUrl);
+
+  const [usuarioActual, setUsuarioActual] = useState(() => {
+    try {
+      const sesion = JSON.parse(localStorage.getItem(CLAVE_SESION));
+
+      return sesion?.token ? sesion : null;
+    } catch {
+      return null;
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem("sirem_pagina_activa", paginaActiva);
-  }, [paginaActiva]);
+    const alCambiarUrl = () => setPaginaUrl(leerPaginaDeUrl());
 
-  const [contraido, setContraido] = useState(false);
+    window.addEventListener("hashchange", alCambiarUrl);
 
-  const [usuarioActual, setUsuarioActual] = useState(() => {
-    const usuarioGuardado = localStorage.getItem("usuarioSirem");
+    return () => window.removeEventListener("hashchange", alCambiarUrl);
+  }, []);
 
-    return usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
-  });
+  const pagina = buscarPagina(paginaUrl);
+
+  const paginaActiva =
+    pagina && puedeVer(pagina, usuarioActual) ? pagina.id : PAGINA_INICIAL;
+
+  useEffect(() => {
+    document.title = usuarioActual
+      ? `${buscarPagina(paginaActiva).nombre} · SIREM`
+      : "SIREM · Talabartería San Fermín";
+  }, [paginaActiva, usuarioActual]);
+
+  const setPaginaActiva = useCallback((id) => {
+    window.location.hash = `/${id}`;
+
+    document.querySelector(".content")?.scrollTo({ top: 0 });
+  }, []);
 
   const iniciarSesion = (usuario) => {
-    localStorage.setItem("usuarioSirem", JSON.stringify(usuario));
+    localStorage.setItem(CLAVE_SESION, JSON.stringify(usuario));
 
     setUsuarioActual(usuario);
+
+    const primerNombre = usuario.nombre?.split(" ")[0] || "";
+
+    avisar.exito("Que tengas una excelente jornada.", `Hola, ${primerNombre}`);
   };
 
   const cerrarSesion = () => {
-    localStorage.removeItem("usuarioSirem");
+    localStorage.removeItem(CLAVE_SESION);
 
     setUsuarioActual(null);
+
+    avisar.info("Tu sesión se cerró de forma segura.", "Hasta pronto");
   };
 
   if (!usuarioActual) {
@@ -42,8 +83,6 @@ function App() {
       setPaginaActiva={setPaginaActiva}
       usuarioActual={usuarioActual}
       cerrarSesion={cerrarSesion}
-      contraido={contraido}
-      setContraido={setContraido}
     />
   );
 }

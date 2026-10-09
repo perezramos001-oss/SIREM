@@ -28,7 +28,7 @@
 
   color: #2f2119;
 
-  font-size: 15px;
+  font-size: var(--fs-texto);
   font-weight: 600;
 
   cursor: pointer;
@@ -101,7 +101,7 @@
 .month-header strong {
   color: #2f2119;
 
-  font-size: 17px;
+  font-size: var(--fs-titulo);
 
   font-weight: 700;
 }
@@ -173,7 +173,7 @@
 
   color: #5d5149;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 
   font-weight: 500;
 

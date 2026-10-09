@@ -1,0 +1,334 @@
+/* =========================
+   PILA DE AVISOS
+========================= */
+
+.avisos-pila {
+  position: fixed;
+  top: 76px;
+  right: 24px;
+  z-index: 10001;
+
+  width: 340px;
+  max-width: calc(100vw - 32px);
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  pointer-events: none;
+}
+
+.aviso {
+  --aviso-acento: #a56a2a;
+  --aviso-fondo-icono: #f7eee5;
+
+  position: relative;
+  overflow: hidden;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  padding: 13px 12px 15px 14px;
+
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #ece2d7;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(43, 27, 18, 0.05),
+    0 12px 32px rgba(43, 27, 18, 0.12);
+
+  pointer-events: auto;
+
+  animation: avisoEntrada 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.aviso.saliendo {
+  animation: avisoSalida 0.22s ease forwards;
+}
+
+.aviso-exito {
+  --aviso-acento: #3f8f57;
+  --aviso-fondo-icono: #e8f3ea;
+}
+
+.aviso-advertencia {
+  --aviso-acento: #b9822a;
+  --aviso-fondo-icono: #faf0dc;
+}
+
+.aviso-error {
+  --aviso-acento: #b8483e;
+  --aviso-fondo-icono: #f9e7e4;
+}
+
+.aviso-info {
+  --aviso-acento: #8a6a4a;
+  --aviso-fondo-icono: #f3ece4;
+}
+
+.aviso-icono {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: var(--aviso-fondo-icono);
+  color: var(--aviso-acento);
+}
+
+.aviso-contenido {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.aviso-contenido strong {
+  display: block;
+
+  color: #2b1b12;
+  font-size: var(--fs-texto);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+.aviso-contenido span {
+  display: block;
+  margin-top: 3px;
+
+  color: #85786c;
+  font-size: var(--fs-texto);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.aviso-cerrar {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #b0a294;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.aviso-cerrar:hover {
+  background: #f7f2ed;
+  color: #5a4b3f;
+}
+
+/* Línea que indica el tiempo restante */
+
+.aviso-progreso {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+
+  height: 2px;
+  width: 100%;
+
+  background: var(--aviso-acento);
+  opacity: 0.45;
+  transform-origin: left;
+
+  animation-name: avisoProgreso;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.aviso:hover .aviso-progreso {
+  animation-play-state: paused;
+}
+
+@keyframes avisoEntrada {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.98);
+  }
+}
+
+@keyframes avisoSalida {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+@keyframes avisoProgreso {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* =========================
+   DIÁLOGO (CONFIRMAR / PEDIR TEXTO)
+========================= */
+
+.confirmacion-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10002;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(40, 28, 20, 0.32);
+  backdrop-filter: blur(2px);
+
+  animation: confirmacionFondo 0.15s ease-out;
+}
+
+.confirmacion-modal {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  padding: 28px;
+
+  background: #ffffff;
+  border: 1px solid #eadfd5;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(48, 30, 20, 0.22);
+
+  text-align: center;
+
+  animation: confirmacionEntrada 0.2s ease-out;
+}
+
+.confirmacion-icono {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 16px;
+  background: #f7eee7;
+  color: #a86a27;
+}
+
+.confirmacion-icono.peligro {
+  background: #fbe8e6;
+  color: #b8483e;
+}
+
+.confirmacion-modal h3 {
+  color: #33261f;
+  font-size: var(--fs-titulo);
+}
+
+.confirmacion-modal p {
+  margin-top: 10px;
+
+  color: #82756b;
+  font-size: var(--fs-texto);
+  line-height: 1.5;
+}
+
+.confirmacion-campo {
+  display: block;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.confirmacion-campo span {
+  display: block;
+  margin-bottom: 6px;
+
+  color: #5f5046;
+  font-size: var(--fs-texto);
+  font-weight: 600;
+}
+
+.confirmacion-campo input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+
+  border: 1px solid #e4d7c8;
+  border-radius: 10px;
+  outline: none;
+
+  color: #34251b;
+  font-size: var(--fs-texto);
+  transition: 0.2s;
+}
+
+.confirmacion-campo input:focus {
+  border-color: #b8732a;
+  box-shadow: 0 0 0 3px rgba(184, 115, 42, 0.1);
+}
+
+.confirmacion-acciones {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.confirmacion-acciones button {
+  flex: 1;
+  padding: 11px 14px;
+
+  border-radius: 10px;
+  font-size: var(--fs-texto);
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.confirmacion-cancelar {
+  border: 1px solid #e5dbd2;
+  background: #ffffff;
+  color: #6f6259;
+}
+
+.confirmacion-cancelar:hover {
+  background: #faf6f2;
+}
+
+.confirmacion-aceptar {
+  border: none;
+  background: #a86a27;
+  color: #ffffff;
+}
+
+.confirmacion-aceptar:hover {
+  background: #8f5920;
+}
+
+.confirmacion-aceptar.peligro {
+  background: #b8483e;
+}
+
+.confirmacion-aceptar.peligro:hover {
+  background: #9c3b32;
+}
+
+@keyframes confirmacionFondo {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes confirmacionEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}

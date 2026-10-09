@@ -27,7 +27,7 @@
 }
 
 .cliente-header span {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   letter-spacing: 3px;
   font-weight: 700;
   color: #b87836;
@@ -35,7 +35,7 @@
 
 .cliente-header h2 {
   margin-top: 5px;
-  font-size: 16px;
+  font-size: var(--fs-titulo);
   color: #2b1b12;
 }
 
@@ -55,7 +55,7 @@
   border: 1px solid #e6d8c7;
   border-radius: 14px;
   padding: 0 18px;
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 .cliente-lista {
@@ -105,7 +105,7 @@
 }
 
 .cliente-nombre {
-  font-size: 10px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #2b1b12;
   margin-bottom: 6px;
@@ -115,13 +115,13 @@
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  font-size: 10px;
+  font-size: var(--fs-texto);
   color: #8a8178;
 }
 
 .clientes-total {
   margin: 0 20px 14px;
-  font-size: 10px;
+  font-size: var(--fs-texto);
   color: #8a8178;
 }
 
@@ -134,7 +134,7 @@
 .nuevo-cliente-box p {
   margin: 0 0 12px;
   color: #8a8178;
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 .cliente-top {
@@ -145,7 +145,7 @@
 }
 
 .cliente-top strong {
-  font-size: 14px;
+  font-size: var(--fs-titulo);
   color: #2b1b12;
 }
 
@@ -156,14 +156,14 @@
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   color: #8a8178;
 }
 
 .cliente-resumen {
   margin: 0 24px 16px;
   color: #8a8178;
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================
@@ -186,7 +186,7 @@
 }
 
 .form-grupo label {
-  font-size: 13px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #3d2a1d;
 }
@@ -198,7 +198,7 @@
   border: 1px solid #e5d8ca;
   border-radius: 10px;
   background: #fff;
-  font-size: 14px;
+  font-size: var(--fs-texto);
   color: #33251d;
   outline: none;
   transition:
@@ -235,7 +235,7 @@
   border: none;
   border-radius: 9px;
   padding: 12px 24px;
-  font-size: 14px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   cursor: pointer;
 }
@@ -292,7 +292,7 @@
   justify-content: center;
   text-align: center;
   color: #999;
-  font-size: 14px;
+  font-size: var(--fs-texto);
 }
 
 .cliente-busqueda-vacia span {
@@ -315,7 +315,7 @@
   background: #fff;
   color: #3d2a1f;
 
-  font-size: 14px;
+  font-size: var(--fs-texto);
   font-family: inherit;
 
   outline: none;

@@ -9,8 +9,26 @@
 }
 
 .sidebar-logo {
-  text-align: center;
+  width: 100%;
   margin-bottom: 12px;
+  padding: 0;
+
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.sidebar-secciones {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.sidebar-secciones::-webkit-scrollbar {
+  display: none;
 }
 
 .logo-icon {
@@ -37,7 +55,7 @@
 .logo-text h2 {
   margin-top: 0px;
 
-  font-size: 16px;
+  font-size: var(--fs-titulo);
 
   font-weight: 300;
 
@@ -47,7 +65,7 @@
 }
 
 .logo-text span {
-  font-size: 9px;
+  font-size: var(--fs-texto);
 
   letter-spacing: 3px;
 
@@ -62,11 +80,11 @@
 
 .menu-title {
   color: #b89a7a;
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   letter-spacing: 3px;
   margin-bottom: 6px;
-  font-size: 10px;
+  font-size: var(--fs-texto);
   text-transform: uppercase;
 }
 
@@ -87,7 +105,7 @@
   color: white;
   padding: 8px 12px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 500;
   cursor: pointer;
   transition: 0.25s;
@@ -99,6 +117,37 @@
 
 .menu-item.active {
   background: linear-gradient(90deg, #c18448, #a56a2a);
+  box-shadow: 0 6px 16px rgba(165, 106, 42, 0.28);
+}
+
+.menu-item:focus-visible,
+.sidebar-logo:focus-visible,
+.sidebar-logout:focus-visible {
+  outline: 2px solid #c8a47d;
+  outline-offset: 2px;
+}
+
+.sidebar-logout {
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #b89a7a;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.sidebar-logout:hover {
+  background: #3a261a;
+  color: #f5f2ee;
 }
 
 .sidebar-user {
@@ -123,11 +172,11 @@
 }
 
 .sidebar-user strong {
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .sidebar-user span {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   color: #b89a7a;
 }
 
@@ -216,15 +265,7 @@
   justify-content: center;
 }
 
-.sidebar.contraido .sidebar-user-info {
+.sidebar.contraido .sidebar-user-info,
+.sidebar.contraido .sidebar-logout {
   display: none;
-}
-
-.main-content {
-  margin-left: 260px;
-  transition: margin-left 0.3s ease;
-}
-
-.main-content.sidebar-cerrado {
-  margin-left: 90px;
 }

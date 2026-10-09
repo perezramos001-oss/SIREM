@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { apiFetch } from "../../utils/api";
+import { buscarPagina, buscarSeccion } from "../../utils/paginas";
+import { useAvisos } from "../Avisos/Avisos";
 import "./Layout.css";
 import Sidebar from "../Sidebar/Sidebar";
 import Inicio from "../../pages/Inicio";
@@ -21,44 +24,64 @@ import {
   Clock,
   AlertCircle,
   CircleDollarSign,
-  UserRound,
-  UsersRound,
-  ShieldCheck,
-  LockKeyhole,
   LogOut,
   ChevronRight,
 } from "lucide-react";
 
-function Layout({
-  paginaActiva,
-  setPaginaActiva,
-  usuarioActual,
-  cerrarSesion,
-}) {
-  const [menuMes, setMenuMes] = useState(false);
+const MESES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+/* Páginas que filtran su información por el mes seleccionado */
+const PAGINAS_CON_MES = ["inicio", "remisiones", "reportes", "exportaciones"];
+
+const MINUTOS_ENTRE_NOTIFICACIONES = 5;
+
+const CLAVE_MENU_CONTRAIDO = "sirem_menu_contraido";
+
+/* Una remisión vence a los 45 días (igual que en Inicio y Cartera);
+   entre 31 y 45 días está en seguimiento. */
+const DIAS_PARA_VENCER = 45;
+
+const describirVencimiento = (diasDesdeRemision) => {
+  const diasVencida = diasDesdeRemision - DIAS_PARA_VENCER;
+
+  if (diasVencida > 0) {
+    return diasVencida === 1
+      ? "Vencida hace 1 día"
+      : `Vencida hace ${diasVencida} días`;
+  }
+
+  const diasParaVencer = -diasVencida;
+
+  if (diasParaVencer === 0) {
+    return "Vence hoy";
+  }
+
+  return diasParaVencer === 1 ? "Vence mañana" : `Vence en ${diasParaVencer} días`;
+};
+
+function Layout({ paginaActiva, setPaginaActiva, usuarioActual, cerrarSesion }) {
+  const { avisar } = useAvisos();
+
   const [mesSeleccionado, setMesSeleccionado] = useState(() => {
     const hoy = new Date();
 
-    const meses = [
-      "Enero",
-      "Febrero",
-      "Marzo",
-      "Abril",
-      "Mayo",
-      "Junio",
-      "Julio",
-      "Agosto",
-      "Septiembre",
-      "Octubre",
-      "Noviembre",
-      "Diciembre",
-    ];
-
-    return `${meses[hoy.getMonth()]} ${hoy.getFullYear()}`;
+    return `${MESES[hoy.getMonth()]} ${hoy.getFullYear()}`;
   });
 
   const [modalRemision, setModalRemision] = useState(false);
-  const [configuracionAbierta, setConfiguracionAbierta] = useState(false);
   const [confirmarCerrarSesion, setConfirmarCerrarSesion] = useState(false);
 
   const [notificacionesAbiertas, setNotificacionesAbiertas] = useState(false);
@@ -68,26 +91,38 @@ function Layout({
   const [notificaciones, setNotificaciones] = useState([]);
   const [remisionDestacada, setRemisionDestacada] = useState(null);
 
-  const [sidebarContraido, setSidebarContraido] = useState(false);
-  const [seccionEnDesarrollo, setSeccionEnDesarrollo] = useState("");
+  /* Cambia cuando se crea una remisión para recargar la página actual */
+  const [versionDatos, setVersionDatos] = useState(0);
 
-  const esDesarrolladora = usuarioActual?.id_usuario === 1;
-  console.log("USUARIO ACTUAL:", usuarioActual);
+  const [sidebarContraido, setSidebarContraido] = useState(() => {
+    try {
+      return localStorage.getItem(CLAVE_MENU_CONTRAIDO) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const cambiarSidebarContraido = (valor) => {
+    setSidebarContraido(valor);
+
+    try {
+      localStorage.setItem(CLAVE_MENU_CONTRAIDO, valor ? "1" : "0");
+    } catch {
+      /* sin almacenamiento local: solo dura esta sesión */
+    }
+  };
+
+  const pagina = buscarPagina(paginaActiva);
+  const seccion = buscarSeccion(paginaActiva);
+
+  /* =========================
+       NOTIFICACIONES
+    ========================= */
 
   useEffect(() => {
-    if (!usuarioActual?.id_usuario) {
-      return;
-    }
-
     const cargarNotificaciones = async () => {
-      if (!usuarioActual?.id_usuario) {
-        return;
-      }
-
       try {
-        const respuesta = await fetch(
-          `/api/notificaciones/cartera-vencida/${usuarioActual.id_usuario}`,
-        );
+        const respuesta = await apiFetch("/api/notificaciones/cartera-vencida");
 
         if (!respuesta.ok) {
           throw new Error("No se pudieron cargar las notificaciones.");
@@ -95,35 +130,40 @@ function Layout({
 
         const datos = await respuesta.json();
 
-        const notificacionesReales = datos.map((notificacion) => ({
-          id: notificacion.id_notificacion,
+        setNotificaciones(
+          datos.map((notificacion) => ({
+            id: notificacion.id_notificacion,
 
-          id_remision: notificacion.id_remision,
+            id_remision: notificacion.id_remision,
 
-          tipo: notificacion.tipo,
+            tipo: notificacion.tipo,
 
-          titulo: notificacion.titulo,
+            titulo: notificacion.titulo,
 
-          mensaje: notificacion.mensaje,
+            mensaje: notificacion.mensaje,
 
-          tiempo:
-            notificacion.dias_vencida === 1
-              ? "Vencida hace 1 día"
-              : `Vencida hace ${notificacion.dias_vencida} días`,
+            tiempo: describirVencimiento(Number(notificacion.dias_vencida)),
 
-          leida: Boolean(notificacion.leida),
-        }));
-
-        setNotificaciones(notificacionesReales);
+            leida: Boolean(notificacion.leida),
+          })),
+        );
       } catch (error) {
         console.error("Error cargando notificaciones:", error);
       }
     };
 
     cargarNotificaciones();
-  }, [usuarioActual]);
+
+    const intervalo = setInterval(
+      cargarNotificaciones,
+      MINUTOS_ENTRE_NOTIFICACIONES * 60 * 1000,
+    );
+
+    return () => clearInterval(intervalo);
+  }, []);
+
   /* =========================
-       CERRAR AL HACER CLIC AFUERA
+       CERRAR PANELES (CLIC AFUERA / ESCAPE)
     ========================= */
 
   useEffect(() => {
@@ -136,32 +176,29 @@ function Layout({
       }
     };
 
+    const manejarTecla = (event) => {
+      if (event.key === "Escape") {
+        setNotificacionesAbiertas(false);
+        setConfirmarCerrarSesion(false);
+      }
+    };
+
     document.addEventListener("mousedown", manejarClickExterior);
+    document.addEventListener("keydown", manejarTecla);
 
     return () => {
       document.removeEventListener("mousedown", manejarClickExterior);
+      document.removeEventListener("keydown", manejarTecla);
     };
   }, []);
-
-  useEffect(() => {
-    setConfiguracionAbierta(false);
-  }, [paginaActiva]);
-
-  /* =========================
-       NOTIFICACIONES NO LEÍDAS
-    ========================= */
 
   const notificacionesNoLeidas = notificaciones.filter(
     (notificacion) => !notificacion.leida,
   ).length;
 
-  /* =========================
-       MARCAR UNA COMO LEÍDA
-    ========================= */
-
   const marcarComoLeida = async (id) => {
     try {
-      const respuesta = await fetch(`/api/notificaciones/${id}/leida`, {
+      const respuesta = await apiFetch(`/api/notificaciones/${id}/leida`, {
         method: "PUT",
       });
 
@@ -171,12 +208,7 @@ function Layout({
 
       setNotificaciones((prev) =>
         prev.map((notificacion) =>
-          notificacion.id === id
-            ? {
-                ...notificacion,
-                leida: true,
-              }
-            : notificacion,
+          notificacion.id === id ? { ...notificacion, leida: true } : notificacion,
         ),
       );
     } catch (error) {
@@ -184,12 +216,10 @@ function Layout({
     }
   };
 
-  /* =========================
-   ABRIR NOTIFICACIÓN
-========================= */
-
   const abrirNotificacion = (notificacion) => {
-    marcarComoLeida(notificacion.id);
+    if (!notificacion.leida) {
+      marcarComoLeida(notificacion.id);
+    }
 
     setRemisionDestacada(notificacion.id_remision);
 
@@ -198,22 +228,20 @@ function Layout({
     setNotificacionesAbiertas(false);
   };
 
-  /* =========================
-       MARCAR TODAS COMO LEÍDAS
-    ========================= */
+  const marcarTodasComoLeidas = async () => {
+    const pendientes = notificaciones.filter((notificacion) => !notificacion.leida);
 
-  const marcarTodasComoLeidas = () => {
-    setNotificaciones((prev) =>
-      prev.map((notificacion) => ({
-        ...notificacion,
-        leida: true,
-      })),
+    await Promise.all(
+      pendientes.map((notificacion) => marcarComoLeida(notificacion.id)),
+    );
+
+    avisar.exito(
+      pendientes.length === 1
+        ? "Marcaste 1 notificación como leída."
+        : `Marcaste ${pendientes.length} notificaciones como leídas.`,
+      "Notificaciones al día",
     );
   };
-
-  /* =========================
-       ICONO SEGÚN TIPO
-    ========================= */
 
   const obtenerIcono = (tipo) => {
     if (tipo === "cartera") {
@@ -231,6 +259,10 @@ function Layout({
     return <CircleDollarSign size={17} />;
   };
 
+  const alGuardarRemision = useCallback(() => {
+    setVersionDatos((version) => version + 1);
+  }, []);
+
   return (
     <div className={`layout ${sidebarContraido ? "sidebar-contraido" : ""}`}>
       <aside className="sidebar-area">
@@ -239,7 +271,8 @@ function Layout({
           setPaginaActiva={setPaginaActiva}
           usuarioActual={usuarioActual}
           contraido={sidebarContraido}
-          setContraido={setSidebarContraido}
+          setContraido={cambiarSidebarContraido}
+          pedirCerrarSesion={() => setConfirmarCerrarSesion(true)}
         />
       </aside>
 
@@ -249,10 +282,16 @@ function Layout({
                 ========================= */}
 
         <header className="topbar">
-          <div className="topbar-left"></div>
+          <nav className="topbar-left" aria-label="Ubicación">
+            <span className="topbar-seccion">{seccion?.titulo}</span>
+
+            <ChevronRight size={12} className="topbar-separador" />
+
+            <span className="topbar-pagina">{pagina.nombre}</span>
+          </nav>
 
           <div className="topbar-center">
-            {paginaActiva !== "cartera" && (
+            {PAGINAS_CON_MES.includes(paginaActiva) && (
               <MonthSelector
                 mes={mesSeleccionado}
                 setMes={setMesSeleccionado}
@@ -261,30 +300,27 @@ function Layout({
           </div>
 
           <div className="topbar-right">
-            {/* =========================
-                            NOTIFICACIONES
-                        ========================= */}
+            {/* NOTIFICACIONES */}
 
             <div className="notification-wrapper" ref={notificacionesRef}>
               <button
                 className="icon-btn notification-btn"
-                onClick={() =>
-                  setNotificacionesAbiertas(!notificacionesAbiertas)
-                }
+                onClick={() => setNotificacionesAbiertas(!notificacionesAbiertas)}
+                title="Notificaciones"
+                aria-label={`Notificaciones (${notificacionesNoLeidas} sin leer)`}
+                aria-expanded={notificacionesAbiertas}
               >
                 <Bell size={18} />
 
                 {notificacionesNoLeidas > 0 && (
                   <span className="notification-badge">
-                    {notificacionesNoLeidas}
+                    {notificacionesNoLeidas > 99 ? "99+" : notificacionesNoLeidas}
                   </span>
                 )}
               </button>
 
               {notificacionesAbiertas && (
                 <div className="notification-panel">
-                  {/* HEADER */}
-
                   <div className="notification-header">
                     <div>
                       <h3>Notificaciones</h3>
@@ -303,8 +339,6 @@ function Layout({
                     )}
                   </div>
 
-                  {/* LISTA */}
-
                   <div className="notification-list">
                     {notificaciones.length === 0 ? (
                       <div className="empty-notifications">
@@ -314,7 +348,8 @@ function Layout({
                       </div>
                     ) : (
                       notificaciones.map((notificacion) => (
-                        <div
+                        <button
+                          type="button"
                           key={notificacion.id}
                           className={`notification-item ${
                             !notificacion.leida ? "unread" : ""
@@ -340,7 +375,7 @@ function Layout({
                               {notificacion.tiempo}
                             </span>
                           </div>
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
@@ -350,38 +385,16 @@ function Layout({
 
             {/* CONFIGURACIÓN */}
 
-            <div className="config-wrapper">
-              <button
-                className="icon-btn"
-                onClick={() => setConfiguracionAbierta((prev) => !prev)}
-              >
-                <Settings size={18} />
-              </button>
-
-              {configuracionAbierta && (
-                <div className="config-menu">
-                  <button
-                    onClick={() => {
-                      setConfiguracionAbierta(false);
-
-                      setPaginaActiva("configuracion");
-                    }}
-                  >
-                    Configuración
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setConfiguracionAbierta(false);
-
-                      setPaginaActiva("notificaciones");
-                    }}
-                  >
-                    Notificaciones
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              className={`icon-btn ${
+                paginaActiva === "configuracion" ? "activo" : ""
+              }`}
+              onClick={() => setPaginaActiva("configuracion")}
+              title="Configuración"
+              aria-label="Configuración"
+            >
+              <Settings size={18} />
+            </button>
 
             {/* NUEVA REMISIÓN */}
 
@@ -397,7 +410,7 @@ function Layout({
 
         {/* CONTENIDO */}
 
-        <div className="content">
+        <main className="content" key={versionDatos}>
           {paginaActiva === "inicio" && (
             <Inicio
               setPaginaActiva={setPaginaActiva}
@@ -413,154 +426,54 @@ function Layout({
             />
           )}
 
-          {paginaActiva === "configuracion" && (
-            <Configuracion
-              usuarioActual={usuarioActual}
-              cerrarSesion={cerrarSesion}
-            />
+          {paginaActiva === "cartera" && (
+            <Cartera remisionDestacada={remisionDestacada} />
           )}
 
-          {paginaActiva === "cartera" && (
-            <Cartera
-              usuarioActual={usuarioActual}
-              remisionDestacada={remisionDestacada}
-            />
+          {paginaActiva === "clientes" && <Clientes />}
+
+          {paginaActiva === "productos" && <Productos />}
+
+          {paginaActiva === "reportes" && (
+            <Reportes mesSeleccionado={mesSeleccionado} />
           )}
 
           {paginaActiva === "exportaciones" && (
             <Exportaciones mesSeleccionado={mesSeleccionado} />
           )}
 
-          {paginaActiva === "auditoria" &&
-            usuarioActual?.rol === "ADMINISTRADOR" && <Auditoria />}
+          {paginaActiva === "auditoria" && <Auditoria />}
 
-          {paginaActiva === "clientes" && <Clientes />}
-
-          {paginaActiva === "productos" && <Productos />}
-        </div>
+          {paginaActiva === "configuracion" && (
+            <Configuracion
+              usuarioActual={usuarioActual}
+              cerrarSesion={cerrarSesion}
+            />
+          )}
+        </main>
 
         {/* MODAL NUEVA REMISIÓN */}
 
         <NuevaRemision
-          usuarioActual={usuarioActual}
           abierto={modalRemision}
           cerrar={() => setModalRemision(false)}
+          alGuardar={alGuardarRemision}
         />
-
-        {configuracionAbierta && (
-          <div
-            className="config-overlay"
-            onClick={() => setConfiguracionAbierta(false)}
-          >
-            <div className="config-panel" onClick={(e) => e.stopPropagation()}>
-              {/* ENCABEZADO */}
-
-              <div className="config-header">
-                <div>
-                  <span className="config-tag">SISTEMA</span>
-
-                  <h3>Configuración</h3>
-
-                  <p>Administra tu cuenta y los accesos del sistema.</p>
-                </div>
-
-                <button
-                  className="config-close"
-                  onClick={() => setConfiguracionAbierta(false)}
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* OPCIONES */}
-
-              <div className="config-options">
-                {/* MI CUENTA */}
-
-                <button
-                  className="config-option"
-                  onClick={() => {
-                    alert("Próximamente: Mi cuenta y seguridad");
-                  }}
-                >
-                  <div className="config-option-icon">
-                    <UserRound size={20} />
-                  </div>
-
-                  <div className="config-option-content">
-                    <strong>Mi cuenta y seguridad</strong>
-
-                    <span>Perfil, contraseña y seguridad de la cuenta</span>
-                  </div>
-
-                  <ChevronRight size={18} className="config-arrow" />
-                </button>
-
-                {/* USUARIOS */}
-
-                <button
-                  className="config-option"
-                  onClick={() => {
-                    alert("Próximamente: Usuarios y permisos");
-                  }}
-                >
-                  <div className="config-option-icon">
-                    <UsersRound size={20} />
-                  </div>
-
-                  <div className="config-option-content">
-                    <strong>Usuarios y permisos</strong>
-
-                    <span>Administra usuarios, roles y accesos</span>
-                  </div>
-
-                  <ChevronRight size={18} className="config-arrow" />
-                </button>
-
-                {/* CERRAR SESIÓN */}
-
-                <button
-                  className="config-option"
-                  onClick={() => {
-                    setConfirmarCerrarSesion(true);
-                  }}
-                >
-                  <div className="config-option-icon">
-                    <LogOut size={20} />
-                  </div>
-
-                  <div className="config-option-content">
-                    <strong>Cerrar sesión</strong>
-
-                    <span>Salir de tu cuenta de forma segura</span>
-                  </div>
-
-                  <ChevronRight size={18} className="config-arrow" />
-                </button>
-              </div>
-              {/* INFORMACIÓN DE SEGURIDAD */}
-
-              <div className="config-security-info">
-                <ShieldCheck size={18} />
-
-                <div>
-                  <strong>Acceso seguro</strong>
-
-                  <span>
-                    Solo los administradores pueden modificar los permisos de
-                    los usuarios.
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
       {/* CONFIRMAR CERRAR SESIÓN */}
 
       {confirmarCerrarSesion && (
-        <div className="logout-overlay">
-          <div className="logout-modal">
+        <div
+          className="logout-overlay"
+          onClick={() => setConfirmarCerrarSesion(false)}
+        >
+          <div
+            className="logout-modal"
+            role="alertdialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="logout-icon">
               <LogOut size={24} />
             </div>
@@ -568,8 +481,7 @@ function Layout({
             <h3>¿Cerrar sesión?</h3>
 
             <p>
-              ¿Estás segura de que deseas cerrar sesión? Tendrás que iniciar
-              sesión nuevamente para acceder a SIREM.
+              Tendrás que iniciar sesión nuevamente para acceder a SIREM.
             </p>
 
             <div className="logout-actions">
@@ -587,6 +499,7 @@ function Layout({
 
                   cerrarSesion();
                 }}
+                autoFocus
               >
                 Sí, cerrar sesión
               </button>

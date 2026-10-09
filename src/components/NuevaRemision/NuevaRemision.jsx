@@ -1,33 +1,26 @@
 import "./NuevaRemision.css";
+import { apiFetch } from "../../utils/api";
+import { hoyLocal } from "../../utils/fechas";
 import { useEffect, useState } from "react";
 import BuscarCliente from "../BuscarCliente/BuscarCliente";
-import Alerta from "../Alerta/Alerta";
+import { useAvisos } from "../Avisos/Avisos";
+import { useTeclaEscape } from "../../utils/useTeclaEscape";
+import { MEDIOS_PAGO, etiquetaMedioPago } from "../../utils/mediosPago";
+import { X, Search, Plus, Trash2, Check } from "lucide-react";
+import "./NuevaRemisionDiseno.css";
 
-function NuevaRemision({ abierto, cerrar, usuarioActual }) {
+/* Identificador único de cada fila de producto (Date.now() se repetía
+   al agregar dos filas en el mismo milisegundo). */
+let contadorFilas = 0;
+
+function NuevaRemision({ abierto, cerrar, alGuardar }) {
   const [modalCliente, setModalCliente] = useState(false);
   const [comentarios, setComentarios] = useState("");
-  const [alerta, setAlerta] = useState({
-    visible: false,
-    tipo: "exito",
-    titulo: "",
-    mensaje: "",
-  });
+  const [guardando, setGuardando] = useState(false);
 
-  const mostrarAlerta = (tipo, titulo, mensaje) => {
-    setAlerta({
-      visible: true,
-      tipo,
-      titulo,
-      mensaje,
-    });
-  };
+  const { avisar } = useAvisos();
 
-  const cerrarAlerta = () => {
-    setAlerta((prev) => ({
-      ...prev,
-      visible: false,
-    }));
-  };
+  const mostrarAlerta = (tipo, titulo, mensaje) => avisar[tipo](mensaje, titulo);
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
 
   const [comercial, setComercial] = useState("");
@@ -36,56 +29,14 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
   const [medioPago, setMedioPago] = useState("");
   const [abonos, setAbonos] = useState([]);
   const [comprobantePago, setComprobantePago] = useState("");
-  const [pagos, setPagos] = useState([]);
-
-  const [nuevoPago, setNuevoPago] = useState({
-    medioPago: "",
-    valor: "",
-    comprobante: "",
-  });
-
   const [nuevoAbono, setNuevoAbono] = useState({
-    fecha: new Date().toISOString().split("T")[0],
+    fecha: hoyLocal(),
     medioPago: "",
     valor: "",
     comprobante: "",
   });
 
   const [numeroRemision, setNumeroRemision] = useState("");
-
-  const [fechaRemision, setFechaRemision] = useState("");
-  const buscarProductoPorCodigo = async (id, codigo) => {
-    if (!codigo.trim()) return;
-
-    try {
-      const respuesta = await fetch(
-        `/api/productos/codigo/${encodeURIComponent(codigo)}`,
-      );
-
-      if (!respuesta.ok) {
-        throw new Error("Producto no encontrado");
-      }
-
-      const productoEncontrado = await respuesta.json();
-
-      setProductos((prev) =>
-        prev.map((producto) =>
-          producto.id === id
-            ? {
-                ...producto,
-                codigo: productoEncontrado.codigo,
-                nombre: productoEncontrado.nombre,
-                linea: productoEncontrado.linea,
-                precioLista: productoEncontrado.precio_lista,
-                precioVenta: productoEncontrado.precio_lista,
-              }
-            : producto,
-        ),
-      );
-    } catch (error) {
-      console.error("Error buscando producto:", error);
-    }
-  };
 
   const buscarProductos = async (id, texto, tipo) => {
     // Primero actualizamos lo que la persona está escribiendo
@@ -104,7 +55,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
     try {
       const endpoint = tipo === "codigo" ? "buscar-codigo" : "buscar-nombre";
 
-      const respuesta = await fetch(
+      const respuesta = await apiFetch(
         `/api/productos/${endpoint}/${encodeURIComponent(texto)}`,
       );
 
@@ -129,7 +80,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
   };
 
   const crearProductoVacio = () => ({
-    id: Date.now(),
+    id: ++contadorFilas,
     codigo: "",
     nombre: "",
     linea: "",
@@ -172,6 +123,12 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
           [campo]: valor,
         };
 
+        // Si edita el código o el nombre, el producto elegido deja de valer
+        // y debe volver a seleccionarse de las sugerencias.
+        if (campo === "codigo" || campo === "nombre") {
+          productoActualizado.id_producto = null;
+        }
+
         // Si deja de ser una silla, la placa se elimina.
         if (campo === "nombre" && !esSilla(valor)) {
           productoActualizado.placa = "";
@@ -195,7 +152,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
     }
 
     try {
-      const respuesta = await fetch(
+      const respuesta = await apiFetch(
         `/api/productos/buscar-codigo/${encodeURIComponent(texto)}`,
       );
 
@@ -282,63 +239,6 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
 
   const saldoPendiente = Math.max(totalRemision - totalAbonos, 0);
 
-  const totalPagos = pagos.reduce(
-    (total, pago) => total + (Number(pago.valor) || 0),
-    0,
-  );
-
-  const agregarPago = () => {
-    const valor = Number(nuevoPago.valor);
-
-    if (!valor || valor <= 0) {
-      mostrarAlerta(
-        "advertencia",
-        "Valor inválido",
-        "Ingresa un valor de pago mayor a cero.",
-      );
-
-      return;
-    }
-
-    if (!nuevoPago.medioPago) {
-      mostrarAlerta(
-        "advertencia",
-        "Medio de pago requerido",
-        "Selecciona el medio de pago.",
-      );
-
-      return;
-    }
-
-    if (valor + totalPagos > totalRemision) {
-      mostrarAlerta(
-        "advertencia",
-        "Valor superior al total",
-        "La suma de los pagos no puede superar el total de la remisión.",
-      );
-
-      return;
-    }
-
-    setPagos((prev) => [
-      ...prev,
-      {
-        ...nuevoPago,
-        valor,
-      },
-    ]);
-
-    setNuevoPago({
-      medioPago: "",
-      valor: "",
-      comprobante: "",
-    });
-  };
-
-  const eliminarPago = (index) => {
-    setPagos((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const agregarAbono = () => {
     const valor = Number(nuevoAbono.valor);
 
@@ -378,7 +278,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
     ]);
 
     setNuevoAbono({
-      fecha: new Date().toISOString().split("T")[0],
+      fecha: hoyLocal(),
       medioPago: "",
       valor: "",
       comprobante: "",
@@ -398,6 +298,19 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
 
     setMedioPago("");
 
+    setEstadoPago("pendiente");
+
+    setAbonos([]);
+
+    setComprobantePago("");
+
+    setNuevoAbono({
+      fecha: hoyLocal(),
+      medioPago: "",
+      valor: "",
+      comprobante: "",
+    });
+
     setClienteSeleccionado(null);
 
     setSugerenciasCodigo({});
@@ -405,13 +318,6 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
     setSugerenciasProducto({});
 
     setModalCliente(false);
-
-    setAlerta({
-      visible: false,
-      tipo: "exito",
-      titulo: "",
-      mensaje: "",
-    });
   };
 
   const cerrarRemision = () => {
@@ -421,6 +327,8 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
   };
 
   const guardarRemision = async () => {
+    if (guardando) return;
+
     // ================================
     // VALIDAR COMERCIAL
     // ================================
@@ -512,6 +420,16 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
         return;
       }
 
+      if (!producto.id_producto) {
+        mostrarAlerta(
+          "advertencia",
+          "Producto incompleto",
+          `Selecciona "${producto.nombre || producto.codigo}" de la lista de sugerencias.`,
+        );
+
+        return;
+      }
+
       if (!producto.precioVenta) {
         mostrarAlerta(
           "advertencia",
@@ -542,12 +460,24 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
         return;
       }
     }
+    if (estadoPago === "abono" && totalAbonos > totalRemision) {
+      mostrarAlerta(
+        "advertencia",
+        "Abonos superiores al total",
+        "Los abonos suman más que el total de la remisión. Revisa los productos o los abonos.",
+      );
+
+      return;
+    }
+
     // ================================
     // GUARDAR REMISIÓN
     // ================================
 
+    setGuardando(true);
+
     try {
-      const respuesta = await fetch("/api/remisiones", {
+      const respuesta = await apiFetch("/api/remisiones", {
         method: "POST",
 
         headers: {
@@ -555,9 +485,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
         },
 
         body: JSON.stringify({
-          id_usuario: usuarioActual?.id_usuario,
-
-          fecha: new Date().toISOString().split("T")[0],
+          fecha: hoyLocal(),
 
           id_cliente: clienteSeleccionado.id_cliente,
 
@@ -575,12 +503,17 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
 
           abonos: estadoPago === "abono" ? abonos : [],
 
-          comentarios: comentarios,
-
-          estado_pago: estadoPago,
-          total_abonado: totalAbonos,
-          saldo_pendiente: saldoPendiente,
-          abonos: abonos,
+          // La referencia del pago no tiene columna propia:
+          // se guarda al final de los comentarios.
+          comentarios:
+            estadoPago === "pagada" && comprobantePago.trim()
+              ? [
+                  comentarios.trim(),
+                  `Comprobante de pago: ${comprobantePago.trim()}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : comentarios,
 
           productos: productos.map((producto) => ({
             id_producto: producto.id_producto,
@@ -602,21 +535,24 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
         throw new Error(datos.mensaje || "No se pudo guardar la remisión.");
       }
 
-      console.log("✅ REMISIÓN CREADA - MOSTRANDO ALERTA", datos);
 
       limpiarFormulario();
 
       cargarSiguienteNumeroRemision();
 
+      alGuardar?.();
+
       mostrarAlerta(
         "exito",
-        "¡Remisión creada correctamente!",
-        `La remisión ${datos.numero_remision} fue registrada exitosamente.`,
+        "Remisión creada",
+        `La remisión ${datos.numero_remision} quedó registrada. Puedes registrar otra o cerrar el formulario.`,
       );
     } catch (error) {
       console.error("Error guardando remisión:", error);
 
-      mostrarAlerta("error", "Error", error.message);
+      avisar.fallo(error, error.message, "No se pudo guardar la remisión");
+    } finally {
+      setGuardando(false);
     }
   };
 
@@ -641,7 +577,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
 
   const cargarSiguienteNumeroRemision = async () => {
     try {
-      const respuesta = await fetch("/api/remisiones/siguiente-numero");
+      const respuesta = await apiFetch("/api/remisiones/siguiente-numero");
 
       if (!respuesta.ok) {
         throw new Error("No se pudo obtener el número de la remisión.");
@@ -652,6 +588,8 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
       setNumeroRemision(datos.numero_remision);
     } catch (error) {
       console.error("Error cargando número de remisión:", error);
+
+      avisar.fallo(error, "No se pudo obtener el número de la nueva remisión.");
     }
   };
 
@@ -662,7 +600,7 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
   useEffect(() => {
     const cargarComerciales = async () => {
       try {
-        const respuesta = await fetch("/api/comerciales");
+        const respuesta = await apiFetch("/api/comerciales");
 
         if (!respuesta.ok) {
           throw new Error("No se pudieron cargar los comerciales.");
@@ -673,339 +611,457 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
         setComerciales(datos);
       } catch (error) {
         console.error("Error cargando comerciales:", error);
+
+        avisar.fallo(error, "No se pudo cargar la lista de comerciales.");
       }
     };
 
     cargarComerciales();
-
-    cargarSiguienteNumeroRemision();
   }, []);
 
+  useEffect(() => {
+    if (abierto) {
+      cargarSiguienteNumeroRemision();
+    }
+  }, [abierto]);
+
+  /* =========================
+   APOYOS DEL DISEÑO
+========================= */
+
+  const mediosDisponibles = MEDIOS_PAGO.filter(
+    (medio) => medio.valor !== "PENDIENTE PAGO",
+  );
+
+  const etiquetaComprobante =
+    {
+      transferencia: "N° de transferencia",
+      t_credito: "Últimos 4 dígitos de la tarjeta",
+      t_debito: "Últimos 4 dígitos de la tarjeta",
+      efectivo: "N° de recibo (opcional)",
+      dolares: "Referencia del pago",
+      regalo: "Autorización",
+    }[medioPago] || "Referencia";
+
+  const ejemploComprobante =
+    {
+      transferencia: "Ej. TRX-458921",
+      t_credito: "Ej. 4821",
+      t_debito: "Ej. 1736",
+      efectivo: "Ej. REC-10258",
+      dolares: "Ej. USD-2026-15",
+      regalo: "Ej. Aprobación gerencia",
+    }[medioPago] || "Ingrese una referencia";
+
+  const cerrarSugerencias = (id) => {
+    setSugerenciasCodigo((prev) => ({ ...prev, [id]: [] }));
+    setSugerenciasProducto((prev) => ({ ...prev, [id]: [] }));
+  };
+
+  const ESTADOS_PAGO = [
+    { valor: "pagada", etiqueta: "Pagada" },
+    { valor: "abono", etiqueta: "Abono" },
+    { valor: "pendiente", etiqueta: "Pendiente" },
+  ];
+
+  const cantidadProductos = productos.filter(
+    (producto) => producto.id_producto,
+  ).length;
+
+  useTeclaEscape(abierto && !modalCliente, cerrarRemision);
+
   if (!abierto) return null;
+
+  /* Lista de sugerencias (por código o por nombre) de una fila */
+
+  const renderSugerencias = (producto, sugerencias) =>
+    (sugerencias || []).length > 0 && (
+      <div className="nr-sugerencias">
+        {sugerencias.map((productoEncontrado) => (
+          <button
+            type="button"
+            key={productoEncontrado.id_producto}
+            className="nr-sugerencia"
+            // mousedown se adelanta al blur del campo, que cierra la lista
+            onMouseDown={(e) => {
+              e.preventDefault();
+              seleccionarProducto(producto.id, productoEncontrado);
+            }}
+          >
+            <strong>{productoEncontrado.codigo}</strong>
+            <span>{productoEncontrado.nombre}</span>
+            <small>{formatearPrecio(productoEncontrado.precio_lista)}</small>
+          </button>
+        ))}
+      </div>
+    );
+
   return (
-    <div className="modal-overlay">
-      <div className="modal-remision">
+    <div className="nr-overlay">
+      <div className="nr-modal" role="dialog" aria-modal="true">
         {/* ENCABEZADO */}
 
-        <div className="modal-header">
-          <div>
-            <span className="modal-tag">REMISIÓN</span>
+        <header className="nr-header">
+          <div className="nr-header-titulo">
+            <span className="nr-tag">REMISIÓN</span>
 
-            <h3>Nueva Remisión</h3>
+            <h3>Nueva remisión</h3>
           </div>
 
-          <button className="btn-cerrar" onClick={cerrarRemision}>
-            ✕
+          <div className="nr-header-datos">
+            <span className="nr-chip">
+              <small>No.</small>
+              {numeroRemision || "—"}
+            </span>
+
+            <span className="nr-chip">
+              <small>Fecha</small>
+              {new Date().toLocaleDateString("es-CO")}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="nr-btn-icono"
+            onClick={cerrarRemision}
+            title="Cerrar"
+          >
+            <X size={18} />
           </button>
-        </div>
+        </header>
 
-        <div className="modal-body">
-          {/* INFORMACIÓN GENERAL */}
+        <div className="nr-cuerpo">
+          {/* =========================
+              COLUMNA PRINCIPAL
+          ========================= */}
 
-          <div className="section-card">
-            <div className="section-title">
-              <h3>Información general</h3>
+          <div className="nr-principal">
+            {/* CLIENTE Y COMERCIAL */}
 
-              <span>Complete los datos principales de la remisión.</span>
-            </div>
-
-            <div className="form-grid">
-              <div className="form-group">
-                <label>No. Remisión</label>
-
-                <input type="text" value={numeroRemision} readOnly />
+            <section className="nr-seccion">
+              <div className="nr-seccion-titulo">
+                <span className="nr-paso">1</span>
+                <h4>Cliente y comercial</h4>
               </div>
 
-              <div className="form-group">
-                <label>Fecha</label>
+              <div className="nr-grid-2">
+                <div className="nr-campo">
+                  <label>Cliente *</label>
 
-                <input
-                  type="text"
-                  value={new Date().toLocaleDateString("es-CO")}
-                  readOnly
-                />
+                  <button
+                    type="button"
+                    className={`nr-selector-cliente ${
+                      clienteSeleccionado ? "con-cliente" : ""
+                    }`}
+                    onClick={() => setModalCliente(true)}
+                  >
+                    {clienteSeleccionado ? (
+                      <>
+                        <span className="nr-avatar">
+                          {clienteSeleccionado.nombre?.[0] || "?"}
+                        </span>
+
+                        <span className="nr-cliente-info">
+                          <strong>{clienteSeleccionado.nombre}</strong>
+
+                          <small>
+                            {[
+                              clienteSeleccionado.documento,
+                              clienteSeleccionado.telefono,
+                              clienteSeleccionado.direccion,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "Sin datos de contacto"}
+                          </small>
+                        </span>
+
+                        <span className="nr-cambiar">Cambiar</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search size={15} />
+                        <span className="nr-placeholder">
+                          Buscar o crear un cliente
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="nr-campo">
+                  <label>Comercial *</label>
+
+                  <select
+                    value={comercial}
+                    onChange={(e) => setComercial(e.target.value)}
+                  >
+                    <option value="">Seleccione un comercial</option>
+
+                    {comerciales.map((item) => (
+                      <option key={item.id_comercial} value={item.id_comercial}>
+                        {item.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+            </section>
 
-              <div className="form-group">
-                <label>Comercial *</label>
+            {/* PRODUCTOS */}
 
-                <select
-                  value={comercial}
-                  onChange={(e) => setComercial(e.target.value)}
+            <section className="nr-seccion">
+              <div className="nr-seccion-titulo">
+                <span className="nr-paso">2</span>
+
+                <h4>Productos</h4>
+
+                <span className="nr-contador">
+                  {cantidadProductos}{" "}
+                  {cantidadProductos === 1 ? "seleccionado" : "seleccionados"}
+                </span>
+
+                <button
+                  type="button"
+                  className="nr-btn-secundario"
+                  onClick={agregarProducto}
                 >
-                  <option value="">Seleccione un comercial</option>
-
-                  {comerciales.map((item) => (
-                    <option key={item.id_comercial} value={item.id_comercial}>
-                      {item.nombre}
-                    </option>
-                  ))}
-                </select>
+                  <Plus size={14} /> Agregar producto
+                </button>
               </div>
 
-              <div className="cliente-section">
-                <label>Cliente *</label>
+              <div className="nr-tabla">
+                <div className="nr-tabla-encabezado">
+                  <span>Código</span>
+                  <span>Producto</span>
+                  <span>Placa</span>
+                  <span className="nr-derecha">Cant.</span>
+                  <span className="nr-derecha">Precio venta</span>
+                  <span className="nr-derecha">Total</span>
+                  <span></span>
+                </div>
 
-                <div
-                  className="cliente-input"
-                  onClick={() => setModalCliente(true)}
-                >
-                  <span className="search-icon">🔍</span>
+                {productos.map((producto) => {
+                  const silla = esSilla(producto.nombre);
 
-                  {clienteSeleccionado ? (
-                    <div className="cliente-seleccionado">
-                      <strong>{clienteSeleccionado.nombre}</strong>
+                  return (
+                    <div className="nr-fila" key={producto.id}>
+                      <div className="nr-autocompletar">
+                        <input
+                          type="text"
+                          placeholder="Código"
+                          value={producto.codigo}
+                          onChange={(e) =>
+                            buscarCodigo(producto.id, e.target.value)
+                          }
+                          onBlur={() => cerrarSugerencias(producto.id)}
+                        />
 
-                      <span>📍 {clienteSeleccionado.direccion}</span>
+                        {renderSugerencias(
+                          producto,
+                          sugerenciasCodigo[producto.id],
+                        )}
+                      </div>
 
-                      <span>📞 {clienteSeleccionado.telefono}</span>
+                      <div className="nr-autocompletar">
+                        <input
+                          type="text"
+                          placeholder="Buscar producto"
+                          value={producto.nombre}
+                          onChange={(e) =>
+                            buscarProductos(
+                              producto.id,
+                              e.target.value,
+                              "nombre",
+                            )
+                          }
+                          onBlur={() => cerrarSugerencias(producto.id)}
+                        />
+
+                        {producto.id_producto ? (
+                          <small className="nr-meta">
+                            {producto.linea || "Sin línea"} · Lista{" "}
+                            {formatearPrecio(producto.precioLista)}
+                          </small>
+                        ) : (
+                          producto.nombre && (
+                            <small className="nr-meta nr-meta-alerta">
+                              Elige el producto de la lista
+                            </small>
+                          )
+                        )}
+
+                        {renderSugerencias(
+                          producto,
+                          sugerenciasProducto[producto.id],
+                        )}
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder={silla ? "Obligatoria" : "No aplica"}
+                        value={producto.placa}
+                        disabled={!silla}
+                        className={silla && !producto.placa ? "nr-requerido" : ""}
+                        onChange={(e) =>
+                          actualizarProducto(
+                            producto.id,
+                            "placa",
+                            e.target.value.toUpperCase(),
+                          )
+                        }
+                      />
+
+                      <input
+                        type="number"
+                        min="1"
+                        className="nr-derecha"
+                        value={producto.cantidad}
+                        onChange={(e) =>
+                          actualizarProducto(
+                            producto.id,
+                            "cantidad",
+                            e.target.value,
+                          )
+                        }
+                      />
+
+                      <div className="nr-input-moneda">
+                        <span>$</span>
+
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="0"
+                          value={
+                            producto.precioVenta
+                              ? Number(producto.precioVenta).toLocaleString(
+                                  "es-CO",
+                                  { maximumFractionDigits: 0 },
+                                )
+                              : ""
+                          }
+                          onChange={(e) =>
+                            actualizarProducto(
+                              producto.id,
+                              "precioVenta",
+                              e.target.value.replace(/\D/g, ""),
+                            )
+                          }
+                        />
+                      </div>
+
+                      <span className="nr-total-fila">
+                        {formatearPrecio(calcularTotalProducto(producto))}
+                      </span>
+
+                      <button
+                        type="button"
+                        className="nr-btn-eliminar"
+                        title="Quitar producto"
+                        onClick={() => eliminarProducto(producto.id)}
+                        disabled={productos.length === 1}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                  ) : (
-                    <span className="placeholder">
-                      Haga clic para seleccionar un cliente
-                    </span>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* COMENTARIOS */}
+
+            <section className="nr-seccion">
+              <div className="nr-seccion-titulo">
+                <span className="nr-paso">3</span>
+                <h4>Comentarios</h4>
+                <span className="nr-opcional">Opcional</span>
+              </div>
+
+              <textarea
+                className="nr-textarea"
+                value={comentarios}
+                onChange={(e) => setComentarios(e.target.value)}
+                placeholder="Ej. Cliente solicita entrega el viernes..."
+              />
+            </section>
+          </div>
+
+          {/* =========================
+              PANEL DE PAGO
+          ========================= */}
+
+          <aside className="nr-panel">
+            <section className="nr-seccion">
+              <div className="nr-seccion-titulo">
+                <span className="nr-paso">4</span>
+                <h4>Pago</h4>
+              </div>
+
+              <div className="nr-segmentado" role="radiogroup">
+                {ESTADOS_PAGO.map((estado) => (
+                  <button
+                    type="button"
+                    key={estado.valor}
+                    role="radio"
+                    aria-checked={estadoPago === estado.valor}
+                    className={estadoPago === estado.valor ? "activo" : ""}
+                    onClick={() => setEstadoPago(estado.valor)}
+                  >
+                    {estadoPago === estado.valor && <Check size={13} />}
+                    {estado.etiqueta}
+                  </button>
+                ))}
+              </div>
+
+              {/* PAGADA */}
+
+              {estadoPago === "pagada" && (
+                <div className="nr-pago-detalle">
+                  <div className="nr-campo">
+                    <label>Método de pago *</label>
+
+                    <select
+                      value={medioPago}
+                      onChange={(e) => setMedioPago(e.target.value)}
+                    >
+                      <option value="">Seleccione un método</option>
+
+                      {mediosDisponibles.map((medio) => (
+                        <option key={medio.valor} value={medio.valor}>
+                          {medio.etiqueta}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {medioPago && (
+                    <div className="nr-campo">
+                      <label>{etiquetaComprobante}</label>
+
+                      <input
+                        type="text"
+                        value={comprobantePago}
+                        onChange={(e) => setComprobantePago(e.target.value)}
+                        placeholder={ejemploComprobante}
+                      />
+
+                      <small className="nr-ayuda">
+                        Se guarda al final de los comentarios.
+                      </small>
+                    </div>
                   )}
                 </div>
-              </div>
-            </div>
-            <div className="form-group estado-pago-group">
-              <label>Estado de pago *</label>
+              )}
 
-              <div className="estado-pago-opciones">
-                <button
-                  type="button"
-                  className={`estado-pago-card ${
-                    estadoPago === "pagada" ? "activo pagada" : ""
-                  }`}
-                  onClick={() => setEstadoPago("pagada")}
-                >
-                  <span className="estado-pago-icono">✓</span>
+              {/* ABONO */}
 
-                  <div>
-                    <strong>Pagada</strong>
+              {estadoPago === "abono" && (
+                <div className="nr-pago-detalle">
+                  <div className="nr-campo">
+                    <label>Valor del abono *</label>
 
-                    <span>El cliente pagó el total.</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  className={`estado-pago-card ${
-                    estadoPago === "abono" ? "activo abono" : ""
-                  }`}
-                  onClick={() => setEstadoPago("abono")}
-                >
-                  <span className="estado-pago-icono">$</span>
-
-                  <div>
-                    <strong>Abono / Parcial</strong>
-
-                    <span>Se realizó un abono.</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  className={`estado-pago-card ${
-                    estadoPago === "pendiente" ? "activo pendiente" : ""
-                  }`}
-                  onClick={() => setEstadoPago("pendiente")}
-                >
-                  <span className="estado-pago-icono">!</span>
-
-                  <div>
-                    <strong>Pendiente</strong>
-
-                    <span>No se ha realizado ningún pago.</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* MÉTODO DE PAGO */}
-
-            {estadoPago === "pagada" && (
-              <div className="form-group metodo-pago-group">
-                <label>Método de pago *</label>
-
-                <div className="metodo-pago-opciones">
-                  {/* DÓLARES */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "dolares" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("dolares")}
-                  >
-                    <span className="metodo-pago-icono">$</span>
-
-                    <div>
-                      <strong>Dólares</strong>
-                      <span>Pago en dólares.</span>
-                    </div>
-                  </button>
-
-                  {/* EFECTIVO */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "efectivo" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("efectivo")}
-                  >
-                    <span className="metodo-pago-icono">$</span>
-
-                    <div>
-                      <strong>Efectivo</strong>
-                      <span>Pago en efectivo.</span>
-                    </div>
-                  </button>
-
-                  {/* OTRO */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "otro" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("otro")}
-                  >
-                    <span className="metodo-pago-icono">•••</span>
-
-                    <div>
-                      <strong>Otro</strong>
-                      <span>Otro medio de pago.</span>
-                    </div>
-                  </button>
-
-                  {/* PENDIENTE PAGO */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "pendiente_pago" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("pendiente_pago")}
-                  >
-                    <span className="metodo-pago-icono">!</span>
-
-                    <div>
-                      <strong>Pendiente pago</strong>
-                      <span>Pago pendiente.</span>
-                    </div>
-                  </button>
-
-                  {/* REGALO */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "regalo" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("regalo")}
-                  >
-                    <span className="metodo-pago-icono">🎁</span>
-
-                    <div>
-                      <strong>Regalo</strong>
-                      <span>Producto entregado como regalo.</span>
-                    </div>
-                  </button>
-
-                  {/* T. CRÉDITO */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "t_credito" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("t_credito")}
-                  >
-                    <span className="metodo-pago-icono">$</span>
-
-                    <div>
-                      <strong>T. Crédito</strong>
-                      <span>Pago con tarjeta de crédito.</span>
-                    </div>
-                  </button>
-
-                  {/* TRANSFERENCIA */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "transferencia" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("transferencia")}
-                  >
-                    <span className="metodo-pago-icono">⇄</span>
-
-                    <div>
-                      <strong>Transferencia</strong>
-                      <span>Pago por transferencia.</span>
-                    </div>
-                  </button>
-
-                  {/* T. DÉBITO */}
-                  <button
-                    type="button"
-                    className={`metodo-pago-card ${
-                      medioPago === "t_debito" ? "activo" : ""
-                    }`}
-                    onClick={() => setMedioPago("t_debito")}
-                  >
-                    <span className="metodo-pago-icono">$</span>
-
-                    <div>
-                      <strong>T. Débito</strong>
-                      <span>Pago con tarjeta débito.</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-            {/* =========================
-    ABONO / PARCIAL
-========================= */}
-
-            {estadoPago === "abono" && (
-              <div className="abono-card">
-                <div className="abono-header">
-                  <div>
-                    <h4>Información del abono</h4>
-
-                    <span>Registra el valor recibido y el método de pago.</span>
-                  </div>
-
-                  <span className="abono-badge">ABONO / PARCIAL</span>
-                </div>
-
-                {/* RESUMEN */}
-
-                <div className="abono-resumen">
-                  <div>
-                    <span>Total remisión</span>
-
-                    <strong>{formatearPrecio(totalRemision)}</strong>
-                  </div>
-
-                  <div>
-                    <span>Total abonado</span>
-
-                    <strong>{formatearPrecio(totalAbonos)}</strong>
-                  </div>
-
-                  <div>
-                    <span>Saldo pendiente</span>
-
-                    <strong>{formatearPrecio(saldoPendiente)}</strong>
-                  </div>
-                </div>
-
-                {/* FORMULARIO */}
-
-                <div className="abono-form">
-                  {/* VALOR */}
-
-                  <div>
-                    <label>Valor abonado *</label>
-
-                    <div className="input-monto">
+                    <div className="nr-input-moneda">
                       <span>$</span>
 
                       <input
@@ -1013,20 +1069,21 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
                         min="1"
                         max={saldoPendiente}
                         value={nuevoAbono.valor}
+                        placeholder="0"
                         onChange={(e) =>
                           setNuevoAbono((prev) => ({
                             ...prev,
                             valor: e.target.value,
                           }))
                         }
-                        placeholder="0"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") agregarAbono();
+                        }}
                       />
                     </div>
                   </div>
 
-                  {/* MÉTODO */}
-
-                  <div>
+                  <div className="nr-campo">
                     <label>Método de pago *</label>
 
                     <select
@@ -1040,409 +1097,141 @@ function NuevaRemision({ abierto, cerrar, usuarioActual }) {
                     >
                       <option value="">Seleccione un método</option>
 
-                      <option value="dolares">Dólares</option>
-
-                      <option value="efectivo">Efectivo</option>
-
-                      <option value="otro">Otro</option>
-
-                      <option value="regalo">Regalo</option>
-
-                      <option value="t_credito">T. Crédito</option>
-
-                      <option value="transferencia">Transferencia</option>
-
-                      <option value="t_debito">T. Débito</option>
+                      {mediosDisponibles.map((medio) => (
+                        <option key={medio.valor} value={medio.valor}>
+                          {medio.etiqueta}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
-                  {/* COMPROBANTE */}
-
-                  <div>
+                  <div className="nr-campo">
                     <label>Referencia / comprobante</label>
 
                     <input
                       type="text"
                       value={nuevoAbono.comprobante}
+                      placeholder="Ej. TRX-458921"
                       onChange={(e) =>
                         setNuevoAbono((prev) => ({
                           ...prev,
                           comprobante: e.target.value,
                         }))
                       }
-                      placeholder="Ej. TRX-458921"
                     />
                   </div>
-                </div>
 
-                {/* BOTÓN */}
-
-                <div className="abono-acciones">
                   <button
                     type="button"
-                    className="btn-agregar-abono"
+                    className="nr-btn-secundario nr-ancho-completo"
                     onClick={agregarAbono}
                   >
-                    + Registrar abono
+                    <Plus size={14} /> Registrar abono
                   </button>
+
+                  {abonos.length > 0 && (
+                    <ul className="nr-abonos">
+                      {abonos.map((abono, index) => (
+                        <li key={index}>
+                          <div>
+                            <strong>{formatearPrecio(abono.valor)}</strong>
+
+                            <small>
+                              {etiquetaMedioPago(abono.medioPago)}
+                              {abono.comprobante
+                                ? ` · ${abono.comprobante}`
+                                : ""}
+                            </small>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="nr-btn-eliminar"
+                            title="Quitar abono"
+                            onClick={() => eliminarAbono(index)}
+                          >
+                            <X size={13} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
+              )}
 
-                {/* ABONOS REGISTRADOS */}
+              {/* PENDIENTE */}
 
-                {abonos.length > 0 && (
-                  <div className="abonos-registrados">
-                    <div className="abonos-registrados-titulo">
-                      Abonos registrados
-                    </div>
+              {estadoPago === "pendiente" && (
+                <p className="nr-nota">
+                  La remisión quedará en cartera por el total de{" "}
+                  <strong>{formatearPrecio(totalRemision)}</strong>.
+                </p>
+              )}
+            </section>
 
-                    {abonos.map((abono, index) => (
-                      <div className="abono-item" key={index}>
-                        <div>
-                          <strong>{formatearPrecio(abono.valor)}</strong>
+            {/* RESUMEN */}
 
-                          <span>
-                            {abono.medioPago}
-                            {abono.comprobante ? ` · ${abono.comprobante}` : ""}
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => eliminarAbono(index)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <section className="nr-resumen">
+              <div>
+                <span>Subtotal productos</span>
+                <strong>{formatearPrecio(totalRemision)}</strong>
               </div>
-            )}
 
-            {/* COMPROBANTE DE PAGO */}
-
-            {estadoPago === "pagada" && medioPago && (
-              <div className="comprobante-card">
-                <div className="comprobante-header">
+              {estadoPago === "abono" && (
+                <>
                   <div>
-                    <h4>Comprobante de pago</h4>
-
-                    <span>Registra la referencia o soporte del pago.</span>
+                    <span>Abonado</span>
+                    <strong>{formatearPrecio(totalAbonos)}</strong>
                   </div>
 
-                  <span className="badge-metodo">
-                    {medioPago === "efectivo" && "EFECTIVO"}
-                    {medioPago === "transferencia" && "TRANSFERENCIA"}
-                    {medioPago === "t_credito" && "T. CRÉDITO"}
-                    {medioPago === "t_debito" && "T. DÉBITO"}
-                    {medioPago === "dolares" && "DÓLARES"}
-                    {medioPago === "regalo" && "REGALO"}
-                    {medioPago === "otro" && "OTRO"}
-                    {medioPago === "pendiente_pago" && "PENDIENTE"}
-                  </span>
-                </div>
-
-                <div className="comprobante-campo">
-                  <label>
-                    {medioPago === "transferencia"
-                      ? "N° de transferencia"
-                      : medioPago === "t_credito"
-                        ? "Últimos 4 dígitos de la tarjeta"
-                        : medioPago === "t_debito"
-                          ? "Últimos 4 dígitos de la tarjeta"
-                          : medioPago === "efectivo"
-                            ? "N° de recibo (opcional)"
-                            : medioPago === "dolares"
-                              ? "Referencia del pago"
-                              : medioPago === "regalo"
-                                ? "Autorización"
-                                : medioPago === "pendiente_pago"
-                                  ? "Observación"
-                                  : "Referencia"}
-                  </label>
-
-                  <input
-                    type="text"
-                    value={comprobantePago}
-                    onChange={(e) => setComprobantePago(e.target.value)}
-                    placeholder={
-                      medioPago === "transferencia"
-                        ? "Ej. TRX-458921"
-                        : medioPago === "t_credito"
-                          ? "Ej. 4821"
-                          : medioPago === "t_debito"
-                            ? "Ej. 1736"
-                            : medioPago === "efectivo"
-                              ? "Ej. REC-10258"
-                              : medioPago === "dolares"
-                                ? "Ej. USD-2026-15"
-                                : medioPago === "regalo"
-                                  ? "Ej. Aprobación gerencia"
-                                  : medioPago === "pendiente_pago"
-                                    ? "Ej. Pendiente por cobrar"
-                                    : "Ingrese una referencia"
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* PRODUCTOS */}
-
-            <div className="section-card productos-remision">
-              <div className="section-header-productos">
-                <div className="section-title">
-                  <h3>Productos de la remisión</h3>
-
-                  <span>
-                    Agregue los productos que hacen parte de esta remisión.
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn-agregar-producto"
-                  onClick={agregarProducto}
-                >
-                  + Agregar producto
-                </button>
-              </div>
-
-              {/* ENCABEZADOS */}
-
-              <div className="productos-header">
-                <span>Código</span>
-                <span>Producto</span>
-                <span>Línea</span>
-                <span>Placa</span>
-                <span>Precio lista</span>
-                <span>Cantidad</span>
-                <span>Precio venta</span>
-                <span>Total</span>
-                <span></span>
-              </div>
-
-              {/* LISTA DE PRODUCTOS */}
-
-              <div className="productos-lista">
-                {productos.map((producto) => (
-                  <div className="producto-row" key={producto.id}>
-                    <div className="producto-codigo-buscador">
-                      <input
-                        type="text"
-                        placeholder="Código"
-                        value={producto.codigo}
-                        onChange={(e) =>
-                          buscarCodigo(producto.id, e.target.value)
-                        }
-                      />
-
-                      {(sugerenciasCodigo[producto.id] || []).length > 0 && (
-                        <div className="sugerencias-producto">
-                          {sugerenciasCodigo[producto.id].map(
-                            (productoEncontrado) => (
-                              <div
-                                key={productoEncontrado.id_producto}
-                                className="sugerencia-producto"
-                                onClick={() =>
-                                  seleccionarProducto(
-                                    producto.id,
-                                    productoEncontrado,
-                                  )
-                                }
-                              >
-                                <strong>{productoEncontrado.codigo}</strong>
-
-                                <span>{productoEncontrado.nombre}</span>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="producto-buscador">
-                      <input
-                        type="text"
-                        placeholder="Producto"
-                        value={producto.nombre}
-                        onChange={(e) =>
-                          buscarProductos(producto.id, e.target.value, "nombre")
-                        }
-                      />
-
-                      {(sugerenciasProducto[producto.id] || []).length > 0 && (
-                        <div className="sugerencias-producto">
-                          {sugerenciasProducto[producto.id].map(
-                            (productoEncontrado) => (
-                              <div
-                                key={productoEncontrado.id_producto}
-                                className="sugerencia-producto"
-                                onClick={() =>
-                                  seleccionarProducto(
-                                    producto.id,
-                                    productoEncontrado,
-                                  )
-                                }
-                              >
-                                <strong>{productoEncontrado.codigo}</strong>
-
-                                <span>{productoEncontrado.nombre}</span>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder="Línea"
-                      value={producto.linea}
-                      readOnly
-                    />
-
-                    <input
-                      type="text"
-                      placeholder={
-                        esSilla(producto.nombre)
-                          ? "Placa obligatoria"
-                          : "No aplica"
-                      }
-                      value={producto.placa}
-                      disabled={!esSilla(producto.nombre)}
-                      onChange={(e) =>
-                        actualizarProducto(
-                          producto.id,
-                          "placa",
-                          e.target.value.toUpperCase(),
-                        )
-                      }
-                    />
-
-                    <input
-                      type="text"
-                      value={formatearPrecio(producto.precioLista)}
-                      readOnly
-                    />
-
-                    <input
-                      type="number"
-                      min="1"
-                      value={producto.cantidad}
-                      onChange={(e) =>
-                        actualizarProducto(
-                          producto.id,
-                          "cantidad",
-                          e.target.value,
-                        )
-                      }
-                    />
-
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={
-                        producto.precioVenta
-                          ? Number(producto.precioVenta).toLocaleString(
-                              "es-CO",
-                              {
-                                maximumFractionDigits: 0,
-                              },
-                            )
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const valor = e.target.value.replace(/\D/g, "");
-
-                        actualizarProducto(producto.id, "precioVenta", valor);
-                      }}
-                    />
-
-                    <span className="producto-total">
-                      {formatearPrecio(calcularTotalProducto(producto))}
-                    </span>
-
-                    <button
-                      type="button"
-                      className="btn-eliminar-producto"
-                      onClick={() => eliminarProducto(producto.id)}
-                      disabled={productos.length === 1}
-                    >
-                      🗑️
-                    </button>
+                  <div>
+                    <span>Saldo pendiente</span>
+                    <strong className="nr-saldo">
+                      {formatearPrecio(saldoPendiente)}
+                    </strong>
                   </div>
-                ))}
-              </div>
-
-              {/* TOTAL */}
-
-              <div className="total-remision">
-                <div className="total-remision-info">
-                  <span className="total-remision-label">
-                    TOTAL DE LA REMISIÓN
-                  </span>
-                </div>
-
-                <div className="total-remision-valor">
-                  {formatearPrecio(totalRemision)}
-                </div>
-              </div>
-
-              {/* COMENTARIOS */}
-
-              <div className="section-card comentarios-remision">
-                <div className="section-title">
-                  <h3>Comentarios</h3>
-
-                  <span>Agrega observaciones importantes de la remisión.</span>
-                </div>
-
-                <textarea
-                  value={comentarios}
-                  onChange={(e) => setComentarios(e.target.value)}
-                  placeholder="Ej. Cliente solicita entrega el viernes..."
-                />
-              </div>
-              <button
-                type="button"
-                className="btn-cancelar-remision"
-                onClick={cerrarRemision}
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                className="btn-guardar-remision"
-                onClick={guardarRemision}
-              >
-                Guardar remisión
-              </button>
-            </div>
-
-            {/* ALERTA */}
-
-            <Alerta
-              visible={alerta.visible}
-              tipo={alerta.tipo}
-              titulo={alerta.titulo}
-              mensaje={alerta.mensaje}
-              cerrar={cerrarAlerta}
-            />
-
-            {/* MODAL CLIENTE */}
-
-            <BuscarCliente
-              abierto={modalCliente}
-              cerrar={() => setModalCliente(false)}
-              seleccionarCliente={seleccionarCliente}
-            />
-          </div>
+                </>
+              )}
+            </section>
+          </aside>
         </div>
+
+        {/* PIE */}
+
+        <footer className="nr-pie">
+          <div className="nr-pie-total">
+            <span>Total de la remisión</span>
+            <strong>{formatearPrecio(totalRemision)}</strong>
+          </div>
+
+          <div className="nr-pie-acciones">
+            <button
+              type="button"
+              className="nr-btn-texto"
+              onClick={cerrarRemision}
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              className="nr-btn-primario"
+              onClick={guardarRemision}
+              disabled={guardando}
+            >
+              {guardando ? "Guardando…" : "Guardar remisión"}
+            </button>
+          </div>
+        </footer>
       </div>
+
+      <BuscarCliente
+        abierto={modalCliente}
+        cerrar={() => setModalCliente(false)}
+        seleccionarCliente={seleccionarCliente}
+      />
     </div>
   );
 }
+
 export default NuevaRemision;

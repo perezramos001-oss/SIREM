@@ -1,13 +1,33 @@
-import { useState } from "react";
-import { LockKeyhole, UserRound, LogIn } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LockKeyhole, UserRound, LogIn, Eye, EyeOff } from "lucide-react";
+import { useAvisos } from "../components/Avisos/Avisos";
+import { CLAVE_SESION_VENCIDA } from "../utils/api";
 import "./Login.css";
 
 function Login({ iniciarSesion }) {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
+  const [verPassword, setVerPassword] = useState(false);
 
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+
+  const { avisar } = useAvisos();
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(CLAVE_SESION_VENCIDA)) {
+        sessionStorage.removeItem(CLAVE_SESION_VENCIDA);
+
+        avisar.info(
+          "Por seguridad, vuelve a ingresar tus credenciales.",
+          "Tu sesión expiró",
+        );
+      }
+    } catch {
+      /* sin almacenamiento de sesión */
+    }
+  }, [avisar]);
 
   const manejarLogin = async (e) => {
     e.preventDefault();
@@ -50,9 +70,7 @@ function Login({ iniciarSesion }) {
         return;
       }
 
-      localStorage.setItem("usuarioSirem", JSON.stringify(datos.usuario));
-
-      iniciarSesion(datos.usuario);
+      iniciarSesion({ ...datos.usuario, token: datos.token });
     } catch (error) {
       console.error("Error conectando con el servidor:", error);
 
@@ -88,13 +106,15 @@ function Login({ iniciarSesion }) {
 
         <form onSubmit={manejarLogin}>
           <div className="login-field">
-            <label>Usuario</label>
+            <label htmlFor="login-usuario">Usuario</label>
 
             <div className="login-input-wrapper">
               <UserRound size={17} />
 
               <input
+                id="login-usuario"
                 type="text"
+                autoFocus
                 value={usuario}
                 onChange={(e) => {
                   setUsuario(e.target.value);
@@ -107,13 +127,14 @@ function Login({ iniciarSesion }) {
           </div>
 
           <div className="login-field">
-            <label>Contraseña</label>
+            <label htmlFor="login-password">Contraseña</label>
 
             <div className="login-input-wrapper">
               <LockKeyhole size={17} />
 
               <input
-                type="password"
+                id="login-password"
+                type={verPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -122,6 +143,16 @@ function Login({ iniciarSesion }) {
                 placeholder="Ingresa tu contraseña"
                 autoComplete="current-password"
               />
+
+              <button
+                type="button"
+                className="login-ver-password"
+                onClick={() => setVerPassword(!verPassword)}
+                title={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                aria-label={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {verPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
             </div>
           </div>
 

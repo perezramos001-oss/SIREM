@@ -84,7 +84,7 @@
 
   color: #2b1b12;
 
-  font-size: 22px;
+  font-size: var(--fs-titulo);
 }
 
 .login-logo p {
@@ -92,7 +92,7 @@
 
   color: #9a8b7e;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   letter-spacing: 1.2px;
 }
@@ -108,7 +108,7 @@
 
   color: #b8732a;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 
   font-weight: 800;
 
@@ -120,7 +120,7 @@
 
   color: #2b1b12;
 
-  font-size: 25px;
+  font-size: var(--fs-titulo);
 }
 
 .login-header p {
@@ -128,7 +128,7 @@
 
   color: #8d7e70;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 }
 
 .login-field {
@@ -142,7 +142,7 @@
 
   color: #5d4b3d;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -190,7 +190,7 @@
 
   font-family: inherit;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 }
 
 .login-input-wrapper input::placeholder {
@@ -234,7 +234,7 @@
 
   color: #ffffff;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -244,7 +244,7 @@
 
   color: #a33f3f;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .login-button {
@@ -270,7 +270,7 @@
 
   font-family: inherit;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -289,4 +289,24 @@
   opacity: 0.65;
 
   cursor: not-allowed;
+}
+
+.login-ver-password {
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 4px;
+
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9a8b7e;
+  cursor: pointer;
+}
+
+.login-ver-password:hover {
+  color: #b8732a;
 }

@@ -1,9 +1,14 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
+import { useTeclaEscape } from "../utils/useTeclaEscape";
+import { useAvisos } from "../components/Avisos/Avisos";
 import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
 
 import "./Productos.css";
 
 function Productos() {
+  const { avisar, confirmar } = useAvisos();
+
   const [productos, setProductos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
   const [lineas, setLineas] = useState([]);
@@ -36,7 +41,7 @@ function Productos() {
         parametros.set("busqueda", textoBusqueda.trim());
       }
 
-      const respuesta = await fetch(`/api/productos?${parametros.toString()}`);
+      const respuesta = await apiFetch(`/api/productos?${parametros.toString()}`);
 
       if (!respuesta.ok) {
         throw new Error("No se pudieron cargar los productos.");
@@ -53,6 +58,8 @@ function Productos() {
       setPaginaActual(datos.pagina || pagina);
     } catch (error) {
       console.error("Error cargando productos:", error);
+
+      avisar.fallo(error, "No se pudieron cargar los productos.");
     }
   };
 
@@ -76,7 +83,7 @@ function Productos() {
 
   const cargarLineas = async () => {
     try {
-      const respuesta = await fetch("/api/productos/lineas");
+      const respuesta = await apiFetch("/api/productos/lineas");
 
       if (!respuesta.ok) {
         throw new Error("No se pudieron cargar las líneas.");
@@ -87,22 +94,11 @@ function Productos() {
       setLineas(datos || []);
     } catch (error) {
       console.error("Error cargando líneas:", error);
+
+      avisar.fallo(error, "No se pudieron cargar las líneas de producto.");
     }
   };
 
-  // ================================
-  // BUSCAR
-  // ================================
-
-  const productosFiltrados = productos.filter((producto) => {
-    const texto = `
-            ${producto.codigo || ""}
-            ${producto.nombre || ""}
-            ${producto.linea || ""}
-        `.toLowerCase();
-
-    return texto.includes(busqueda.toLowerCase());
-  });
   // ================================
   // FORMATO PRECIO
   // ================================
@@ -174,7 +170,7 @@ function Productos() {
 
       const metodo = productoEditando ? "PUT" : "POST";
 
-      const respuesta = await fetch(url, {
+      const respuesta = await apiFetch(url, {
         method: metodo,
         headers: {
           "Content-Type": "application/json",
@@ -188,18 +184,24 @@ function Productos() {
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(resultado.mensaje || "No se pudo guardar el producto.");
+        avisar.error(resultado.mensaje || "No se pudo guardar el producto.");
 
         return;
       }
 
       setModalAbierto(false);
 
+      avisar.exito(
+        productoEditando
+          ? "Producto actualizado correctamente."
+          : "Producto creado correctamente.",
+      );
+
       await cargarProductos(paginaActual, busqueda);
     } catch (error) {
       console.error("Error guardando producto:", error);
 
-      alert("No se pudo conectar con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
 
@@ -208,32 +210,40 @@ function Productos() {
   // ================================
 
   const eliminarProducto = async (producto) => {
-    const confirmar = window.confirm(
-      `¿Deseas eliminar el producto "${producto.nombre}"?`,
-    );
+    const confirmado = await confirmar({
+      titulo: "¿Desactivar producto?",
+      mensaje: `Vas a desactivar el producto "${producto.nombre}". Ya no aparecerá en las búsquedas.`,
+      textoConfirmar: "Desactivar",
+      peligro: true,
+    });
 
-    if (!confirmar) return;
+    if (!confirmado) return;
 
     try {
-      const respuesta = await fetch(`/api/productos/${producto.id_producto}`, {
+      const respuesta = await apiFetch(`/api/productos/${producto.id_producto}`, {
         method: "DELETE",
       });
 
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(resultado.mensaje || "No se pudo eliminar el producto.");
+        avisar.error(resultado.mensaje || "No se pudo desactivar el producto.");
 
         return;
       }
+
+      avisar.exito(`Producto "${producto.nombre}" desactivado.`);
 
       await cargarProductos(paginaActual, busqueda);
     } catch (error) {
       console.error("Error eliminando producto:", error);
 
-      alert("No se pudo conectar con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
+
+
+  useTeclaEscape(modalAbierto, () => setModalAbierto(false));
 
   return (
     <div className="productos-page">

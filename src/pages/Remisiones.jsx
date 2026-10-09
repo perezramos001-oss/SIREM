@@ -1,11 +1,15 @@
 import "./Remisiones.css";
-import React, { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
+import { useTeclaEscape } from "../utils/useTeclaEscape";
+import { useAvisos } from "../components/Avisos/Avisos";
+import { useEffect, useState } from "react";
 import { obtenerPeriodo } from "../utils/fechas";
+import { Pencil, X, Plus, Trash2, Check } from "lucide-react";
+import "../components/NuevaRemision/NuevaRemisionDiseno.css";
+import { MEDIOS_PAGO, etiquetaMedioPago } from "../utils/mediosPago";
 
 function Remisiones({ mesSeleccionado, usuarioActual }) {
-  console.log("MES ACTUAL:", mesSeleccionado);
-
-  const periodo = obtenerPeriodo(mesSeleccionado);
+  const { avisar } = useAvisos();
 
   const [remisiones, setRemisiones] = useState([]);
   const [busqueda, setBusqueda] = useState("");
@@ -13,19 +17,15 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
   const [modalWO, setModalWO] = useState(false);
   const [modalEditar, setModalEditar] = useState(false);
   const [remisionEditando, setRemisionEditando] = useState(null);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const [remisionesWO, setRemisionesWO] = useState([]);
-
-  const [administradorWO, setAdministradorWO] = useState("");
-  const [comentarioWO, setComentarioWO] = useState("");
 
   const [passwordWO, setPasswordWO] = useState("");
   const [errorPasswordWO, setErrorPasswordWO] = useState("");
 
   const [codigoWO, setCodigoWO] = useState("");
   const [errorCodigoWO, setErrorCodigoWO] = useState("");
-
-  const [codigosWO, setCodigosWO] = useState({});
 
   const remisionesFiltradas = remisiones.filter((remision) => {
     const texto = busqueda
@@ -74,9 +74,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
 
         const url = `/api/remisiones?mes=${periodo.mes}&anio=${periodo.anio}`;
 
-        console.log("Cargando:", url);
-
-        const respuesta = await fetch(url, {
+        const respuesta = await apiFetch(url, {
           signal: controlador.signal,
         });
 
@@ -84,23 +82,8 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
           throw new Error("No se pudieron cargar las remisiones.");
         }
 
-        const textoRespuesta = await respuesta.text();
+        const datos = await respuesta.json();
 
-        console.log("STATUS:", respuesta.status);
-        console.log("URL:", respuesta.url);
-        console.log("RESPUESTA:", textoRespuesta);
-
-        if (!respuesta.ok) {
-          alert("Error del servidor: " + respuesta.status);
-          return;
-        }
-
-        const datos = JSON.parse(textoRespuesta);
-
-        console.log(
-          "REMISIONES CON W.O.:",
-          datos.filter((remision) => Number(remision.wo_bodega_auxiliar) === 1),
-        );
         if (!controlador.signal.aborted) {
           setRemisiones(datos);
 
@@ -119,6 +102,8 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
       } catch (error) {
         if (error.name !== "AbortError") {
           console.error("Error cargando remisiones:", error);
+
+          avisar.fallo(error, "No se pudieron cargar las remisiones del mes.");
         }
       }
     };
@@ -170,7 +155,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
     }
 
     try {
-      const respuesta = await fetch("/api/remisiones/world-office", {
+      const respuesta = await apiFetch("/api/remisiones/world-office", {
         method: "POST",
 
         headers: {
@@ -181,8 +166,6 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
           id_remisiones: remisionesSeleccionadas,
 
           codigo_world_office: codigoWO.trim(),
-
-          id_usuario: usuarioActual.id_usuario,
 
           password: passwordWO,
         }),
@@ -206,18 +189,6 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
            ÉXITO
         ========================= */
 
-      setCodigosWO((anteriores) => {
-        const nuevos = {
-          ...anteriores,
-        };
-
-        remisionesSeleccionadas.forEach((id) => {
-          nuevos[id] = codigoWO.trim();
-        });
-
-        return nuevos;
-      });
-
       setRemisionesWO((anteriores) => [
         ...anteriores,
         ...remisionesSeleccionadas,
@@ -238,6 +209,13 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
       setErrorPasswordWO("");
 
       setModalWO(false);
+
+      avisar.exito(
+        remisionesSeleccionadas.length === 1
+          ? `La remisión quedó registrada con el código ${codigoWO.trim()}.`
+          : `${remisionesSeleccionadas.length} remisiones quedaron registradas con el código ${codigoWO.trim()}.`,
+        "Movimiento de World Office confirmado",
+      );
     } catch (error) {
       console.error("Error confirmando World Office:", error);
 
@@ -257,9 +235,8 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
 
   const editarRemision = async (idRemision) => {
     try {
-      console.log("Cargando remisión para editar:", idRemision);
 
-      const respuesta = await fetch(`/api/remisiones/${idRemision}`);
+      const respuesta = await apiFetch(`/api/remisiones/${idRemision}`);
 
       const datos = await respuesta.json();
 
@@ -270,7 +247,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
       if (!respuesta.ok) {
         console.error("Error obteniendo remisión:", datos);
 
-        alert(datos.mensaje || "No se pudo cargar la remisión.");
+        avisar.error(datos.mensaje || "No se pudo cargar la remisión.");
 
         return;
       }
@@ -279,9 +256,15 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
            CARGAR REMISIÓN
         ========================= */
 
-      console.log("Remisión cargada:", datos.remision);
 
-      setRemisionEditando(datos.remision);
+      // La base de datos envía la cantidad como "15.00"
+      setRemisionEditando({
+        ...datos.remision,
+        productos: (datos.remision.productos || []).map((producto) => ({
+          ...producto,
+          cantidad: Number(producto.cantidad),
+        })),
+      });
 
       /* =========================
            ABRIR MODAL
@@ -291,7 +274,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
     } catch (error) {
       console.error("Error cargando remisión para editar:", error);
 
-      alert("No fue posible cargar la remisión.");
+      avisar.error("No fue posible cargar la remisión.");
     }
   }; /* =========================
    AGREGAR PRODUCTO EN EDICIÓN
@@ -327,26 +310,36 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
 ========================= */
 
   const guardarCambiosRemision = async () => {
-    if (!remisionEditando) {
+    if (!remisionEditando || guardandoEdicion) {
       return;
     }
 
+    const productos = remisionEditando.productos || [];
+
+    if (productos.length === 0) {
+      avisar.advertencia("La remisión debe tener al menos un producto.");
+
+      return;
+    }
+
+    if (productos.some((producto) => !producto.id_producto)) {
+      avisar.advertencia(
+        "Selecciona de la lista de sugerencias el producto de cada fila nueva.",
+      );
+
+      return;
+    }
+
+    if (productos.some((producto) => !(Number(producto.cantidad) > 0))) {
+      avisar.advertencia("La cantidad de cada producto debe ser mayor a cero.");
+
+      return;
+    }
+
+    setGuardandoEdicion(true);
+
     try {
-      const productos = remisionEditando.productos || [];
-
-      /* =========================
-           CALCULAR TOTAL
-        ========================= */
-
-      const total = productos.reduce((acumulado, producto) => {
-        const cantidad = Number(producto.cantidad) || 0;
-
-        const precio = Number(producto.precio_venta) || 0;
-
-        return acumulado + cantidad * precio;
-      }, 0);
-
-      const respuesta = await fetch(
+      const respuesta = await apiFetch(
         `/api/remisiones/${remisionEditando.id_remision}`,
         {
           method: "PUT",
@@ -372,7 +365,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
       const datos = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(datos.mensaje || "No se pudieron guardar los cambios.");
+        avisar.error(datos.mensaje || "No se pudieron guardar los cambios.");
 
         return;
       }
@@ -390,7 +383,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
 
       const periodoActual = obtenerPeriodo(mesSeleccionado);
 
-      const respuestaRemisiones = await fetch(
+      const respuestaRemisiones = await apiFetch(
         `/api/remisiones?mes=${periodoActual.mes}&anio=${periodoActual.anio}`,
       );
 
@@ -410,13 +403,111 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
         setRemisionesWO(remisionesYaWO);
       }
 
-      alert("Remisión actualizada correctamente.");
+      avisar.exito("Remisión actualizada correctamente.");
     } catch (error) {
       console.error("Error guardando remisión:", error);
 
-      alert("No fue posible guardar los cambios.");
+      avisar.error("No fue posible guardar los cambios.");
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
+
+  /* =========================
+   FILAS DE PRODUCTOS EN EDICIÓN
+========================= */
+
+  const actualizarProductoEdicion = (index, cambios) => {
+    setRemisionEditando((prev) => {
+      const productos = [...(prev.productos || [])];
+
+      if (!productos[index]) {
+        return prev;
+      }
+
+      productos[index] = { ...productos[index], ...cambios };
+
+      return { ...prev, productos };
+    });
+  };
+
+  const buscarCodigoEdicion = async (index, texto) => {
+    // Al cambiar el código, el producto elegido antes deja de valer.
+    actualizarProductoEdicion(index, {
+      id_producto: null,
+      nombre_producto: "",
+      linea_producto: "",
+      codigo_producto: texto,
+      resultados_busqueda: [],
+    });
+
+    if (!texto.trim()) {
+      return;
+    }
+
+    try {
+      const respuesta = await apiFetch(
+        `/api/productos/buscar-codigo/${encodeURIComponent(texto)}`,
+      );
+
+      if (!respuesta.ok) {
+        return;
+      }
+
+      actualizarProductoEdicion(index, {
+        resultados_busqueda: await respuesta.json(),
+      });
+    } catch (error) {
+      console.error("Error buscando producto:", error);
+    }
+  };
+
+  const seleccionarProductoEdicion = (index, resultado) => {
+    actualizarProductoEdicion(index, {
+      id_producto: resultado.id_producto,
+      codigo_producto: resultado.codigo,
+      nombre_producto: resultado.nombre,
+      linea_producto: resultado.linea,
+      precio_lista: resultado.precio_lista,
+      precio_venta: resultado.precio_lista,
+      resultados_busqueda: [],
+    });
+  };
+
+  const quitarProductoEdicion = (index) => {
+    setRemisionEditando((prev) => ({
+      ...prev,
+      productos: (prev.productos || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const cerrarEdicion = () => {
+    setModalEditar(false);
+    setRemisionEditando(null);
+  };
+
+  const formatearPesos = (valor) =>
+    Number(valor || 0).toLocaleString("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    });
+
+  const totalEdicion = (remisionEditando?.productos || []).reduce(
+    (total, producto) =>
+      total +
+      (Number(producto.cantidad) || 0) * (Number(producto.precio_venta) || 0),
+    0,
+  );
+
+  const totalAbonadoEdicion = (remisionEditando?.abonos || []).reduce(
+    (total, abono) => total + (Number(abono.valor) || 0),
+    0,
+  );
+
+  useTeclaEscape(modalWO, cerrarConfirmacionWO);
+
+  useTeclaEscape(modalEditar, cerrarEdicion);
 
   return (
     <div className="remisiones-page">
@@ -512,25 +603,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
               ultimaRemision = remision.numero_remision;
 
               const yaEstaEnWO = remisionesWO.includes(remision.id_remision);
-              const agregarProductoEdicion = () => {
-                const nuevoProducto = {
-                  id_detalle: null,
-                  id_producto: null,
-                  codigo_producto: "",
-                  nombre_producto: "",
-                  linea_producto: "",
-                  placa: "",
-                  precio_lista: 0,
-                  cantidad: 1,
-                  precio_venta: 0,
-                  total_producto: 0,
-                };
 
-                setRemisionEditando((prev) => ({
-                  ...prev,
-                  productos: [...(prev.productos || []), nuevoProducto],
-                }));
-              };
               return (
                 <div
                   className={`tabla-row
@@ -541,7 +614,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
                     }
                     ${esPrimeraFilaRemision ? "nueva-remision" : ""}
                 `}
-                  key={remision.id_detalle}
+                  key={`${remision.id_remision}-${remision.id_detalle}`}
                 >
                   <div className="remision-columna">
                     <span>{remision.numero_remision}</span>
@@ -586,7 +659,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
 
                   <span>{remision.cliente}</span>
 
-                  <span>{remision.medio_pago}</span>
+                  <span>{etiquetaMedioPago(remision.medio_pago)}</span>
 
                   <span>{remision.comercial}</span>
 
@@ -641,7 +714,7 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
                         title="Editar remisión"
                         onClick={() => editarRemision(remision.id_remision)}
                       >
-                        ✏️
+                        <Pencil size={14} />
                       </button>
                     )}
                 </div>
@@ -656,625 +729,636 @@ function Remisiones({ mesSeleccionado, usuarioActual }) {
 ========================= */}
 
       {modalWO && (
-        <div className="modal-overlay-wo">
-          <div className="modal-wo">
-            <div className="modal-wo-header">
-              <div>
-                <span className="modal-wo-tag">WORLD OFFICE</span>
+        <div className="nr-overlay">
+          <form
+            className="nr-modal nr-modal-compacto"
+            role="dialog"
+            aria-modal="true"
+            onSubmit={(e) => {
+              e.preventDefault();
+              confirmarWO();
+            }}
+          >
+            {/* ENCABEZADO */}
 
-                <h2>Confirmar movimiento</h2>
+            <header className="nr-header">
+              <div className="nr-header-titulo">
+                <span className="nr-tag">WORLD OFFICE</span>
 
-                <p>
-                  Vas a registrar que estas remisiones ya fueron pasadas a World
+                <h3>Confirmar movimiento</h3>
+
+                <p className="nr-subtitulo">
+                  Registra que estas remisiones ya fueron pasadas a World
                   Office.
                 </p>
               </div>
 
               <button
                 type="button"
-                className="modal-wo-cerrar"
+                className="nr-btn-icono"
                 onClick={cerrarConfirmacionWO}
+                title="Cerrar"
               >
-                ×
+                <X size={18} />
               </button>
-            </div>
+            </header>
 
-            <div className="modal-wo-contenido">
-              <div className="wo-resumen">
-                <div className="wo-cantidad">
-                  <strong>{remisionesSeleccionadas.length}</strong>
+            <div className="nr-cuerpo nr-cuerpo-simple">
+              {/* REMISIONES SELECCIONADAS */}
 
-                  <span>
+              <section className="nr-seccion">
+                <div className="nr-seccion-titulo">
+                  <span className="nr-paso">1</span>
+
+                  <h4>Remisiones</h4>
+
+                  <span className="nr-contador">
+                    {remisionesSeleccionadas.length}{" "}
                     {remisionesSeleccionadas.length === 1
-                      ? "remisión seleccionada"
-                      : "remisiones seleccionadas"}
+                      ? "seleccionada"
+                      : "seleccionadas"}
                   </span>
                 </div>
 
-                <div className="wo-remisiones-lista">
+                <div className="nr-chips">
                   {[
                     ...new Set(
                       remisiones
                         .filter((remision) =>
-                          remisionesSeleccionadas.includes(
-                            remision.id_remision,
-                          ),
+                          remisionesSeleccionadas.includes(remision.id_remision),
                         )
                         .map((remision) => remision.numero_remision),
                     ),
-                  ].join(", ")}
+                  ].map((numero) => (
+                    <span className="nr-chip" key={numero}>
+                      {numero}
+                    </span>
+                  ))}
                 </div>
+              </section>
+
+              {/* DATOS DE CONFIRMACIÓN */}
+
+              <section className="nr-seccion">
+                <div className="nr-seccion-titulo">
+                  <span className="nr-paso">2</span>
+                  <h4>Confirmación</h4>
+                </div>
+
+                <div className="nr-pago-detalle nr-sin-margen">
+                  <div className="nr-campo">
+                    <label>Código World Office *</label>
+
+                    <input
+                      type="text"
+                      autoFocus
+                      value={codigoWO}
+                      onChange={(e) => {
+                        setCodigoWO(e.target.value);
+                        setErrorCodigoWO("");
+                      }}
+                      placeholder="Ej. SA 70 - EA 71"
+                      className={errorCodigoWO ? "nr-error" : ""}
+                    />
+
+                    {errorCodigoWO && (
+                      <small className="nr-mensaje-error">{errorCodigoWO}</small>
+                    )}
+                  </div>
+
+                  <div className="nr-campo">
+                    <label>Tu contraseña *</label>
+
+                    <input
+                      type="password"
+                      value={passwordWO}
+                      onChange={(e) => {
+                        setPasswordWO(e.target.value);
+                        setErrorPasswordWO("");
+                      }}
+                      placeholder="Ingresa tu contraseña"
+                      autoComplete="current-password"
+                      className={errorPasswordWO ? "nr-error" : ""}
+                    />
+
+                    {errorPasswordWO ? (
+                      <small className="nr-mensaje-error">
+                        {errorPasswordWO}
+                      </small>
+                    ) : (
+                      <small className="nr-ayuda">
+                        Se pide para confirmar que eres tú quien registra el
+                        movimiento.
+                      </small>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* PIE */}
+
+            <footer className="nr-pie nr-pie-derecha">
+              <div className="nr-pie-acciones">
+                <button
+                  type="button"
+                  className="nr-btn-texto"
+                  onClick={cerrarConfirmacionWO}
+                >
+                  Cancelar
+                </button>
+
+                <button type="submit" className="nr-btn-primario">
+                  <Check size={15} /> Confirmar movimiento
+                </button>
               </div>
-              <label className="label-wo">Código World Office</label>
-
-              <input
-                type="text"
-                value={codigoWO}
-                onChange={(e) => {
-                  setCodigoWO(e.target.value);
-
-                  setErrorCodigoWO("");
-                }}
-                placeholder="Ej. SA 70 - EA 71"
-                className={`input-wo ${errorCodigoWO ? "input-wo-error" : ""}`}
-              />
-
-              {errorCodigoWO && (
-                <div className="alerta-wo-error">
-                  <span>!</span>
-
-                  <p>{errorCodigoWO}</p>
-                </div>
-              )}
-
-              <label>Contraseña</label>
-
-              <input
-                type="password"
-                value={passwordWO}
-                onChange={(e) => {
-                  setPasswordWO(e.target.value);
-
-                  setErrorPasswordWO("");
-                }}
-                placeholder="Ingresa tu contraseña"
-                className={errorPasswordWO ? "input-password-error" : ""}
-              />
-
-              {errorPasswordWO && (
-                <div className="alerta-password-wo">
-                  <span>!</span>
-
-                  <p>{errorPasswordWO}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="modal-wo-footer">
-              <button
-                type="button"
-                className="btn-cancelar-wo"
-                onClick={cerrarConfirmacionWO}
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                className="btn-confirmar-wo"
-                onClick={confirmarWO}
-              >
-                ✓ Confirmar movimiento
-              </button>
-            </div>
-          </div>
+            </footer>
+          </form>
         </div>
       )}
 
       {/* =========================
     MODAL EDITAR REMISIÓN
+    (mismo diseño que Nueva remisión, clases nr-)
 ========================= */}
 
       {modalEditar && remisionEditando && (
-        <div className="modal-overlay">
-          <div className="modal-editar-remision">
-            <div className="modal-editar-header">
-              <div>
-                <span className="modal-editar-tag">REMISIÓN</span>
+        <div className="nr-overlay">
+          <div className="nr-modal" role="dialog" aria-modal="true">
+            {/* ENCABEZADO */}
 
-                <h2>Editar remisión</h2>
+            <header className="nr-header">
+              <div className="nr-header-titulo">
+                <span className="nr-tag">REMISIÓN</span>
 
-                <p>Modifica la información de la remisión seleccionada.</p>
+                <h3>Editar remisión</h3>
+              </div>
+
+              <div className="nr-header-datos">
+                <span className="nr-chip">
+                  <small>No.</small>
+                  {remisionEditando.numero_remision}
+                </span>
+
+                <span className="nr-chip">
+                  <small>Total original</small>
+                  {formatearPesos(remisionEditando.total)}
+                </span>
               </div>
 
               <button
                 type="button"
-                className="modal-editar-cerrar"
-                onClick={() => {
-                  setModalEditar(false);
-                  setRemisionEditando(null);
-                }}
+                className="nr-btn-icono"
+                onClick={cerrarEdicion}
+                title="Cerrar"
               >
-                ×
+                <X size={18} />
               </button>
-            </div>
+            </header>
 
-            <div className="modal-editar-contenido">
-              <div className="editar-resumen">
-                <div>
-                  <span>Remisión</span>
+            <div className="nr-cuerpo">
+              {/* =========================
+                  COLUMNA PRINCIPAL
+              ========================= */}
 
-                  <strong>{remisionEditando.numero_remision}</strong>
-                </div>
+              <div className="nr-principal">
+                {/* DATOS GENERALES */}
 
-                <div>
-                  <span>Cliente</span>
+                <section className="nr-seccion">
+                  <div className="nr-seccion-titulo">
+                    <span className="nr-paso">1</span>
+                    <h4>Datos generales</h4>
+                  </div>
 
-                  <strong>{remisionEditando.cliente}</strong>
-                </div>
+                  <div className="nr-grid-2">
+                    <div className="nr-campo">
+                      <label>Cliente</label>
 
-                <div>
-                  <span>Total</span>
+                      <div className="nr-selector-cliente con-cliente nr-solo-lectura">
+                        <span className="nr-avatar">
+                          {remisionEditando.cliente?.[0] || "?"}
+                        </span>
 
-                  <strong>
-                    ${Number(remisionEditando.total).toLocaleString("es-CO")}
-                  </strong>
-                </div>
-              </div>
+                        <span className="nr-cliente-info">
+                          <strong>{remisionEditando.cliente}</strong>
 
-              <div className="editar-formulario">
-                {/* FECHA */}
-
-                <div className="editar-campo">
-                  <label>Fecha</label>
-
-                  <input
-                    type="date"
-                    value={
-                      remisionEditando.fecha
-                        ? String(remisionEditando.fecha).substring(0, 10)
-                        : ""
-                    }
-                    onChange={(e) =>
-                      setRemisionEditando({
-                        ...remisionEditando,
-                        fecha: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {/* ESTADO DE PAGO */}
-
-                <div className="editar-campo">
-                  <label>Estado de pago</label>
-
-                  <select
-                    value={remisionEditando.estado_pago || ""}
-                    onChange={(e) =>
-                      setRemisionEditando({
-                        ...remisionEditando,
-                        estado_pago: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="">Seleccionar estado</option>
-
-                    <option value="pagada">Pagada</option>
-
-                    <option value="abono">Abono / Parcial</option>
-
-                    <option value="pendiente">Pendiente</option>
-                  </select>
-                </div>
-
-                {/* MÉTODO DE PAGO */}
-
-                <div className="editar-campo">
-                  <label>Método de pago</label>
-
-                  <select
-                    value={remisionEditando.medio_pago || ""}
-                    onChange={(e) =>
-                      setRemisionEditando({
-                        ...remisionEditando,
-                        medio_pago: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="">Seleccionar método</option>
-
-                    <option value="Dólares">Dólares</option>
-
-                    <option value="Efectivo">Efectivo</option>
-
-                    <option value="Otro">Otro</option>
-
-                    <option value="Pendiente pago">Pendiente pago</option>
-
-                    <option value="Regalo">Regalo</option>
-
-                    <option value="T. Crédito">T. Crédito</option>
-
-                    <option value="Transferencia">Transferencia</option>
-
-                    <option value="T. Débito">T. Débito</option>
-                  </select>
-                </div>
-
-                {/* =========================
-        PRODUCTOS
-    ========================= */}
-
-                <div className="editar-productos">
-                  <div className="editar-productos-titulo">
-                    <div>
-                      <h3>Productos de la remisión</h3>
-
-                      <span>Modifica cantidades, precios y placas.</span>
+                          <small>
+                            {[
+                              remisionEditando.ciudad,
+                              remisionEditando.comercial &&
+                                `Comercial: ${remisionEditando.comercial}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || "Sin datos adicionales"}
+                          </small>
+                        </span>
+                      </div>
                     </div>
+
+                    <div className="nr-campo">
+                      <label>Fecha *</label>
+
+                      <input
+                        type="date"
+                        value={
+                          remisionEditando.fecha
+                            ? String(remisionEditando.fecha).substring(0, 10)
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setRemisionEditando((prev) => ({
+                            ...prev,
+                            fecha: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* PRODUCTOS */}
+
+                <section className="nr-seccion">
+                  <div className="nr-seccion-titulo">
+                    <span className="nr-paso">2</span>
+
+                    <h4>Productos</h4>
+
+                    <span className="nr-contador">
+                      {(remisionEditando.productos || []).length}{" "}
+                      {(remisionEditando.productos || []).length === 1
+                        ? "producto"
+                        : "productos"}
+                    </span>
 
                     <button
                       type="button"
-                      className="btn-agregar-producto-editar"
+                      className="nr-btn-secundario"
                       onClick={agregarProductoEdicion}
                     >
-                      + Agregar producto
+                      <Plus size={14} /> Agregar producto
                     </button>
                   </div>
 
-                  <div className="editar-productos-tabla">
-                    <div className="editar-productos-header">
+                  <div className="nr-tabla">
+                    <div className="nr-tabla-encabezado">
                       <span>Código</span>
                       <span>Producto</span>
                       <span>Placa</span>
-                      <span>Cantidad</span>
-                      <span>Precio venta</span>
-                      <span>Total</span>
+                      <span className="nr-derecha">Cant.</span>
+                      <span className="nr-derecha">Precio venta</span>
+                      <span className="nr-derecha">Total</span>
                       <span></span>
                     </div>
 
+                    {(remisionEditando.productos || []).length === 0 && (
+                      <p className="nr-tabla-vacia">
+                        Quitaste todos los productos. Agrega al menos uno para
+                        poder guardar la remisión.
+                      </p>
+                    )}
+
                     {(remisionEditando.productos || []).map(
-                      (producto, index) => (
-                        <div
-                          className="editar-producto-row"
-                          key={
-                            producto.id_detalle ||
-                            `${producto.id_producto}-${index}`
-                          }
-                        >
-                          {producto.id_detalle === null ? (
-                            <div
-                              className="editar-buscador-producto"
-                              style={{
-                                position: "relative",
-                                zIndex: 99999,
-                              }}
-                            >
-                              <input
-                                type="text"
-                                className="editar-input-codigo"
-                                placeholder="Código"
-                                value={producto.codigo_producto || ""}
-                                onChange={async (e) => {
-                                  const texto = e.target.value;
+                      (producto, index) => {
+                        const esNuevo = !producto.id_detalle;
 
-                                  // Actualizar inmediatamente lo que escribe
-                                  setRemisionEditando((prev) => {
-                                    const productos = [
-                                      ...(prev.productos || []),
-                                    ];
-
-                                    productos[index] = {
-                                      ...productos[index],
-                                      codigo_producto: texto,
+                        return (
+                          <div
+                            className="nr-fila"
+                            key={producto.id_detalle || `nuevo-${index}`}
+                          >
+                            {esNuevo ? (
+                              <div className="nr-autocompletar">
+                                <input
+                                  type="text"
+                                  placeholder="Código"
+                                  value={producto.codigo_producto || ""}
+                                  onChange={(e) =>
+                                    buscarCodigoEdicion(index, e.target.value)
+                                  }
+                                  onBlur={() =>
+                                    actualizarProductoEdicion(index, {
                                       resultados_busqueda: [],
-                                    };
-
-                                    return {
-                                      ...prev,
-                                      productos,
-                                    };
-                                  });
-
-                                  if (!texto.trim()) {
-                                    return;
+                                    })
                                   }
+                                />
 
-                                  try {
-                                    const respuesta = await fetch(
-                                      `/api/productos/buscar-codigo/${encodeURIComponent(texto)}`,
-                                    );
-
-                                    const resultados = await respuesta.json();
-
-                                    console.log("BUSQUEDA:", texto);
-                                    console.log("RESULTADOS:", resultados);
-
-                                    // IMPORTANTE:
-                                    // usar el estado más reciente
-                                    setRemisionEditando((prev) => {
-                                      const productos = [
-                                        ...(prev.productos || []),
-                                      ];
-
-                                      if (!productos[index]) {
-                                        return prev;
-                                      }
-
-                                      productos[index] = {
-                                        ...productos[index],
-                                        resultados_busqueda: resultados,
-                                      };
-
-                                      return {
-                                        ...prev,
-                                        productos,
-                                      };
-                                    });
-                                  } catch (error) {
-                                    console.error(
-                                      "Error buscando producto:",
-                                      error,
-                                    );
-                                  }
-                                }}
-                              />
-
-                              {producto.resultados_busqueda?.length > 0 && (
-                                <div className="editar-resultados-producto">
-                                  {producto.resultados_busqueda.map(
-                                    (resultado) => (
-                                      <button
-                                        type="button"
-                                        key={resultado.id_producto}
-                                        onClick={() => {
-                                          const productos = [
-                                            ...remisionEditando.productos,
-                                          ];
-
-                                          productos[index] = {
-                                            ...productos[index],
-
-                                            id_producto: resultado.id_producto,
-
-                                            codigo_producto: resultado.codigo,
-
-                                            nombre_producto: resultado.nombre,
-
-                                            linea_producto: resultado.linea,
-
-                                            precio_lista:
+                                {producto.resultados_busqueda?.length > 0 && (
+                                  <div className="nr-sugerencias">
+                                    {producto.resultados_busqueda.map(
+                                      (resultado) => (
+                                        <button
+                                          type="button"
+                                          key={resultado.id_producto}
+                                          className="nr-sugerencia"
+                                          // mousedown se adelanta al blur
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            seleccionarProductoEdicion(
+                                              index,
+                                              resultado,
+                                            );
+                                          }}
+                                        >
+                                          <strong>{resultado.codigo}</strong>
+                                          <span>{resultado.nombre}</span>
+                                          <small>
+                                            {formatearPesos(
                                               resultado.precio_lista,
+                                            )}
+                                          </small>
+                                        </button>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="nr-texto-fijo">
+                                {producto.codigo_producto || "—"}
+                              </span>
+                            )}
 
-                                            precio_venta:
-                                              resultado.precio_lista,
+                            <div className="nr-producto-celda">
+                              <span className="nr-texto-fijo nr-fuerte">
+                                {producto.nombre_producto ||
+                                  (esNuevo ? "Busca por código" : "—")}
+                              </span>
 
-                                            total:
-                                              (Number(
-                                                productos[index].cantidad,
-                                              ) || 0) *
-                                              (Number(resultado.precio_lista) ||
-                                                0),
-
-                                            resultados_busqueda: [],
-                                          };
-
-                                          setRemisionEditando({
-                                            ...remisionEditando,
-                                            productos,
-                                          });
-                                        }}
-                                      >
-                                        <strong>{resultado.codigo}</strong>
-
-                                        <span>{resultado.nombre}</span>
-                                      </button>
-                                    ),
-                                  )}
-                                </div>
+                              {producto.id_producto ? (
+                                <small className="nr-meta">
+                                  {producto.linea_producto || "Sin línea"} ·
+                                  Lista {formatearPesos(producto.precio_lista)}
+                                </small>
+                              ) : (
+                                esNuevo &&
+                                producto.codigo_producto && (
+                                  <small className="nr-meta nr-meta-alerta">
+                                    Elige el producto de la lista
+                                  </small>
+                                )
                               )}
                             </div>
-                          ) : (
-                            <span className="editar-codigo">
-                              {producto.codigo_producto || "-"}
+
+                            <input
+                              type="text"
+                              placeholder="Placa"
+                              value={producto.placa || ""}
+                              onChange={(e) =>
+                                actualizarProductoEdicion(index, {
+                                  placa: e.target.value.toUpperCase(),
+                                })
+                              }
+                            />
+
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              className="nr-derecha"
+                              value={producto.cantidad}
+                              onChange={(e) =>
+                                actualizarProductoEdicion(index, {
+                                  cantidad: e.target.value,
+                                })
+                              }
+                            />
+
+                            <div className="nr-input-moneda">
+                              <span>$</span>
+
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0"
+                                value={
+                                  Number(producto.precio_venta)
+                                    ? Number(
+                                        producto.precio_venta,
+                                      ).toLocaleString("es-CO", {
+                                        maximumFractionDigits: 0,
+                                      })
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  actualizarProductoEdicion(index, {
+                                    precio_venta:
+                                      Number(e.target.value.replace(/\D/g, "")) ||
+                                      0,
+                                  })
+                                }
+                              />
+                            </div>
+
+                            <span className="nr-total-fila">
+                              {formatearPesos(
+                                (Number(producto.cantidad) || 0) *
+                                  (Number(producto.precio_venta) || 0),
+                              )}
                             </span>
-                          )}
 
-                          {producto.id_detalle === null ? (
-                            <span className="editar-nombre">
-                              {producto.nombre_producto || "-"}
-                            </span>
-                          ) : (
-                            <span className="editar-nombre">
-                              {producto.nombre_producto || "-"}
-                            </span>
-                          )}
-
-                          <input
-                            type="text"
-                            value={producto.placa || ""}
-                            placeholder="Placa"
-                            onChange={(e) => {
-                              const productos = [...remisionEditando.productos];
-
-                              productos[index] = {
-                                ...productos[index],
-                                placa: e.target.value,
-                              };
-
-                              setRemisionEditando({
-                                ...remisionEditando,
-                                productos,
-                              });
-                            }}
-                          />
-
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={
-                              Number.isInteger(Number(producto.cantidad))
-                                ? String(Number(producto.cantidad))
-                                : Number(producto.cantidad).toLocaleString(
-                                    "es-CO",
-                                    {
-                                      maximumFractionDigits: 2,
-                                    },
-                                  )
-                            }
-                            onChange={(e) => {
-                              const valor = e.target.value.replace(",", ".");
-
-                              const cantidad = Number(valor) || 0;
-
-                              const productos = [...remisionEditando.productos];
-
-                              const precio =
-                                Number(productos[index].precio_venta) || 0;
-
-                              productos[index] = {
-                                ...productos[index],
-                                cantidad,
-                                total: cantidad * precio,
-                              };
-
-                              setRemisionEditando({
-                                ...remisionEditando,
-                                productos,
-                              });
-                            }}
-                          />
-
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={
-                              Number(producto.precio_venta)
-                                ? Number(producto.precio_venta).toLocaleString(
-                                    "es-CO",
-                                    {
-                                      maximumFractionDigits: 0,
-                                    },
-                                  )
-                                : ""
-                            }
-                            onChange={(e) => {
-                              const valor = e.target.value
-                                .replace(/\./g, "")
-                                .replace(",", ".");
-
-                              const precio = Number(valor) || 0;
-
-                              const productos = [...remisionEditando.productos];
-
-                              const cantidad =
-                                Number(productos[index].cantidad) || 0;
-
-                              productos[index] = {
-                                ...productos[index],
-                                precio_venta: precio,
-                                total: cantidad * precio,
-                              };
-
-                              setRemisionEditando({
-                                ...remisionEditando,
-                                productos,
-                              });
-                            }}
-                          />
-
-                          <strong className="editar-producto-total">
-                            $
-                            {(
-                              (Number(producto.cantidad) || 0) *
-                              (Number(producto.precio_venta) || 0)
-                            ).toLocaleString("es-CO")}
-                          </strong>
-
-                          <button
-                            type="button"
-                            className="btn-eliminar-producto-editar"
-                            title="Eliminar producto"
-                            onClick={() => {
-                              const productos = [...remisionEditando.productos];
-
-                              productos.splice(index, 1);
-
-                              setRemisionEditando({
-                                ...remisionEditando,
-                                productos,
-                              });
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ),
+                            <button
+                              type="button"
+                              className="nr-btn-eliminar"
+                              title="Quitar producto"
+                              onClick={() => quitarProductoEdicion(index)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        );
+                      },
                     )}
                   </div>
-
-                  {/* TOTAL */}
-
-                  <div className="editar-total">
-                    <span>TOTAL DE LA REMISIÓN</span>
-
-                    <strong>
-                      $
-                      {(remisionEditando.productos || [])
-                        .reduce(
-                          (total, producto) =>
-                            total +
-                            (Number(producto.cantidad) || 0) *
-                              (Number(producto.precio_venta) || 0),
-                          0,
-                        )
-                        .toLocaleString("es-CO")}
-                    </strong>
-                  </div>
-                </div>
+                </section>
 
                 {/* COMENTARIOS */}
 
-                <div className="editar-campo editar-campo-completo">
-                  <label>Comentarios</label>
+                <section className="nr-seccion">
+                  <div className="nr-seccion-titulo">
+                    <span className="nr-paso">3</span>
+                    <h4>Comentarios</h4>
+                    <span className="nr-opcional">Opcional</span>
+                  </div>
 
                   <textarea
+                    className="nr-textarea"
                     value={remisionEditando.comentarios || ""}
                     onChange={(e) =>
-                      setRemisionEditando({
-                        ...remisionEditando,
+                      setRemisionEditando((prev) => ({
+                        ...prev,
                         comentarios: e.target.value,
-                      })
+                      }))
                     }
                     placeholder="Observaciones de la remisión..."
                   />
-                </div>
+                </section>
               </div>
+
+              {/* =========================
+                  PANEL DE PAGO
+              ========================= */}
+
+              <aside className="nr-panel">
+                <section className="nr-seccion">
+                  <div className="nr-seccion-titulo">
+                    <span className="nr-paso">4</span>
+                    <h4>Pago</h4>
+                  </div>
+
+                  <div className="nr-segmentado" role="radiogroup">
+                    {[
+                      { valor: "pagada", etiqueta: "Pagada" },
+                      { valor: "abono", etiqueta: "Abono" },
+                      { valor: "pendiente", etiqueta: "Pendiente" },
+                    ].map((estado) => {
+                      const activo = remisionEditando.estado_pago === estado.valor;
+
+                      return (
+                        <button
+                          type="button"
+                          key={estado.valor}
+                          role="radio"
+                          aria-checked={activo}
+                          className={activo ? "activo" : ""}
+                          onClick={() =>
+                            setRemisionEditando((prev) => ({
+                              ...prev,
+                              estado_pago: estado.valor,
+                            }))
+                          }
+                        >
+                          {activo && <Check size={13} />}
+                          {estado.etiqueta}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="nr-pago-detalle">
+                    <div className="nr-campo">
+                      <label>Método de pago</label>
+
+                      <select
+                        value={remisionEditando.medio_pago || ""}
+                        onChange={(e) =>
+                          setRemisionEditando((prev) => ({
+                            ...prev,
+                            medio_pago: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Sin método</option>
+
+                        {MEDIOS_PAGO.map((medio) => (
+                          <option key={medio.valor} value={medio.valor}>
+                            {medio.etiqueta}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(remisionEditando.abonos || []).length > 0 && (
+                      <div className="nr-campo">
+                        <label>Abonos registrados</label>
+
+                        <ul className="nr-abonos">
+                          {remisionEditando.abonos.map((abono) => (
+                            <li key={abono.id_abono}>
+                              <div>
+                                <strong>{formatearPesos(abono.valor)}</strong>
+
+                                <small>
+                                  {new Date(abono.fecha).toLocaleDateString(
+                                    "es-CO",
+                                  )}
+                                  {abono.comentario
+                                    ? ` · ${abono.comentario}`
+                                    : ""}
+                                </small>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+
+                        <small className="nr-ayuda">
+                          Los abonos se registran desde Cartera.
+                        </small>
+                      </div>
+                    )}
+
+                    {remisionEditando.estado_pago === "pagada" && (
+                      <p className="nr-nota">
+                        Al guardar como <strong>Pagada</strong>, el saldo
+                        pendiente queda en cero.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                {/* RESUMEN */}
+
+                <section className="nr-resumen">
+                  <div>
+                    <span>Total original</span>
+                    <strong>{formatearPesos(remisionEditando.total)}</strong>
+                  </div>
+
+                  <div>
+                    <span>Nuevo total</span>
+                    <strong>{formatearPesos(totalEdicion)}</strong>
+                  </div>
+
+                  {totalAbonadoEdicion > 0 && (
+                    <>
+                      <div>
+                        <span>Abonado</span>
+                        <strong>{formatearPesos(totalAbonadoEdicion)}</strong>
+                      </div>
+
+                      <div>
+                        <span>Saldo estimado</span>
+                        <strong className="nr-saldo">
+                          {formatearPesos(
+                            remisionEditando.estado_pago === "pagada"
+                              ? 0
+                              : Math.max(totalEdicion - totalAbonadoEdicion, 0),
+                          )}
+                        </strong>
+                      </div>
+                    </>
+                  )}
+                </section>
+              </aside>
             </div>
 
-            {/* FOOTER DEL MODAL */}
+            {/* PIE */}
 
-            <div className="modal-editar-footer">
-              <button
-                type="button"
-                className="btn-cancelar-remision"
-                onClick={() => {
-                  setModalEditar(false);
-                  setRemisionEditando(null);
-                }}
-              >
-                Cancelar
-              </button>
+            <footer className="nr-pie">
+              <div className="nr-pie-total">
+                <span>Total de la remisión</span>
+                <strong>{formatearPesos(totalEdicion)}</strong>
+              </div>
 
-              <button
-                type="button"
-                className="btn-guardar-remision"
-                onClick={guardarCambiosRemision}
-              >
-                Guardar cambios
-              </button>
-            </div>
+              <div className="nr-pie-acciones">
+                <button
+                  type="button"
+                  className="nr-btn-texto"
+                  onClick={cerrarEdicion}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  className="nr-btn-primario"
+                  onClick={guardarCambiosRemision}
+                  disabled={guardandoEdicion}
+                >
+                  {guardandoEdicion ? "Guardando…" : "Guardar cambios"}
+                </button>
+              </div>
+            </footer>
           </div>
         </div>
       )}

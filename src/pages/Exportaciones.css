@@ -27,7 +27,7 @@
 
   color: #b96f24;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 800;
 
@@ -39,7 +39,7 @@
 
   color: #241a15;
 
-  font-size: 18px;
+  font-size: var(--fs-titulo);
 
   font-weight: 700;
 }
@@ -49,7 +49,7 @@
 
   color: #91847a;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 /* PERIODO */
@@ -81,7 +81,7 @@
 
   color: #5c4c41;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 
@@ -135,7 +135,7 @@
 
   color: #57473c;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .exportaciones-nota p {
@@ -143,7 +143,7 @@
 
   color: #95877d;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================================
@@ -252,7 +252,7 @@
 
   color: #33261f;
 
-  font-size: 12px;
+  font-size: var(--fs-titulo);
 }
 
 .exportacion-content p {
@@ -260,7 +260,7 @@
 
   color: #95877d;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   line-height: 1.5;
 }
@@ -292,7 +292,7 @@
 
   border-radius: 7px;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -356,7 +356,7 @@
 
   color: #33261f;
 
-  font-size: 14px;
+  font-size: var(--fs-titulo);
 }
 
 .recientes-header p {
@@ -364,7 +364,7 @@
 
   color: #97897e;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 }
 
 .recientes-header > svg {
@@ -430,7 +430,7 @@
 
   color: #514239;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .reciente-info span {
@@ -440,13 +440,13 @@
 
   color: #a09288;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 }
 
 .reciente-fecha {
   color: #9a8c82;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 }
 
 /* DESCARGAR */
@@ -566,7 +566,7 @@
 
   color: #a66a2c;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 800;
 
@@ -578,7 +578,7 @@
 
   color: #33261f;
 
-  font-size: 22px;
+  font-size: var(--fs-titulo);
 }
 
 .modal-usuario-header p {
@@ -586,7 +586,7 @@
 
   color: #95877d;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 /* BOTÓN CERRAR */
@@ -631,7 +631,7 @@
 .usuario-form-group label {
   color: #5d5048;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -652,7 +652,7 @@
 
   color: #33261f;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   box-sizing: border-box;
 }
@@ -692,7 +692,7 @@
 
   border-radius: 8px;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 

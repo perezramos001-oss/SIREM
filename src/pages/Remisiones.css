@@ -7,7 +7,7 @@
   margin-bottom: 20px;
 }
 .page-tag {
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -19,7 +19,7 @@
 .page-header h1 {
   margin: 2px 0;
 
-  font-size: 20px;
+  font-size: var(--fs-titulo);
 
   color: #2b1b12;
 }
@@ -29,7 +29,7 @@
 
   color: #8c8378;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 }
 
 .btn-remision {
@@ -74,7 +74,7 @@
 
   padding: 0 16px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   background: white;
 }
@@ -92,7 +92,7 @@
 
   background: white;
 
-  font-size: 14px;
+  font-size: var(--fs-texto);
 }
 .tabla-remisiones {
   background: white;
@@ -122,7 +122,8 @@
     125px
     120px
     55px
-    45px;
+    45px
+    40px;
 
   width: max-content;
   min-width: 100%;
@@ -137,7 +138,7 @@
 
   border-bottom: 1px solid #ece2d5;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -165,7 +166,8 @@
     125px
     120px
     55px
-    45px;
+    45px
+    40px;
 
   width: max-content;
   min-width: 100%;
@@ -180,7 +182,7 @@
 
   border-bottom: 1px solid #f2ece4;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   line-height: 1.2;
 
@@ -202,7 +204,7 @@
 
   border-radius: 30px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -245,7 +247,7 @@
   color: white;
   padding: 9px 16px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   cursor: pointer;
 }
@@ -258,7 +260,7 @@
   padding: 10px 8px;
   background: #f8f5f1;
   border-radius: 8px 8px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #6d625a;
 }
@@ -280,7 +282,7 @@
   border: 1px solid #e5d7ca;
   border-radius: 7px;
   padding: 8px;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   outline: none;
 }
 
@@ -289,7 +291,7 @@
 }
 
 .producto-total {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #33261f;
   text-align: right;
@@ -318,7 +320,7 @@
 
   border-bottom: 1px solid #e6d8c7;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   color: #6a5a4b;
@@ -327,7 +329,7 @@
 }
 
 .editar-producto-total {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #4f443b;
   white-space: nowrap;
@@ -366,7 +368,7 @@
 
   border-radius: 8px;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   cursor: pointer;
@@ -394,13 +396,13 @@
 }
 
 .total-remision span {
-  font-size: 14px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #6d625a;
 }
 
 .total-remision strong {
-  font-size: 22px;
+  font-size: var(--fs-titulo);
   color: #33261f;
 }
 
@@ -481,7 +483,7 @@
 .wo-accion span {
   color: #6a5a4b;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 }
@@ -501,7 +503,7 @@
 
   font-family: inherit;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -569,7 +571,7 @@
 
   color: #b87836;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 
   font-weight: 800;
 
@@ -581,7 +583,7 @@
 
   color: #2b1b12;
 
-  font-size: 18px;
+  font-size: var(--fs-titulo);
 }
 
 .modal-wo-cerrar {
@@ -611,7 +613,7 @@
 
   color: #6a5a4b;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   line-height: 1.5;
 }
@@ -643,7 +645,7 @@
 
   border-radius: 8px;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .wo-remision-item span {
@@ -679,13 +681,13 @@
 .wo-datos-movimiento span {
   color: #8c8378;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 }
 
 .wo-datos-movimiento strong {
   color: #2b1b12;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 .modal-wo-footer {
@@ -713,7 +715,7 @@
 
   color: #6a5a4b;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 600;
 
@@ -733,7 +735,7 @@
 
   color: #ffffff;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -791,7 +793,7 @@
 }
 
 .modal-wo-tag {
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 800;
 
@@ -803,7 +805,7 @@
 .modal-wo-header h2 {
   margin: 5px 0;
 
-  font-size: 21px;
+  font-size: var(--fs-titulo);
 
   color: #302016;
 }
@@ -813,7 +815,7 @@
 
   color: #8a7b6d;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 }
 
 .modal-wo-cerrar {
@@ -855,13 +857,13 @@
 }
 
 .wo-resumen strong {
-  font-size: 20px;
+  font-size: var(--fs-titulo);
 
   color: #a96b2c;
 }
 
 .wo-resumen span {
-  font-size: 13px;
+  font-size: var(--fs-texto);
 
   color: #65564a;
 }
@@ -873,7 +875,7 @@
 
   margin-top: 16px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -897,7 +899,7 @@
 
   font-family: inherit;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 
   color: #3a2a20;
 
@@ -934,7 +936,7 @@
 
   padding: 10px 17px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -1004,7 +1006,7 @@
 
   color: white;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -1014,7 +1016,7 @@
 
   color: #a33f3f;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 
 /* =========================
@@ -1030,7 +1032,7 @@
 
   color: #5d4b3d;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -1054,7 +1056,7 @@
 
   font-family: inherit;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
 
   outline: none;
 
@@ -1118,7 +1120,7 @@
 
   color: white;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 }
@@ -1128,7 +1130,7 @@
 
   color: #a33f3f;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 }
 /* =========================
    TOOLTIP WORLD OFFICE
@@ -1161,7 +1163,7 @@
 
   color: #ffffff;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -1213,7 +1215,7 @@
 }
 
 .sin-remisiones {
-  font-size: 13px;
+  font-size: var(--fs-texto);
   font-weight: 400;
   color: #8f8177;
   text-align: center;
@@ -1227,7 +1229,7 @@
 
   text-align: center;
 
-  font-size: 13px;
+  font-size: var(--fs-texto);
   font-weight: 400;
 
   color: #8f8177;
@@ -1292,7 +1294,7 @@
 }
 
 .wo-remisiones-lista {
-  font-size: 13px;
+  font-size: var(--fs-texto);
   color: #7a6a5b;
   line-height: 1.6;
   padding-top: 10px;
@@ -1330,7 +1332,7 @@
 
   box-shadow: none;
 
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -1356,7 +1358,7 @@
   align-items: center;
   justify-content: center;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   transition: 0.2s;
 }
@@ -1408,7 +1410,7 @@
 
   margin-bottom: 5px;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   letter-spacing: 2.5px;
@@ -1419,7 +1421,7 @@
 .modal-editar-header h2 {
   margin: 0;
 
-  font-size: 14px;
+  font-size: var(--fs-titulo);
   font-weight: 700;
 
   color: #2b1b12;
@@ -1428,7 +1430,7 @@
 .modal-editar-header p {
   margin: 5px 0 0;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   color: #8c8378;
 }
@@ -1507,7 +1509,7 @@
 
   margin-bottom: 5px;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
 
   color: #8c8378;
 
@@ -1519,7 +1521,7 @@
 .editar-resumen strong {
   display: block;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
 
   color: #302820;
 
@@ -1546,13 +1548,13 @@
 }
 
 .editar-aviso strong {
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   color: #81562f;
 }
 
 .editar-aviso span {
-  font-size: 10px;
+  font-size: var(--fs-texto);
 
   color: #8c8378;
 }
@@ -1639,13 +1641,13 @@
   background: #ffffff;
 
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   color: #302820;
   outline: none;
 }
 
 .editar-campo label {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #5a4b3f;
 }
@@ -1666,7 +1668,7 @@
   background: #ffffff;
 
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   color: #302820;
 
   outline: none;
@@ -1687,7 +1689,7 @@
 }
 
 .editar-campo label {
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   font-weight: 700;
 
@@ -1710,7 +1712,7 @@
 
   background: white;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   color: #302820;
 
@@ -1743,7 +1745,7 @@
 
   font-family: inherit;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
 
   color: #302820;
 
@@ -1782,14 +1784,14 @@
 
 .editar-productos-titulo h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-titulo);
   color: #2b1b12;
 }
 
 .editar-productos-titulo span {
   display: block;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: var(--fs-texto);
   color: #8c8378;
 }
 
@@ -1824,7 +1826,7 @@
   background: #f8f5ef;
   border-bottom: 1px solid #e6d8c7;
 
-  font-size: 9px;
+  font-size: var(--fs-texto);
   font-weight: 700;
   color: #6a5a4b;
   text-transform: uppercase;
@@ -1854,7 +1856,7 @@
   background: #ffffff;
 
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--fs-texto);
   color: #302820;
   outline: none;
 }
@@ -1865,7 +1867,7 @@
 }
 
 .editar-producto-total {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #4f443b;
   white-space: nowrap;
@@ -1880,7 +1882,7 @@
   padding: 8px 13px;
   border-radius: 8px;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   cursor: pointer;
@@ -1918,7 +1920,7 @@
   gap: 6px;
   margin-top: 8px;
   margin-bottom: 20px;
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 500;
 }
 
@@ -1935,24 +1937,24 @@
   margin-top: 8px;
   padding: 0 4px;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
   color: #4f443b;
 }
 
 .editar-total strong {
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 800;
 }
 
 .editar-codigo {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 600;
   color: #4a4038;
   line-height: 1.2;
 }
 
 .editar-nombre {
-  font-size: 11px;
+  font-size: var(--fs-texto);
   font-weight: 500;
   color: #3b332d;
   line-height: 1.25;
@@ -2028,7 +2030,7 @@
 .editar-resultados-producto button strong {
   display: block;
 
-  font-size: 12px;
+  font-size: var(--fs-texto);
   font-weight: 700;
 
   color: #2b1b12;
@@ -2043,10 +2045,44 @@
 
   width: 100%;
 
-  font-size: 11px;
+  font-size: var(--fs-texto);
   line-height: 1.3;
 
   color: #6f655b;
 
   white-space: normal;
+}
+
+/* =====================================================
+   COLUMNA DE ACCIÓN FIJA A LA DERECHA
+   (siempre visible aunque la tabla se desplace)
+===================================================== */
+
+.tabla-header > span:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+
+  background: #f8f5ef;
+  text-align: center;
+}
+
+.tabla-row > .btn-editar-remision {
+  position: sticky;
+  right: 6px;
+  z-index: 1;
+
+  box-shadow: -10px 0 12px -6px rgba(43, 27, 18, 0.12);
+}
+
+.tabla-row > .btn-editar-remision {
+  box-shadow:
+    0 0 0 7px #ffffff,
+    -16px 0 14px -6px rgba(43, 27, 18, 0.14);
+}
+
+.tabla-row.remision-grupo-alterno > .btn-editar-remision {
+  box-shadow:
+    0 0 0 7px #f7f1eb,
+    -16px 0 14px -6px rgba(43, 27, 18, 0.14);
 }

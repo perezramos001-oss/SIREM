@@ -1,17 +1,15 @@
 import { useState } from "react";
+import { apiFetch } from "../../utils/api";
+import { useAvisos } from "../Avisos/Avisos";
 import "./BuscarCliente.css";
 
 function BuscarCliente({ abierto, cerrar, seleccionarCliente }) {
+  const { avisar } = useAvisos();
+
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [clientes, setClientes] = useState([]);
   const [buscando, setBuscando] = useState(false);
-
-  const [alerta, setAlerta] = useState({
-    visible: false,
-    tipo: "exito",
-    mensaje: "",
-  });
 
   const [nuevoCliente, setNuevoCliente] = useState({
     nombre: "",
@@ -44,7 +42,7 @@ function BuscarCliente({ abierto, cerrar, seleccionarCliente }) {
     try {
       setBuscando(true);
 
-      const respuesta = await fetch(
+      const respuesta = await apiFetch(
         `/api/clientes/buscar/${encodeURIComponent(texto)}`,
       );
 
@@ -67,7 +65,7 @@ function BuscarCliente({ abierto, cerrar, seleccionarCliente }) {
     e.preventDefault();
 
     try {
-      const respuesta = await fetch("/api/clientes", {
+      const respuesta = await apiFetch("/api/clientes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -106,7 +104,7 @@ function BuscarCliente({ abierto, cerrar, seleccionarCliente }) {
     } catch (error) {
       console.error("Error guardando cliente:", error);
 
-      alert(error.message || "No se pudo guardar el cliente.");
+      avisar.fallo(error, error.message || "No se pudo guardar el cliente.");
     }
   };
 
@@ -302,30 +300,6 @@ function BuscarCliente({ abierto, cerrar, seleccionarCliente }) {
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {alerta.visible && (
-        <div className="alerta-cliente">
-          <div className="alerta-cliente-icono">✓</div>
-
-          <div className="alerta-cliente-texto">
-            <strong>Registro completado</strong>
-
-            <span>{alerta.mensaje}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              setAlerta((prev) => ({
-                ...prev,
-                visible: false,
-              }))
-            }
-          >
-            ✕
-          </button>
         </div>
       )}
     </div>

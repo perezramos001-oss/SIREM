@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
+import { useAvisos } from "../components/Avisos/Avisos";
+import { obtenerPeriodo, fechaDeRemision } from "../utils/fechas";
 import "./Inicio.css";
 import { DollarSign, Receipt, Wallet, Users } from "lucide-react";
 
 function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
+  const { avisar } = useAvisos();
+
   const fechaActual = new Date().toLocaleDateString("es-CO", {
     weekday: "long",
     day: "numeric",
@@ -20,7 +25,6 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
   });
 
   const [ultimasRemisiones, setUltimasRemisiones] = useState([]);
-  const [carteraPorVencer, setCarteraPorVencer] = useState([]);
   const [carteraVencida, setCarteraVencida] = useState([]);
   const [rendimientoComerciales, setRendimientoComerciales] = useState([]);
 
@@ -42,54 +46,12 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
       : `-${porcentaje}% vs mes anterior`;
   };
 
-  const obtenerClaseVariacion = (valor) => {
-    if (valor === null || valor === undefined) {
-      return "variacion neutra";
-    }
-
-    const numero = Number(valor);
-
-    if (numero > 0) {
-      return "variacion positiva";
-    }
-
-    if (numero < 0) {
-      return "variacion negativa";
-    }
-
-    return "variacion neutra";
-  };
-
-  const obtenerPeriodo = (mes) => {
-    const mesesNumericos = {
-      Enero: "01",
-      Febrero: "02",
-      Marzo: "03",
-      Abril: "04",
-      Mayo: "05",
-      Junio: "06",
-      Julio: "07",
-      Agosto: "08",
-      Septiembre: "09",
-      Octubre: "10",
-      Noviembre: "11",
-      Diciembre: "12",
-    };
-
-    const [nombreMes, anio] = mes.split(" ");
-
-    return {
-      mes: mesesNumericos[nombreMes],
-      anio,
-    };
-  };
-
   useEffect(() => {
     const cargarKPIs = async () => {
       try {
         const periodo = obtenerPeriodo(mesSeleccionado);
 
-        const respuesta = await fetch(
+        const respuesta = await apiFetch(
           `/api/inicio?mes=${periodo.mes}&anio=${periodo.anio}`,
         );
 
@@ -102,6 +64,8 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
         setKpis(datos);
       } catch (error) {
         console.error("Error cargando KPIs:", error);
+
+        avisar.fallo(error, "No se pudo cargar toda la información del inicio.");
       }
     };
 
@@ -113,7 +77,7 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
       try {
         const periodo = obtenerPeriodo(mesSeleccionado);
 
-        const respuesta = await fetch(
+        const respuesta = await apiFetch(
           `/api/inicio/ultimas-remisiones?mes=${periodo.mes}&anio=${periodo.anio}`,
         );
 
@@ -126,6 +90,8 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
         setUltimasRemisiones(datos);
       } catch (error) {
         console.error("Error cargando últimas remisiones:", error);
+
+        avisar.fallo(error, "No se pudo cargar toda la información del inicio.");
       }
     };
 
@@ -133,33 +99,9 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
   }, [mesSeleccionado]);
 
   useEffect(() => {
-    const cargarCarteraPorVencer = async () => {
-      try {
-        const periodo = obtenerPeriodo(mesSeleccionado);
-
-        const respuesta = await fetch(
-          `/api/inicio/cartera-por-vencer?mes=${periodo.mes}&anio=${periodo.anio}`,
-        );
-
-        if (!respuesta.ok) {
-          throw new Error("No se pudo cargar la cartera por vencer.");
-        }
-
-        const datos = await respuesta.json();
-
-        setCarteraPorVencer(datos);
-      } catch (error) {
-        console.error("Error cargando cartera por vencer:", error);
-      }
-    };
-
-    cargarCarteraPorVencer();
-  }, [mesSeleccionado]);
-
-  useEffect(() => {
     const cargarCarteraVencida = async () => {
       try {
-        const respuesta = await fetch("/api/inicio/cartera-vencida");
+        const respuesta = await apiFetch("/api/inicio/cartera-vencida");
 
         if (!respuesta.ok) {
           throw new Error("No se pudo cargar la cartera vencida.");
@@ -170,6 +112,8 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
         setCarteraVencida(datos);
       } catch (error) {
         console.error("Error cargando cartera vencida:", error);
+
+        avisar.fallo(error, "No se pudo cargar toda la información del inicio.");
       }
     };
 
@@ -181,7 +125,7 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
       try {
         const periodo = obtenerPeriodo(mesSeleccionado);
 
-        const respuesta = await fetch(
+        const respuesta = await apiFetch(
           `/api/inicio/rendimiento-comerciales?mes=${periodo.mes}&anio=${periodo.anio}`,
         );
 
@@ -194,6 +138,8 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
         setRendimientoComerciales(datos);
       } catch (error) {
         console.error("Error cargando rendimiento de comerciales:", error);
+
+        avisar.fallo(error, "No se pudo cargar toda la información del inicio.");
       }
     };
 
@@ -293,9 +239,14 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
             <Wallet size={24} strokeWidth={2.2} />
           </div>
           <div>
-            <span className="kpi-label">Cartera</span>
+            <span className="kpi-label">Cartera generada</span>
 
-            <h3>${Number(kpis.cartera_total).toLocaleString("es-CO")}</h3>
+            <h3>${Number(kpis.cartera_mes || 0).toLocaleString("es-CO")}</h3>
+
+            <small>
+              Total pendiente $
+              {Number(kpis.cartera_total || 0).toLocaleString("es-CO")}
+            </small>
           </div>
           <div className="cartera-badges">
             <span
@@ -344,7 +295,7 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
                     </strong>
 
                     <small>
-                      {new Date(remision.fecha).toLocaleDateString("es-CO")}
+                      {fechaDeRemision(remision.fecha).toLocaleDateString("es-CO")}
                     </small>
                   </div>
                 </div>
@@ -404,51 +355,71 @@ function Inicio({ setPaginaActiva, nombreUsuario, mesSeleccionado }) {
         {rendimientoComerciales.length === 0 ? (
           <div className="activity-empty">No hay resultados para este mes.</div>
         ) : (
-          rendimientoComerciales.map((comercial, indice) => {
-            const mayorVenta = Number(rendimientoComerciales[0].total_ventas);
+          <div className="ranking-lista">
+            {rendimientoComerciales.map((comercial, indice) => {
+              const mayorVenta = Number(rendimientoComerciales[0].total_ventas);
 
-            const porcentaje =
-              mayorVenta > 0
-                ? (Number(comercial.total_ventas) / mayorVenta) * 100
-                : 0;
+              const porcentaje =
+                mayorVenta > 0
+                  ? (Number(comercial.total_ventas) / mayorVenta) * 100
+                  : 0;
 
-            return (
-              <div className="comercial-card" key={comercial.id_comercial}>
-                <div className="comercial-left">
-                  <h4>{comercial.nombre}</h4>
+              const iniciales = comercial.nombre
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((palabra) => palabra[0])
+                .join("")
+                .toUpperCase();
 
-                  <div className="progress">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${porcentaje}%`,
-                      }}
-                    />
+              return (
+                <div
+                  className={`ranking-fila ${indice === 0 ? "lider" : ""}`}
+                  key={comercial.id_comercial}
+                >
+                  <span className="ranking-posicion">{indice + 1}</span>
+
+                  <div className="ranking-avatar">{iniciales}</div>
+
+                  <div className="ranking-centro">
+                    <div className="ranking-nombre">
+                      <h4>{comercial.nombre}</h4>
+
+                      <span>
+                        {Number(comercial.total_remisiones).toLocaleString(
+                          "es-CO",
+                        )}{" "}
+                        {Number(comercial.total_remisiones) === 1
+                          ? "remisión"
+                          : "remisiones"}{" "}
+                        · Prom. $
+                        {Number(comercial.promedio_remision).toLocaleString(
+                          "es-CO",
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="progress">
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${porcentaje}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="ranking-total">
+                    <strong>
+                      ${Number(comercial.total_ventas).toLocaleString("es-CO")}
+                    </strong>
+
+                    <small>{porcentaje.toFixed(0)}% del líder</small>
                   </div>
                 </div>
-
-                <div className="comercial-right">
-                  <strong>
-                    ${Number(comercial.total_ventas).toLocaleString("es-CO")}
-                  </strong>
-
-                  <span>
-                    {Number(comercial.total_remisiones).toLocaleString("es-CO")}{" "}
-                    {Number(comercial.total_remisiones) === 1
-                      ? "remisión"
-                      : "remisiones"}
-                  </span>
-
-                  <small>
-                    Promedio $
-                    {Number(comercial.promedio_remision).toLocaleString(
-                      "es-CO",
-                    )}
-                  </small>
-                </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

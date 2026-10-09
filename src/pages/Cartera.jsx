@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import { apiFetch, apiGetJson } from "../utils/api";
+import { useAvisos } from "../components/Avisos/Avisos";
+import { useTeclaEscape } from "../utils/useTeclaEscape";
+import { hoyLocal, fechaDeRemision } from "../utils/fechas";
 import "./Cartera.css";
 
 import {
@@ -12,7 +15,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-function Cartera({ usuarioActual, remisionDestacada }) {
+function Cartera({ remisionDestacada }) {
+  const { avisar } = useAvisos();
+
   const [filtro, setFiltro] = useState("Todos");
   const [busqueda, setBusqueda] = useState("");
   const [comercialSeleccionado, setComercialSeleccionado] = useState("Todos");
@@ -20,7 +25,6 @@ function Cartera({ usuarioActual, remisionDestacada }) {
 
   const [productosRemision, setProductosRemision] = useState([]);
   const [cuentas, setCuentas] = useState([]);
-  const [cargando, setCargando] = useState(true);
 
   const [comerciales, setComerciales] = useState([]);
 
@@ -35,7 +39,7 @@ function Cartera({ usuarioActual, remisionDestacada }) {
 
   const cargarAbonos = async (idRemision) => {
     try {
-      const respuesta = await fetch(`/api/cartera/${idRemision}/abonos`);
+      const respuesta = await apiFetch(`/api/cartera/${idRemision}/abonos`);
 
       if (!respuesta.ok) {
         throw new Error("No se pudieron cargar los abonos.");
@@ -50,13 +54,13 @@ function Cartera({ usuarioActual, remisionDestacada }) {
       }));
     } catch (error) {
       console.error("Error cargando abonos:", error);
+
+      avisar.fallo(error, "No se pudieron cargar los abonos de la remisión.");
     }
   };
 
   const cargarCartera = async () => {
     try {
-      setCargando(true);
-
       let url = "/api/cartera";
 
       /* =========================
@@ -64,12 +68,10 @@ function Cartera({ usuarioActual, remisionDestacada }) {
         ========================= */
 
       if (comercialSeleccionado && comercialSeleccionado !== "Todos") {
-        url += `?comercial=${comercialSeleccionado}`;
+        url += `?comercial=${encodeURIComponent(comercialSeleccionado)}`;
       }
 
-      const respuesta = await axios.get(url);
-
-      const datos = respuesta.data.map((cuenta) => ({
+      const datos = (await apiGetJson(url)).map((cuenta) => ({
         id_remision: cuenta.id_remision,
 
         numero_remision: cuenta.numero_remision,
@@ -78,7 +80,7 @@ function Cartera({ usuarioActual, remisionDestacada }) {
 
         documento: cuenta.documento,
 
-        fechaRemision: new Date(cuenta.fecha).toLocaleDateString("es-CO"),
+        fechaRemision: fechaDeRemision(cuenta.fecha).toLocaleDateString("es-CO"),
 
         valor: Number(cuenta.total),
 
@@ -98,8 +100,8 @@ function Cartera({ usuarioActual, remisionDestacada }) {
       setCuentas(datos);
     } catch (error) {
       console.error("Error cargando cartera:", error);
-    } finally {
-      setCargando(false);
+
+      avisar.fallo(error, "No se pudo cargar la cartera.");
     }
   };
 
@@ -112,16 +114,10 @@ function Cartera({ usuarioActual, remisionDestacada }) {
         ========================= */
 
       if (comercialSeleccionado !== "Todos" && comercialSeleccionado !== "") {
-        url += `?comercial=${comercialSeleccionado}`;
+        url += `?comercial=${encodeURIComponent(comercialSeleccionado)}`;
       }
 
-      console.log("Cargando KPIs:", url);
-
-      const respuesta = await axios.get(url);
-
-      console.log("KPIs recibidos:", respuesta.data);
-
-      const datos = respuesta.data;
+      const datos = await apiGetJson(url);
 
       setCarteraTotal(Number(datos.cartera_total) || 0);
 
@@ -132,6 +128,8 @@ function Cartera({ usuarioActual, remisionDestacada }) {
       setCarteraVencida(Number(datos.vencida) || 0);
     } catch (error) {
       console.error("Error cargando KPIs:", error);
+
+      avisar.fallo(error, "No se pudieron cargar los indicadores de cartera.");
 
       setCarteraTotal(0);
 
@@ -144,11 +142,11 @@ function Cartera({ usuarioActual, remisionDestacada }) {
   };
   const cargarComerciales = async () => {
     try {
-      const respuesta = await axios.get("/api/comerciales");
-
-      setComerciales(respuesta.data);
+      setComerciales(await apiGetJson("/api/comerciales"));
     } catch (error) {
       console.error("Error cargando comerciales:", error);
+
+      avisar.fallo(error, "No se pudo cargar la lista de comerciales.");
 
       setComerciales([]);
     }
@@ -240,7 +238,7 @@ function Cartera({ usuarioActual, remisionDestacada }) {
   const abrirModalAbono = () => {
     setNuevoAbono({
       valor: "",
-      fecha: new Date().toISOString().split("T")[0],
+      fecha: hoyLocal(),
       medioPago: "",
       referencia: "",
       comentario: "",
@@ -259,6 +257,8 @@ function Cartera({ usuarioActual, remisionDestacada }) {
       referencia: "",
       comentario: "",
     });
+
+    setComentarioAbono("");
 
     setErrorAbono("");
   };
@@ -308,7 +308,7 @@ function Cartera({ usuarioActual, remisionDestacada }) {
     try {
       setErrorAbono("");
 
-      const respuesta = await fetch("/api/cartera/abono", {
+      const respuesta = await apiFetch("/api/cartera/abono", {
         method: "POST",
 
         headers: {
@@ -321,8 +321,6 @@ function Cartera({ usuarioActual, remisionDestacada }) {
           valor: valor,
 
           comentario: comentarioAbono,
-
-          id_usuario: 1,
         }),
       });
 
@@ -354,13 +352,32 @@ function Cartera({ usuarioActual, remisionDestacada }) {
            RECARGAR CARTERA
         ========================= */
 
-      await cargarCartera();
+      await Promise.all([cargarCartera(), cargarKPIs()]);
 
       /* =========================
            CERRAR MODAL
         ========================= */
 
       cerrarModalAbono();
+
+      const formatoPesos = (monto) =>
+        Number(monto).toLocaleString("es-CO", {
+          style: "currency",
+          currency: "COP",
+          maximumFractionDigits: 0,
+        });
+
+      if (datos.pagada) {
+        avisar.exito(
+          `La remisión ${cuentaSeleccionada.numero_remision} quedó totalmente pagada.`,
+          "Remisión pagada",
+        );
+      } else {
+        avisar.exito(
+          `${formatoPesos(valor)} a la remisión ${cuentaSeleccionada.numero_remision}. Saldo pendiente: ${formatoPesos(datos.saldo_pendiente)}.`,
+          "Abono registrado",
+        );
+      }
     } catch (error) {
       console.error("Error registrando abono:", error);
 
@@ -371,8 +388,6 @@ function Cartera({ usuarioActual, remisionDestacada }) {
   /* =========================
    FILTRADO
 ========================= */
-
-  const cuentasComercial = cuentas;
 
   const cuentasFiltradas = cuentas.filter((cuenta) => {
     const dias = Number(cuenta.dias) || 0;
@@ -399,17 +414,11 @@ function Cartera({ usuarioActual, remisionDestacada }) {
     return coincideFiltro && coincideBusqueda;
   });
 
-  /* CANTIDAD DE CUENTAS PAGADAS */
-
-  const cuentasPagadas = cuentas.filter(
-    (cuenta) => cuenta.estadoPago === "PAGADA",
-  ).length;
-
   const abrirDetalleCuenta = async (cuenta) => {
     setCuentaSeleccionada(cuenta);
 
     try {
-      const respuestaProductos = await fetch(
+      const respuestaProductos = await apiFetch(
         `/api/cartera/${cuenta.id_remision}/productos`,
       );
 
@@ -425,9 +434,18 @@ function Cartera({ usuarioActual, remisionDestacada }) {
     } catch (error) {
       console.error("Error cargando detalle:", error);
 
+      avisar.fallo(error, "No se pudo cargar el detalle de la remisión.");
+
       setProductosRemision([]);
     }
   };
+
+
+  useTeclaEscape(modalAbono, cerrarModalAbono);
+
+  useTeclaEscape(Boolean(cuentaSeleccionada) && !modalAbono, () =>
+    setCuentaSeleccionada(null),
+  );
 
   return (
     <div className="cartera-page">

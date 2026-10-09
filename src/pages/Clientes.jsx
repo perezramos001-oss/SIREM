@@ -1,9 +1,14 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
+import { useTeclaEscape } from "../utils/useTeclaEscape";
+import { useAvisos } from "../components/Avisos/Avisos";
 import { Search, Plus, Pencil, Trash2, X } from "lucide-react";
 
 import "./Clientes.css";
 
 function Clientes() {
+  const { avisar, confirmar } = useAvisos();
+
   const [clientes, setClientes] = useState([]);
   const [busqueda, setBusqueda] = useState("");
 
@@ -38,7 +43,7 @@ function Clientes() {
         parametros.set("busqueda", textoBusqueda.trim());
       }
 
-      const respuesta = await fetch(`/api/clientes?${parametros.toString()}`);
+      const respuesta = await apiFetch(`/api/clientes?${parametros.toString()}`);
 
       if (!respuesta.ok) {
         throw new Error("No se pudieron cargar los clientes.");
@@ -55,6 +60,8 @@ function Clientes() {
       setPaginaActual(datos.pagina || pagina);
     } catch (error) {
       console.error("Error cargando clientes:", error);
+
+      avisar.fallo(error, "No se pudieron cargar los clientes.");
     }
   };
 
@@ -142,7 +149,7 @@ function Clientes() {
 
       const metodo = clienteEditando ? "PUT" : "POST";
 
-      const respuesta = await fetch(url, {
+      const respuesta = await apiFetch(url, {
         method: metodo,
         headers: {
           "Content-Type": "application/json",
@@ -153,18 +160,24 @@ function Clientes() {
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(resultado.mensaje || "No se pudo guardar el cliente.");
+        avisar.error(resultado.mensaje || "No se pudo guardar el cliente.");
 
         return;
       }
 
       setModalAbierto(false);
 
-      await cargarClientes();
+      avisar.exito(
+        clienteEditando
+          ? "Cliente actualizado correctamente."
+          : "Cliente creado correctamente.",
+      );
+
+      await cargarClientes(paginaActual);
     } catch (error) {
       console.error("Error guardando cliente:", error);
 
-      alert("No se pudo conectar con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
 
@@ -173,32 +186,40 @@ function Clientes() {
   // ================================
 
   const eliminarCliente = async (cliente) => {
-    const confirmar = window.confirm(
-      `¿Deseas eliminar al cliente "${cliente.nombre}"?`,
-    );
+    const confirmado = await confirmar({
+      titulo: "¿Desactivar cliente?",
+      mensaje: `Vas a desactivar al cliente "${cliente.nombre}". Ya no aparecerá en las búsquedas.`,
+      textoConfirmar: "Desactivar",
+      peligro: true,
+    });
 
-    if (!confirmar) return;
+    if (!confirmado) return;
 
     try {
-      const respuesta = await fetch(`/api/clientes/${cliente.id_cliente}`, {
+      const respuesta = await apiFetch(`/api/clientes/${cliente.id_cliente}`, {
         method: "DELETE",
       });
 
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(resultado.mensaje || "No se pudo eliminar el cliente.");
+        avisar.error(resultado.mensaje || "No se pudo desactivar el cliente.");
 
         return;
       }
 
-      await cargarClientes();
+      avisar.exito(`Cliente "${cliente.nombre}" desactivado.`);
+
+      await cargarClientes(paginaActual);
     } catch (error) {
       console.error("Error eliminando cliente:", error);
 
-      alert("No se pudo conectar con el servidor.");
+      avisar.fallo(error, "No se pudo completar la operación. Intenta de nuevo.");
     }
   };
+
+
+  useTeclaEscape(modalAbierto, () => setModalAbierto(false));
 
   return (
     <div className="clientes-page">
